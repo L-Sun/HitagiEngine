@@ -1,8 +1,6 @@
-module;
-
 export module asset:mesh;
 import std;
-import magic_enum;
+import interop.magic_enum;
 import core;
 import math;
 import utils;

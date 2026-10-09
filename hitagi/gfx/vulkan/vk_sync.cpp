@@ -1,14 +1,16 @@
 module;
-#include <vulkan/vulkan_raii.hpp>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 export module gfx.vulkan:sync;
+import interop.tracy;
+import interop.vulkan;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :types;
 import :utils;
 import :configs;

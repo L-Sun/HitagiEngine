@@ -1,9 +1,14 @@
 module;
 
-#include <spdlog/spdlog.h>
-#include <tracy/Tracy.hpp>
+#include <cassert>
+#include "interop/tracy_macros.hpp"
 
 module core;
+import interop.fmt;
+import interop.spdlog;
+import interop.tracy;
+
+import std;
 
 namespace hitagi::core {
 

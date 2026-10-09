@@ -1,18 +1,22 @@
 module;
-#include <d3d12.h>
-#include <wrl.h>
-#include <spdlog/logger.h>
-#include <fmt/color.h>
-#include <d3dx12/d3dx12.h>
-#include <tracy/Tracy.hpp>
+#include "interop/win32_macros.hpp"
+#include "interop/tracy_macros.hpp"
 
 export module gfx.dx12:sync;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.fmt;
+import interop.spdlog;
+import interop.tracy;
+import interop.dx12;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 
 using namespace Microsoft::WRL;
 
@@ -40,7 +44,7 @@ namespace hitagi::gfx {
 
 DX12Fence::DX12Fence(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, std::uint64_t initial_value, std::string_view name) : Fence(name) {
     logger->trace("Creating Fence: {}", fmt::styled(name, fmt::fg(fmt::color::green)));
-    if (FAILED(device.CreateFence(initial_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence)))) {
+    if (interop::failed(device.CreateFence(initial_value, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence)))) {
         const auto error_message = fmt::format(
             "Failed to create Fence({})",
             fmt::styled(name, fmt::fg(fmt::color::red)));
@@ -48,13 +52,13 @@ DX12Fence::DX12Fence(ID3D12Device& device, const std::shared_ptr<spdlog::logger>
         throw std::runtime_error(error_message);
     }
 
-    if (FAILED(m_Fence->SetName(std::wstring(name.begin(), name.end()).c_str()))) {
+    if (interop::failed(m_Fence->SetName(std::wstring(name.begin(), name.end()).c_str()))) {
         logger->warn(
             "Failed to set name to Fence({})",
             fmt::styled(name, fmt::fg(fmt::color::red)));
     }
 
-    if (m_EventHandle = CreateEventEx(nullptr, FALSE, FALSE, EVENT_ALL_ACCESS);
+    if (m_EventHandle = CreateEventExW(nullptr, nullptr, FALSE, EVENT_ALL_ACCESS);
         m_EventHandle == nullptr) {
         const auto error_message = fmt::format(
             "Failed to create Fence({}) event handle",

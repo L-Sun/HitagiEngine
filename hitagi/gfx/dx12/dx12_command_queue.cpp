@@ -1,19 +1,23 @@
 module;
-#include <d3d12.h>
-#include <wrl.h>
-#include <tracy/Tracy.hpp>
-#include <tracy/TracyD3D12.hpp>
-#include <spdlog/logger.h>
-#include <fmt/color.h>
-#include <d3dx12/d3dx12.h>
+#include "interop/win32_macros.hpp"
+#include "interop/tracy_macros.hpp"
 
 export module gfx.dx12:command_queue;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.fmt;
+import interop.spdlog;
+import interop.tracy.dx12;
+import interop.tracy;
+import interop.dx12;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :types;
 import :sync;
 import :command_list;
@@ -64,14 +68,14 @@ DX12CommandQueue::DX12CommandQueue(ID3D12Device& device, std::shared_ptr<spdlog:
     };
 
     logger->trace("Creating Command Queue: {}", fmt::styled(name, fmt::fg(fmt::color::green)));
-    if (FAILED(device.CreateCommandQueue(&desc, IID_PPV_ARGS(&m_Queue)))) {
+    if (interop::failed(device.CreateCommandQueue(&desc, IID_PPV_ARGS(&m_Queue)))) {
         const auto error_message = fmt::format("Failed to create Command Queue({})", fmt::styled(name, fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     m_Queue->SetName(std::wstring(name.begin(), name.end()).c_str());
     m_TracyCtx = TracyD3D12Context(&device, m_Queue.Get());
-    TracyD3D12ContextName(m_TracyCtx, m_Name.data(), static_cast<uint16_t>(m_Name.size()));
+    TracyD3D12ContextName(m_TracyCtx, m_Name.data(), static_cast<std::uint16_t>(m_Name.size()));
 }
 
 DX12CommandQueue::~DX12CommandQueue() {

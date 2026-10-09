@@ -1,8 +1,6 @@
-module;
-#include <taskflow/taskflow.hpp>
-#include <spdlog/logger.h>
-
 export module ecs;
+import interop.taskflow;
+import interop.spdlog;
 import std;
 import utils;
 import core;

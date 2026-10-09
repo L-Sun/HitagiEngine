@@ -1,5 +1,3 @@
-module;
-
 export module asset:image_codec;
 import std;
 import core;

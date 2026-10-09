@@ -1,5 +1,7 @@
 #include "test_macros.hpp"
 #include <print>
+import std;
+import interop.gtest;
 
 import utils;
 import test_utils;

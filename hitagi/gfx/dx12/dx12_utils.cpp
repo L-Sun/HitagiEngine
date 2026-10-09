@@ -1,12 +1,11 @@
 module;
-#include <d3d12.h>
-#include <wrl.h>
-#include <d3d12shader.h>
-#include <d3dx12/d3dx12.h>
-#include <dxgi1_6.h>
-#include <comdef.h>
+#include "interop/win32_macros.hpp"
 
 export module gfx.dx12:utils;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.dx12;
 import std;
 import core;
 import utils;
@@ -796,7 +795,7 @@ inline auto to_d3d_srv_desc(const TextureViewDesc& view_desc) noexcept {
     const auto&                     desc     = view_desc.texture->GetDesc();
     D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
         .Format                  = to_dxgi_format(desc.format),
-        .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+        .Shader4ComponentMapping = interop::default_shader_4_component_mapping,
     };
 
     {
@@ -956,7 +955,7 @@ inline auto to_d3d_uav_desc(const TextureViewDesc& view_desc) noexcept {
 
 inline constexpr auto to_d3d_sampler_desc(const SamplerDesc& desc) noexcept {
     return D3D12_SAMPLER_DESC{
-        .Filter = D3D12_ENCODE_BASIC_FILTER(
+        .Filter = interop::encode_basic_filter(
             to_d3d_filter_type(desc.min_filter),
             to_d3d_filter_type(desc.mag_filter),
             to_d3d_filter_type(desc.mipmap_filter),

@@ -1,7 +1,5 @@
-module;
-#include <vulkan/vulkan_raii.hpp>
-
 export module gfx.vulkan:configs;
+import interop.vulkan;
 import std;
 import utils;
 import math;
@@ -17,23 +15,23 @@ constexpr std::array<const char*, 0> required_instance_layers = {
 };
 
 constexpr std::array required_instance_extensions = {
-    VK_KHR_SURFACE_EXTENSION_NAME,
+    vk::KHRSurfaceExtensionName,
 #ifdef HITAGI_DEBUG
-    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+    vk::EXTDebugUtilsExtensionName,
 #endif
 #if defined(_WIN32)
-    VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+    vk::KHRWin32SurfaceExtensionName,
 #elif defined(__linux__)
-    VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
+    vk::KHRWaylandSurfaceExtensionName,
 #endif
 };
 
 constexpr std::array required_device_extensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-    VK_EXT_DESCRIPTOR_HEAP_EXTENSION_NAME,
-    VK_KHR_SHADER_UNTYPED_POINTERS_EXTENSION_NAME,
-    VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME,
+    vk::KHRSwapchainExtensionName,
+    vk::KHRDynamicRenderingExtensionName,
+    vk::EXTDescriptorHeapExtensionName,
+    vk::KHRShaderUntypedPointersExtensionName,
+    vk::EXTHostImageCopyExtensionName,
 };
 
 constexpr auto max_storage_descriptors       = 1'0000u;

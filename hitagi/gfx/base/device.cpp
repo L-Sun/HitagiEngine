@@ -1,12 +1,10 @@
-module;
-#include <spdlog/logger.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
 export module gfx.base:device;
+import interop.spdlog;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
-import magic_enum;
 import :types;
 import :utils;
 

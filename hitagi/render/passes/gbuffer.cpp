@@ -1,9 +1,5 @@
-module;
-
-#include <range/v3/all.hpp>
-
 module render;
-import magic_enum;
+import interop.magic_enum;
 import std;
 
 namespace hitagi::render {

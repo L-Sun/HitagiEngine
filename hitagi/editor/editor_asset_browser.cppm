@@ -1,8 +1,9 @@
 module;
 
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 export module editor:asset_browser;
+import interop.tracy;
 import engine;
 import :state;
 

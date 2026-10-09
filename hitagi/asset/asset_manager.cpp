@@ -1,5 +1,3 @@
-module;
-
 module asset;
 import std;
 import core;

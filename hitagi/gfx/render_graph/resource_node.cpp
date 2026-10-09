@@ -1,6 +1,3 @@
-module;
-#include <spdlog/spdlog.h>
-
 export module gfx.render_graph:resource_node;
 import std;
 import utils;

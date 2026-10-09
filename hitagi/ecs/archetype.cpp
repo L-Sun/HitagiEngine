@@ -1,5 +1,3 @@
-module;
-
 module ecs;
 import std;
 

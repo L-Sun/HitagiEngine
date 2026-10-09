@@ -1,5 +1,3 @@
-module;
-
 export module asset:camera;
 import gfx;
 import math;

@@ -1,7 +1,11 @@
 #include "test_macros.hpp"
-#include <spdlog/spdlog.h>
-#include <tracy/Tracy.hpp>
-import magic_enum;
+#include "interop/tracy_macros.hpp"
+import interop.gtest;
+import interop.spdlog;
+import interop.tracy;
+import interop.magic_enum;
+
+import std;
 import render;
 import asset;
 import core;

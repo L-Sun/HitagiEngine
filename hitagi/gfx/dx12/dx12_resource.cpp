@@ -1,14 +1,15 @@
 module;
-#include <d3d12.h>
-#include <wrl.h>
-#include <D3D12MemAlloc.h>
-#include <dxgi1_6.h>
-#include <d3d12shader.h>
-#include <fmt/color.h>
-#include <spdlog/logger.h>
-#include <d3dx12/d3dx12.h>
+#include <climits>
+#include "interop/win32_macros.hpp"
 
 export module gfx.dx12:resource;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.fmt;
+import interop.spdlog;
+import interop.dx12;
+import interop.d3d12ma;
 import std;
 import core;
 import utils;
@@ -167,7 +168,7 @@ DX12GPUBuffer::DX12GPUBuffer(D3D12MA::Allocator& allocator, std::shared_ptr<spdl
     logger->trace("Create GPU buffer({}) with {} bytes", fmt::styled(GetName(), fmt::fg(fmt::color::green)), Size());
 
     auto resource_desc = CD3DX12_RESOURCE_DESC::Buffer(Size(), flags);
-    if (FAILED(allocator.CreateResource(
+    if (interop::failed(allocator.CreateResource(
             &allocation_desc,
             &resource_desc,
             D3D12_RESOURCE_STATE_COMMON,
@@ -201,7 +202,7 @@ DX12GPUBuffer::DX12GPUBuffer(D3D12MA::Allocator& allocator, std::shared_ptr<spdl
         } else if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::CopyDst)) {
             // Direct VRAM write via GPU_UPLOAD heap (ReBAR)
             std::byte* mapped_ptr = nullptr;
-            if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
+            if (interop::failed(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
                 const auto error_message = fmt::format(
                     "Failed to map GPU_UPLOAD buffer({})",
                     fmt::styled(GetName(), fmt::fg(fmt::color::green)));
@@ -242,7 +243,7 @@ auto DX12GPUBuffer::Map() -> std::byte* {
     }
 
     std::byte* mapped_ptr = nullptr;
-    if (FAILED(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
+    if (interop::failed(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
         const auto error_message = fmt::format(
             "Failed to map GPU buffer({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::green)));
@@ -346,7 +347,7 @@ DX12Texture::DX12Texture(D3D12MA::Allocator& allocator, const std::shared_ptr<sp
     D3D12MA::ALLOCATION_DESC allocation_desc{
         .HeapType = direct_cpu_upload ? D3D12_HEAP_TYPE_GPU_UPLOAD : D3D12_HEAP_TYPE_DEFAULT,
     };
-    if (FAILED(allocator.CreateResource(
+    if (interop::failed(allocator.CreateResource(
             &allocation_desc,
             &resource_desc,
             D3D12_RESOURCE_STATE_COMMON,
@@ -373,7 +374,7 @@ DX12Texture::DX12Texture(DX12SwapChain& swap_chain, const std::shared_ptr<spdlog
     logger->trace("Create swap chain back buffer ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
     auto dx12_swap_chain = swap_chain.GetDX12SwapChain();
-    if (FAILED(dx12_swap_chain->GetBuffer(index, IID_PPV_ARGS(&resource)))) {
+    if (interop::failed(dx12_swap_chain->GetBuffer(index, IID_PPV_ARGS(&resource)))) {
         auto error_message = fmt::format(
             "Failed to get swap chain back buffer");
         logger->error(error_message);
@@ -530,7 +531,7 @@ DX12RenderPipeline::DX12RenderPipeline(ID3D12Device& device, ID3D12RootSignature
         .NodeMask   = 0,
     };
 
-    if (FAILED(device.CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
+    if (interop::failed(device.CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
         const auto error_message = fmt::format(
             "Failed to create graphics pipeline state({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -566,7 +567,7 @@ DX12ComputePipeline::DX12ComputePipeline(ID3D12Device& device, ID3D12RootSignatu
         .NodeMask       = 0,
     };
 
-    if (FAILED(device.CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
+    if (interop::failed(device.CreateComputePipelineState(&pso_desc, IID_PPV_ARGS(&pipeline)))) {
         const auto error_message = fmt::format(
             "Failed to create compute pipeline state({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -617,7 +618,7 @@ DX12SwapChain::DX12SwapChain(const ComPtr<IDXGIFactory2>& factory, ID3D12Command
             .Count   = desc.sample_count,
             .Quality = 0,
         },
-        .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
+        .BufferUsage = interop::dxgi_usage_render_target_output,
         .BufferCount = 2,
         .Scaling     = DXGI_SCALING_STRETCH,
         .SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD,
@@ -627,7 +628,7 @@ DX12SwapChain::DX12SwapChain(const ComPtr<IDXGIFactory2>& factory, ID3D12Command
 
 
     ComPtr<IDXGISwapChain1> p_swap_chain;
-    if (FAILED(factory->CreateSwapChainForHwnd(&native_queue, h_wnd, &m_D3D12Desc, nullptr, nullptr, &p_swap_chain))) {
+    if (interop::failed(factory->CreateSwapChainForHwnd(&native_queue, h_wnd, &m_D3D12Desc, nullptr, nullptr, &p_swap_chain))) {
         const auto error_message = fmt::format(
             "Failed to create swap chain ({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -635,7 +636,7 @@ DX12SwapChain::DX12SwapChain(const ComPtr<IDXGIFactory2>& factory, ID3D12Command
         throw std::runtime_error(error_message);
     }
 
-    if (FAILED(p_swap_chain.As(&m_SwapChain))) {
+    if (interop::failed(p_swap_chain.As(&m_SwapChain))) {
         const auto error_message = fmt::format(
             "Failed to create swap chain ({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -643,7 +644,7 @@ DX12SwapChain::DX12SwapChain(const ComPtr<IDXGIFactory2>& factory, ID3D12Command
         throw std::runtime_error(error_message);
     }
 
-    if (FAILED(factory->MakeWindowAssociation(h_wnd, DXGI_MWA_NO_ALT_ENTER))) {
+    if (interop::failed(factory->MakeWindowAssociation(h_wnd, interop::dxgi_mwa_no_alt_enter))) {
         const auto error_message = fmt::format(
             "Failed to make window association with swap chain({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)));
@@ -666,7 +667,7 @@ auto DX12SwapChain::GetFormat() const noexcept -> Format {
 void DX12SwapChain::Present() {
     auto& queue = m_Queue;
     if (m_D3D12Desc.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) {
-        m_SwapChain->Present(0, DXGI_PRESENT_ALLOW_TEARING);
+        m_SwapChain->Present(0, interop::dxgi_present_allow_tearing);
     } else {
         m_SwapChain->Present(m_Desc.vsync ? 1 : 0, 0);
     }
@@ -687,7 +688,7 @@ void DX12SwapChain::Resize() {
     m_Queue.WaitIdle();
     m_BackBuffers.clear();
 
-    if (FAILED(m_SwapChain->ResizeBuffers(
+    if (interop::failed(m_SwapChain->ResizeBuffers(
             m_D3D12Desc.BufferCount,
             width,
             height,

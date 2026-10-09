@@ -1,9 +1,9 @@
 module;
 
-#include <spdlog/spdlog.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module core;
+import interop.tracy;
 import std;
 import utils;
 

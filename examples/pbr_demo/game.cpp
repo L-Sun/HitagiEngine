@@ -1,5 +1,5 @@
-#include <spdlog/spdlog.h>
 
+import interop.spdlog;
 import engine;
 import pbr_demo_game;
 import std;

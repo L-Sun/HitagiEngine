@@ -1,18 +1,22 @@
 module;
-#include <d3d12.h>
-#include <wrl.h>
-#include <tracy/Tracy.hpp>
-#include <spdlog/logger.h>
-#include <fmt/color.h>
-#include <d3dx12/d3dx12.h>
+#include "interop/win32_macros.hpp"
+#include "interop/tracy_macros.hpp"
 
 export module gfx.dx12:bindless;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.fmt;
+import interop.spdlog;
+import interop.tracy;
+import interop.dx12;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :utils;
 
 using namespace Microsoft::WRL;
@@ -84,7 +88,7 @@ DX12BindlessUtils::DX12BindlessUtils(ID3D12Device& device, std::shared_ptr<spdlo
         // compile root signature
         ComPtr<ID3DBlob> signature;
         ComPtr<ID3DBlob> error;
-        if (FAILED(D3DX12SerializeVersionedRootSignature(&root_sig_desc, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error))) {
+        if (interop::failed(D3DX12SerializeVersionedRootSignature(&root_sig_desc, D3D_ROOT_SIGNATURE_VERSION_1_1, &signature, &error))) {
             const auto error_message = fmt::format(
                 "Failed to serialize RootSignature({})",
                 fmt::styled(name, fmt::fg(fmt::color::red)));
@@ -92,7 +96,7 @@ DX12BindlessUtils::DX12BindlessUtils(ID3D12Device& device, std::shared_ptr<spdlo
             throw std::runtime_error(error_message);
         }
 
-        if (FAILED(device.CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)))) {
+        if (interop::failed(device.CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_RootSignature)))) {
             const auto error_message = fmt::format(
                 "Failed to create RootSignature({})",
                 fmt::styled(name, fmt::fg(fmt::color::red)));
@@ -175,7 +179,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(ID3D12Resource& resource, const GPU
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
             .Format                  = DXGI_FORMAT_R32_TYPELESS,
             .ViewDimension           = D3D12_SRV_DIMENSION_BUFFER,
-            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+            .Shader4ComponentMapping = interop::default_shader_4_component_mapping,
             .Buffer                  = {
                 .FirstElement        = view_desc.offset / 4,
                 .NumElements         = static_cast<UINT>(size / 4),

@@ -1,12 +1,12 @@
 module;
 
 #include <cassert>
-#include <spdlog/logger.h>
-#include <taskflow/core/executor.hpp>
-#include <taskflow/taskflow.hpp>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 export module core;
+import interop.taskflow;
+import interop.spdlog;
+import interop.tracy;
 import std;
 import utils;
 

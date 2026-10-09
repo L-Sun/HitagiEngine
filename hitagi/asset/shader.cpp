@@ -1,5 +1,3 @@
-module;
-
 export module asset:shader;
 import gfx;
 import :resource;

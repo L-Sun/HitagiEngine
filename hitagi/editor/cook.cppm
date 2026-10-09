@@ -1,8 +1,6 @@
-module;
-
 export module editor:cook;
 import engine;
-import magic_enum;
+import interop.magic_enum;
 
 export namespace hitagi {
 

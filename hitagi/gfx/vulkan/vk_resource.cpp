@@ -1,22 +1,15 @@
 module;
-#include <vulkan/vulkan_raii.hpp>
-#include <vk_mem_alloc.h>
-#if defined(_WIN32)
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#endif
-
-#include <fmt/color.h>
-#include <spdlog/logger.h>
-#include <SDL3/SDL.h>
-#include <spirv_reflect.h>
+#include <cassert>
 
 export module gfx.vulkan:resource;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.sdl;
+import interop.fmt;
+import interop.spdlog;
+import interop.vma;
+import interop.vulkan;
 import std;
 import core;
 import utils;
@@ -294,7 +287,7 @@ auto VulkanBuffer::Map() -> std::byte* {
     }
 
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead)) {
-        if (const auto result = vmaInvalidateAllocation(m_Allocator, allocation, 0, VK_WHOLE_SIZE);
+        if (const auto result = vmaInvalidateAllocation(m_Allocator, allocation, 0, hitagi::interop::whole_size);
             result != VK_SUCCESS) {
             const auto error_message = fmt::format(
                 "failed to invalidate GPU buffer({}) for host read",
@@ -323,7 +316,7 @@ void VulkanBuffer::UnMap() {
     mapped_count--;
 
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
-        if (const auto result = vmaFlushAllocation(m_Allocator, allocation, 0, VK_WHOLE_SIZE);
+        if (const auto result = vmaFlushAllocation(m_Allocator, allocation, 0, hitagi::interop::whole_size);
             result != VK_SUCCESS) {
             const auto error_message = fmt::format(
                 "failed to flush GPU buffer({}) for host write",
@@ -486,7 +479,7 @@ VulkanSwapChain::VulkanSwapChain(const vk::raii::Device& device, const vk::Alloc
         case utils::Window::Type::Win32: {
             auto                          h_wnd = static_cast<HWND>(desc.window.ptr);
             vk::Win32SurfaceCreateInfoKHR surface_create_info{
-                .hinstance = GetModuleHandle(nullptr),
+                .hinstance = GetModuleHandleW(nullptr),
                 .hwnd      = h_wnd,
             };
             m_Surface = std::make_unique<vk::raii::SurfaceKHR>(instance, surface_create_info, callbacks);
@@ -506,7 +499,7 @@ VulkanSwapChain::VulkanSwapChain(const vk::raii::Device& device, const vk::Alloc
             }
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
             vk::Win32SurfaceCreateInfoKHR surface_create_info{
-                .hinstance = GetModuleHandle(nullptr),
+                .hinstance = GetModuleHandleW(nullptr),
                 .hwnd      = h_wnd,
             };
 #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)

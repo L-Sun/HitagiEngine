@@ -1,18 +1,19 @@
 module;
-#include <vulkan/vulkan_raii.hpp>
-#include <tracy/Tracy.hpp>
-#include <tracy/TracyVulkan.hpp>
+#include "interop/tracy_macros.hpp"
 #include <cstring>
-#include <spdlog/logger.h>
-#include <fmt/color.h>
 
 export module gfx.vulkan:command_buffer;
+import interop.spdlog;
+import interop.tracy.vulkan;
+import interop.tracy;
+import interop.vulkan;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :types;
 import :bindless;
 import :utils;

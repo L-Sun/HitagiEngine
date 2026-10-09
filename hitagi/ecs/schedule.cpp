@@ -1,9 +1,9 @@
 module;
-#include <taskflow/taskflow.hpp>
-#include <spdlog/logger.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module ecs;
+import interop.taskflow;
+import interop.tracy;
 import std;
 namespace hitagi::ecs {
 void Schedule::Request(std::shared_ptr<TaskBase>&& task, const ParameterSets& parameter_sets) {

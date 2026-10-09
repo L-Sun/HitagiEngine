@@ -1,39 +1,6 @@
-module;
-
-#include <pxr/base/gf/camera.h>
-#include <pxr/base/gf/matrix4d.h>
-#include <pxr/base/gf/vec2f.h>
-#include <pxr/base/gf/vec3f.h>
-#include <pxr/base/gf/vec4f.h>
-#include <pxr/base/tf/token.h>
-#include <pxr/base/vt/array.h>
-#include <pxr/usd/ar/asset.h>
-#include <pxr/usd/ar/resolver.h>
-#include <pxr/usd/ar/resolverContextBinder.h>
-#include <pxr/usd/sdf/assetPath.h>
-#include <pxr/usd/usd/prim.h>
-#include <pxr/usd/usd/stage.h>
-#include <pxr/usd/usd/timeCode.h>
-#include <pxr/usd/usdGeom/camera.h>
-#include <pxr/usd/usdGeom/mesh.h>
-#include <pxr/usd/usdGeom/primvarsAPI.h>
-#include <pxr/usd/usdGeom/tokens.h>
-#include <pxr/usd/usdGeom/xformable.h>
-#include <pxr/usd/usdLux/boundableLightBase.h>
-#include <pxr/usd/usdLux/distantLight.h>
-#include <pxr/usd/usdLux/lightAPI.h>
-#include <pxr/usd/usdLux/nonboundableLightBase.h>
-#include <pxr/usd/usdLux/shapingAPI.h>
-#include <pxr/usd/usdShade/connectableAPI.h>
-#include <pxr/usd/usdShade/input.h>
-#include <pxr/usd/usdShade/material.h>
-#include <pxr/usd/usdShade/materialBindingAPI.h>
-#include <pxr/usd/usdShade/shader.h>
-#include <pxr/usd/usdShade/tokens.h>
-#include <spdlog/logger.h>
-#include <spdlog/spdlog.h>
-
 export module editor:usd;
+import interop.usd;
+import interop.spdlog;
 
 import engine;
 import std;

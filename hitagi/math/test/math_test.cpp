@@ -1,4 +1,8 @@
 #include "test_macros.hpp"
+#include <cmath>
+#include <tuple>
+import std;
+import interop.gtest;
 
 import math;
 import test_utils;

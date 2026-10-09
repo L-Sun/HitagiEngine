@@ -1,11 +1,13 @@
 module;
-#include <fmt/color.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 export module gfx.render_graph:graph;
+import interop.fmt;
+import interop.spdlog;
+import interop.tracy;
+import interop.magic_enum;
+
 import std;
-import magic_enum;
 import utils;
 import gfx.base;
 import :type;

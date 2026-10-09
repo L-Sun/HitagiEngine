@@ -1,21 +1,17 @@
 module;
-#include <spdlog/logger.h>
 
 #if defined(_WIN32)
-#include <Windows.h>
-#undef min
-#undef max
-#include <windowsx.h>
-#include <psapi.h>
-#include <timeapi.h>
+#include "interop/win32_macros.hpp"
 #endif
 
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <tracy/Tracy.hpp>
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_video.h>
+#include "interop/tracy_macros.hpp"
 
 export module app;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.sdl;
+import interop.tracy;
 import std;
 import utils;
 import math;
@@ -143,15 +139,15 @@ void Win32Application::Tick() {
     m_SizeChanged = false;
 
     MSG msg;
-    // we use PeekMessage instead of GetMessage here
+    // we use PeekMessageW instead of GetMessage here
     // because we should not block the thread at anywhere
     // except the engine execution driver module
-    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+    while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
         // translate keystroke messages into the right format
         TranslateMessage(&msg);
 
         // send the message to the WindowProc function
-        DispatchMessage(&msg);
+        DispatchMessageW(&msg);
     }
     Application::Tick();
 }
@@ -173,26 +169,26 @@ void Win32Application::InitializeWindows() {
     AdjustWindowRect(&window_rect, WS_OVERLAPPEDWINDOW, false);
 
     // get the HINSTANCE of the Console Program
-    HINSTANCE h_instance = GetModuleHandle(nullptr);
+    HINSTANCE h_instance = GetModuleHandleW(nullptr);
 
     // this struct holds information for the window class
-    WNDCLASSEX wc;
+    WNDCLASSEXW wc;
 
     // clear out the window class for use
-    ZeroMemory(&wc, sizeof(WNDCLASSEX));
+    hitagi::interop::zero_memory(&wc, sizeof(WNDCLASSEXW));
 
     // fill in the struct with the needed information
-    wc.cbSize        = sizeof(WNDCLASSEX);
+    wc.cbSize        = sizeof(WNDCLASSEXW);
     wc.style         = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc   = WindowProc;
     wc.hInstance     = h_instance;
-    wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
+    wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
     wc.lpszClassName = title.c_str();
 
     // register the window class
-    RegisterClassEx(&wc);
-    m_Window = CreateWindowEx(
+    RegisterClassExW(&wc);
+    m_Window = CreateWindowExW(
         0,
         title.c_str(),
         title.c_str(),
@@ -272,7 +268,7 @@ void Win32Application::SetCursor(Cursor cursor) {
     if (win32_cursor == nullptr) {
         ::SetCursor(nullptr);
     } else {
-        ::SetCursor(::LoadCursor(nullptr, win32_cursor));
+        ::SetCursor(::LoadCursorW(nullptr, win32_cursor));
     }
 }
 
@@ -313,7 +309,7 @@ float Win32Application::GetDpiRatio() const {
 
 std::size_t Win32Application::GetMemoryUsage() const {
     PROCESS_MEMORY_COUNTERS_EX pmc;
-    GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+    K32GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
     return pmc.WorkingSetSize;
 }
 
@@ -348,8 +344,8 @@ auto Win32Application::HitTestResizeBorder(LPARAM l_param) const -> LRESULT {
     const auto dpi           = ::GetDpiForWindow(m_Window);
     const auto resize_margin = std::max<LONG>(8, ::MulDiv(8, static_cast<int>(dpi), 96));
 
-    const auto x = GET_X_LPARAM(l_param);
-    const auto y = GET_Y_LPARAM(l_param);
+    const auto x = hitagi::interop::get_x_lparam(l_param);
+    const auto y = hitagi::interop::get_y_lparam(l_param);
 
     const bool on_left   = x >= screen_client_rect.left && x < screen_client_rect.left + resize_margin;
     const bool on_right  = x < screen_client_rect.right && x >= screen_client_rect.right - resize_margin;
@@ -400,18 +396,18 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
 
     Win32Application* p_this = nullptr;
     if (message == WM_NCCREATE) {
-        p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCT*>(l_param)->lpCreateParams);
+        p_this = static_cast<Win32Application*>(reinterpret_cast<CREATESTRUCTW*>(l_param)->lpCreateParams);
 
         SetLastError(0);
-        if (!SetWindowLongPtr(h_wnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(p_this))) {
+        if (!SetWindowLongPtrW(h_wnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(p_this))) {
             if (GetLastError() != 0) return false;
         }
     } else {
-        p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtr(h_wnd, GWLP_USERDATA));
+        p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtrW(h_wnd, GWLP_USERDATA));
     }
     switch (message) {
         case WM_NCHITTEST: {
-            const LRESULT hit_test = DefWindowProc(h_wnd, message, w_param, l_param);
+            const LRESULT hit_test = DefWindowProcW(h_wnd, message, w_param, l_param);
             if (hit_test != HTCLIENT || p_this == nullptr) return hit_test;
             return p_this->HitTestResizeBorder(l_param);
         }
@@ -482,16 +478,16 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             return 0;
         }
         case WM_MOUSEMOVE:
-            p_this->m_InputManager->UpdatePointerState(static_cast<float>(GET_X_LPARAM(l_param)), static_cast<float>(GET_Y_LPARAM(l_param)));
+            p_this->m_InputManager->UpdatePointerState(static_cast<float>(hitagi::interop::get_x_lparam(l_param)), static_cast<float>(hitagi::interop::get_y_lparam(l_param)));
             return 0;
         case WM_MOUSEWHEEL:
-            p_this->m_InputManager->UpdateWheelState(0.0f, static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA));
+            p_this->m_InputManager->UpdateWheelState(0.0f, static_cast<float>(hitagi::interop::get_wheel_delta_wparam(w_param)) / static_cast<float>(WHEEL_DELTA));
             return 0;
         case WM_MOUSEHWHEEL:
-            p_this->m_InputManager->UpdateWheelState(static_cast<float>(GET_WHEEL_DELTA_WPARAM(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
+            p_this->m_InputManager->UpdateWheelState(static_cast<float>(hitagi::interop::get_wheel_delta_wparam(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
             return 0;
         case WM_CHAR: {
-            std::size_t repeat_count = (HIWORD(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(LOWORD(l_param)) : 1;
+            std::size_t repeat_count = (hitagi::interop::hiword(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(hitagi::interop::loword(l_param)) : 1;
             p_this->m_InputManager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
         }
             return 0;
@@ -505,7 +501,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             p_this->MapCursor();
             return 0;
     }
-    return DefWindowProc(h_wnd, message, w_param, l_param);
+    return DefWindowProcW(h_wnd, message, w_param, l_param);
 }
 
 }  // namespace hitagi

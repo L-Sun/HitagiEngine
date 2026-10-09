@@ -1,14 +1,13 @@
 module;
 
-#include <imgui.h>
-#include <imgui_freetype.h>
-#include <spdlog/logger.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 #undef near
 #undef far
 
 module gui;
+import interop.imgui;
+import interop.tracy;
 import std;
 namespace hitagi::gui {
 

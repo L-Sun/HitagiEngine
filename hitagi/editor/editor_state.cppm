@@ -1,5 +1,3 @@
-module;
-
 export module editor:state;
 import engine;
 

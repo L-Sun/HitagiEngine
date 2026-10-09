@@ -1,18 +1,20 @@
 module;
 #ifdef _WIN32
-#include <d3d12.h>
-#include <wrl.h>
-#include <D3D12MemAlloc.h>
-#include <d3dx12/d3dx12.h>
+#include "interop/win32_macros.hpp"
 #endif
-#include <vulkan/vulkan_raii.hpp>
-#include <fmt/color.h>
-#include <spdlog/logger.h>
 module gfx.base;
+#ifdef _WIN32
+import interop.win32;
+import interop.dx12;
+import interop.d3d12ma;
+#endif
+import interop.fmt;
+import interop.vulkan;
+import interop.magic_enum;
+
 import std;
 import utils;
 import core;
-import magic_enum;
 #ifdef _WIN32
 import gfx.dx12;
 #endif
@@ -54,7 +56,7 @@ void validate_queue(Device& device, const CommandQueue& queue, CommandType type)
         case Device::Type::DX12: {
             const auto*                          backend = dynamic_cast<const DX12CommandQueue*>(&queue);
             Microsoft::WRL::ComPtr<ID3D12Device> owner;
-            compatible = compatible && backend && SUCCEEDED(backend->GetDX12Queue()->GetDevice(IID_PPV_ARGS(&owner))) && owner.Get() == dynamic_cast<DX12Device&>(device).GetDevice().Get();
+            compatible = compatible && backend && interop::succeeded(backend->GetDX12Queue()->GetDevice(IID_PPV_ARGS(&owner))) && owner.Get() == dynamic_cast<DX12Device&>(device).GetDevice().Get();
             break;
         }
 #endif
@@ -116,7 +118,7 @@ void initialize_dx12_texture(DX12Device& device, CommandQueues& queues, Bindless
             };
 
             if (direct_cpu_upload) {
-                if (FAILED(resource->Map(0, nullptr, nullptr))) {
+                if (interop::failed(resource->Map(0, nullptr, nullptr))) {
                     const auto error_message = fmt::format(
                         "Failed to map texture({}) for direct GPU upload heap initialization",
                         fmt::styled(texture.GetName(), fmt::fg(fmt::color::red)));
@@ -132,7 +134,7 @@ void initialize_dx12_texture(DX12Device& device, CommandQueues& queues, Bindless
                     static_cast<UINT>(textureData.SlicePitch));
                 resource->Unmap(0, nullptr);
 
-                if (FAILED(result)) {
+                if (interop::failed(result)) {
                     const auto error_message = fmt::format(
                         "Failed to initialize texture({}) via WriteToSubresource",
                         fmt::styled(texture.GetName(), fmt::fg(fmt::color::red)));
@@ -149,7 +151,7 @@ void initialize_dx12_texture(DX12Device& device, CommandQueues& queues, Bindless
                 auto                        staging_resource_desc = CD3DX12_RESOURCE_DESC::Buffer(staging_size);
                 ComPtr<D3D12MA::Allocation> staging_allocation;
                 ComPtr<ID3D12Resource>      staging_resource;
-                if (FAILED(device.GetAllocator()->CreateResource(
+                if (interop::failed(device.GetAllocator()->CreateResource(
                         &staging_alloc_desc,
                         &staging_resource_desc,
                         D3D12_RESOURCE_STATE_COMMON,
@@ -372,7 +374,7 @@ auto GPUBufferView::Create(Device& device, BindlessUtils& bindings, GPUBufferVie
             auto&                                backend  = dynamic_cast<DX12Device&>(device);
             const auto*                          resource = dynamic_cast<const DX12GPUBuffer*>(desc.buffer.get());
             Microsoft::WRL::ComPtr<ID3D12Device> owner;
-            if (!resource || FAILED(resource->resource->GetDevice(IID_PPV_ARGS(&owner))) || owner.Get() != backend.GetDevice().Get()) throw std::invalid_argument("buffer belongs to another device");
+            if (!resource || interop::failed(resource->resource->GetDevice(IID_PPV_ARGS(&owner))) || owner.Get() != backend.GetDevice().Get()) throw std::invalid_argument("buffer belongs to another device");
             return std::make_shared<DX12GPUBufferView>(static_cast<DX12BindlessUtils&>(bindings), GPUBuffer::GetStorageViewRequirements(device), std::move(desc));
         }
 #endif
@@ -430,7 +432,7 @@ auto TextureView::Create(Device& device, BindlessUtils& bindings, TextureViewDes
             auto&                                backend  = dynamic_cast<DX12Device&>(device);
             const auto*                          resource = dynamic_cast<const DX12Texture*>(desc.texture.get());
             Microsoft::WRL::ComPtr<ID3D12Device> owner;
-            if (!resource || FAILED(resource->resource->GetDevice(IID_PPV_ARGS(&owner))) || owner.Get() != backend.GetDevice().Get()) throw std::invalid_argument("texture belongs to another device");
+            if (!resource || interop::failed(resource->resource->GetDevice(IID_PPV_ARGS(&owner))) || owner.Get() != backend.GetDevice().Get()) throw std::invalid_argument("texture belongs to another device");
             return std::make_shared<DX12TextureView>(*backend.GetDevice().Get(), static_cast<DX12BindlessUtils&>(bindings), backend.GetRTVDescriptorAllocator(), backend.GetDSVDescriptorAllocator(), backend.GetLogger(), std::move(desc));
         }
 #endif

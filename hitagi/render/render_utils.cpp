@@ -1,6 +1,6 @@
 module;
+#include <cstddef>
 
-#include <spdlog/spdlog.h>
 
 module render;
 import std;

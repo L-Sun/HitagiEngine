@@ -1,8 +1,5 @@
-module;
-
-#include <spdlog/spdlog.h>
-
 module asset;
+import interop.spdlog;
 import std;
 import math;
 import :image_codec;

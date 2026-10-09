@@ -1,8 +1,6 @@
 #pragma once
 
-#include <benchmark/benchmark.h>
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include "interop/gtest_macros.hpp"
 
 // Macros cannot be exported through C++20 modules, so they are provided via this header.
 // The template functions they reference are exported from the test_utils module.

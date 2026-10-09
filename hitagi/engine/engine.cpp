@@ -1,11 +1,12 @@
 module;
 
-#include <spdlog/spdlog.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module engine;
+import interop.tracy;
+import interop.magic_enum;
+
 import std;
-import magic_enum;
 import physics;
 import gfx;
 import render;

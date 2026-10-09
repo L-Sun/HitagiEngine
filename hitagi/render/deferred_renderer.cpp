@@ -1,13 +1,13 @@
 module;
 
-#include <spdlog/spdlog.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 #undef near
 #undef far
 
 module render;
-import magic_enum;
+import interop.tracy;
+import interop.magic_enum;
 import std;
 
 namespace hitagi::render {

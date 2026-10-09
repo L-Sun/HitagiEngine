@@ -1,9 +1,10 @@
 module;
+#include <csetjmp>
 
-#include <spdlog/spdlog.h>
-#include <png.h>
 
 module asset;
+import interop.png;
+import interop.spdlog;
 import std;
 import math;
 import :image_codec;
@@ -57,7 +58,7 @@ auto PngDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
         return {};
     }
 
-    if (setjmp(png_jmpbuf(png_tr))) {
+    if (setjmp(hitagi::interop::png_jump_buffer(png_tr))) {
         logger->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
         return {};
@@ -175,7 +176,7 @@ auto PngDecoder::EncodeImageData(const ImageData& image_data) -> core::Buffer {
         return {};
     }
 
-    if (setjmp(png_jmpbuf(png_ptr))) {
+    if (setjmp(hitagi::interop::png_jump_buffer(png_ptr))) {
         logger->error("[PNG] Error occurred during write_image.");
         png_destroy_write_struct(&png_ptr, &info_ptr);
         return {};

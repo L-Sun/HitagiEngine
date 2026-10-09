@@ -1,14 +1,12 @@
 module;
 
-#include <imgui.h>
-#include <imgui_internal.h>
-#include <algorithm>
-#include <fstream>
-#include <functional>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module editor;
-import magic_enum;
+import std;
+import interop.imgui;
+import interop.tracy;
+import interop.magic_enum;
 
 using namespace hitagi::math;
 using namespace hitagi::asset;

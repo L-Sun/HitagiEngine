@@ -1,5 +1,3 @@
-module;
-
 module render;
 import std;
 

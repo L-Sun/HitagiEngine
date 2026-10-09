@@ -1,10 +1,7 @@
-module;
-
-#ifdef _WIN32
-#include <objbase.h>
-#endif
-
 module utils;
+#ifdef _WIN32
+import interop.win32;
+#endif
 import std;
 
 namespace hitagi::utils {

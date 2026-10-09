@@ -1,17 +1,19 @@
 module;
-#include <vulkan/vulkan_raii.hpp>
-#include <tracy/Tracy.hpp>
-#include <tracy/TracyVulkan.hpp>
-#include <fmt/color.h>
-#include <spdlog/logger.h>
+#include "interop/tracy_macros.hpp"
 
 export module gfx.vulkan:command_queue;
+import interop.fmt;
+import interop.spdlog;
+import interop.tracy.vulkan;
+import interop.tracy;
+import interop.vulkan;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :types;
 import :sync;
 import :command_buffer;
@@ -79,7 +81,7 @@ void VulkanCommandQueue::InitializeTracyContext(const vk::raii::Device& device, 
                                               .front());
 
     m_TracyCtx = TracyVkContext(*physical_device, *device, *m_Queue, *setup_command_buffer);
-    TracyVkContextName(m_TracyCtx, m_Name.data(), static_cast<uint16_t>(m_Name.size()));
+    TracyVkContextName(m_TracyCtx, m_Name.data(), static_cast<std::uint16_t>(m_Name.size()));
 }
 
 void VulkanCommandQueue::Submit(std::span<const std::reference_wrapper<const CommandContext>> contexts,

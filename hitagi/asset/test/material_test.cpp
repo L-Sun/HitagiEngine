@@ -1,7 +1,7 @@
 #include "test_macros.hpp"
 
-#include <fstream>
-#include <sstream>
+import std;
+import interop.gtest;
 
 import asset;
 import core;
@@ -25,7 +25,7 @@ auto MakeMaterial(
 }
 
 auto LoadMaterialPass(Material& material, std::string_view pass_contract) -> const MaterialPass& {
-    auto device = hitagi::gfx::create_device(hitagi::gfx::Device::Type::Mock, "MaterialDataDevice");
+    auto                        device = hitagi::gfx::create_device(hitagi::gfx::Device::Type::Mock, "MaterialDataDevice");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
@@ -298,11 +298,11 @@ TEST(MaterialTest, MaterialPass_GeneratesBufferAndTextures) {
 }
 
 TEST(MaterialTest, MaterialLoad_WritesTextureViewBindlessHandle) {
-    auto             device = hitagi::gfx::create_device(hitagi::gfx::Device::Type::Mock, "MaterialLoadTextureView");
+    auto                        device = hitagi::gfx::create_device(hitagi::gfx::Device::Type::Mock, "MaterialLoadTextureView");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
-    const std::array pixels{
+    const std::array            pixels{
         static_cast<std::byte>(255),
         static_cast<std::byte>(255),
         static_cast<std::byte>(255),

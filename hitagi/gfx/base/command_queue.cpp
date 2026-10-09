@@ -1,7 +1,7 @@
 export module gfx.base:command_queue;
 import std;
 import utils;
-import magic_enum;
+import interop.magic_enum;
 import :command_context;
 import :sync;
 

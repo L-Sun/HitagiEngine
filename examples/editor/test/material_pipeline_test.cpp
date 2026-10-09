@@ -1,6 +1,7 @@
-#include <gtest/gtest.h>
+#include "interop/gtest_macros.hpp"
 
-#include <fstream>
+import std;
+import interop.gtest;
 
 import editor;
 import engine;
@@ -34,8 +35,8 @@ protected:
 
 TEST_F(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPasses) {
     const std::filesystem::path base_texture_path{"assets/test/test.png"};
-    const auto   base_texture = std::make_shared<Texture>(base_texture_path, MakeFileImageLoader(file_io, base_texture_path), "base");
-    MaterialPass gbuffer_pass{
+    const auto                  base_texture = std::make_shared<Texture>(base_texture_path, MakeFileImageLoader(file_io, base_texture_path), "base");
+    MaterialPass                gbuffer_pass{
         .pass_contract = "GBuffer",
         .bindings      = {"base_color", "metallic", "base_color_texture"},
     };

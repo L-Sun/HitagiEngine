@@ -1,9 +1,6 @@
-module;
-
-#include <imgui.h>
-#include <spdlog/spdlog.h>
-
 module editor;
+import interop.imgui;
+import std;
 
 namespace hitagi {
 

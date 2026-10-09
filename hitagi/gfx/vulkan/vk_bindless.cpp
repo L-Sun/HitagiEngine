@@ -1,16 +1,17 @@
 module;
-#include <vulkan/vulkan_raii.hpp>
-#include <vk_mem_alloc.h>
-#include <tracy/Tracy.hpp>
-#include <spdlog/logger.h>
+#include "interop/tracy_macros.hpp"
 
 export module gfx.vulkan:bindless;
+import interop.vma;
+import interop.tracy;
+import interop.vulkan;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :utils;
 import :configs;
 
@@ -38,7 +39,7 @@ private:
         ~Heap();
         VmaAllocator        allocator  = nullptr;
         VmaAllocation       allocation = nullptr;
-        VkBuffer            buffer     = VK_NULL_HANDLE;
+        VkBuffer            buffer     = hitagi::interop::null_handle;
         std::byte*          mapped     = nullptr;
         vk::BindHeapInfoEXT bind_info;
     };

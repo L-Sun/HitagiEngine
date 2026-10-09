@@ -1,6 +1,6 @@
 module;
+#include <cassert>
 
-#include <spdlog/logger.h>
 
 module ecs;
 import std;

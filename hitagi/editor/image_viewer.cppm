@@ -1,5 +1,3 @@
-module;
-
 export module editor:image_viewer;
 import engine;
 

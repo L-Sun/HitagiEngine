@@ -1,5 +1,3 @@
-module;
-
 export module asset:cooked_format;
 import std;
 import math;

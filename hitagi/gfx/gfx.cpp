@@ -1,7 +1,8 @@
 module;
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module gfx;
+import interop.tracy;
 import std;
 import core;
 import utils;

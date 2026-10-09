@@ -1,10 +1,13 @@
 module;
-#include <d3d12.h>
-#include <wrl.h>
-#include <d3dx12/d3dx12.h>
-#include <spdlog/logger.h>
+#include "interop/win32_macros.hpp"
+#include <cassert>
 
 export module gfx.dx12:descriptor_heap;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.spdlog;
+import interop.dx12;
 import std;
 import core;
 import utils;
@@ -113,7 +116,7 @@ DescriptorHeap::DescriptorHeap(ID3D12Device& device, std::shared_ptr<spdlog::log
         .NodeMask       = 0,
     };
 
-    if (FAILED(device.CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_DescriptorHeap)))) {
+    if (interop::failed(device.CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_DescriptorHeap)))) {
         logger->error("failed to create descriptor heap");
         throw std::runtime_error("failed to create descriptor heap");
     }

@@ -1,20 +1,24 @@
 module;
-#include <d3d12.h>
-#include <wrl.h>
-#include <tracy/Tracy.hpp>
-#include <tracy/TracyD3D12.hpp>
+#include "interop/win32_macros.hpp"
+#include "interop/tracy_macros.hpp"
 #include <cstring>
-#include <spdlog/logger.h>
-#include <fmt/color.h>
-#include <d3dx12/d3dx12.h>
 
 export module gfx.dx12:command_list;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.fmt;
+import interop.spdlog;
+import interop.tracy.dx12;
+import interop.tracy;
+import interop.dx12;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :types;
 import :bindless;
 import :utils;
@@ -187,7 +191,7 @@ inline auto to_d3d_texture_barrier(TextureBarrier barrier) noexcept -> D3D12_TEX
 namespace hitagi::gfx {
 
 auto initialize_command_context(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, CommandType type, ComPtr<ID3D12CommandAllocator>& cmd_allocator, ComPtr<ID3D12GraphicsCommandList>& cmd_list, std::string_view name) {
-    if (FAILED(device.CreateCommandAllocator(to_d3d_command_type(type), IID_PPV_ARGS(&cmd_allocator)))) {
+    if (interop::failed(device.CreateCommandAllocator(to_d3d_command_type(type), IID_PPV_ARGS(&cmd_allocator)))) {
         const auto error_message = fmt::format("failed to create command allocator({})", fmt::styled(name, fmt::fg(fmt::color::red)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -197,7 +201,7 @@ auto initialize_command_context(ID3D12Device& device, const std::shared_ptr<spdl
         cmd_allocator->SetName(std::wstring(allocator_name.begin(), allocator_name.end()).c_str());
     }
 
-    if (FAILED(device.CreateCommandList(0, to_d3d_command_type(type), cmd_allocator.Get(), nullptr, IID_PPV_ARGS(&cmd_list)))) {
+    if (interop::failed(device.CreateCommandList(0, to_d3d_command_type(type), cmd_allocator.Get(), nullptr, IID_PPV_ARGS(&cmd_list)))) {
         const auto error_message = fmt::format("failed to create command list({})", fmt::styled(name, fmt::fg(fmt::color::green)));
         logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -302,7 +306,7 @@ void DX12GraphicsCommandList::ResourceBarrier(std::span<const GlobalBarrier>    
                                               std::span<const GPUBufferBarrier> buffer_barriers,
                                               std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
-    if (FAILED(command_list.As(&cmd_list))) {
+    if (interop::failed(command_list.As(&cmd_list))) {
         const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -478,7 +482,7 @@ void DX12ComputeCommandList::ResourceBarrier(std::span<const GlobalBarrier>    g
                                              std::span<const GPUBufferBarrier> buffer_barriers,
                                              std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
-    if (FAILED(command_list.As(&cmd_list))) {
+    if (interop::failed(command_list.As(&cmd_list))) {
         const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -529,7 +533,7 @@ void DX12CopyCommandList::ResourceBarrier(
     std::span<const GPUBufferBarrier> buffer_barriers,
     std::span<const TextureBarrier>   texture_barriers) {
     ComPtr<ID3D12GraphicsCommandList7> cmd_list;
-    if (FAILED(command_list.As(&cmd_list))) {
+    if (interop::failed(command_list.As(&cmd_list))) {
         const auto error_message = std::format("failed to cast command list to ID3D12GraphicsCommandList7");
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);

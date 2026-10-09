@@ -1,4 +1,7 @@
+#include "interop/benchmark_macros.hpp"
 #include "test_macros.hpp"
+import interop.gtest;
+import interop.benchmark;
 import std;
 import core;
 import test_utils;

@@ -1,8 +1,5 @@
-module;
-#include <imgui.h>
-#include <spdlog/logger.h>
-
 export module gui;
+import interop.imgui;
 import hid;
 import std;
 import core;

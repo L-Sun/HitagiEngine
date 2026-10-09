@@ -1,10 +1,6 @@
-module;
-
-#include <spdlog/spdlog.h>
-
 module hid;
 import std;
-import magic_enum;
+import interop.magic_enum;
 import utils;
 namespace hitagi::hid {
 InputManager::InputManager()

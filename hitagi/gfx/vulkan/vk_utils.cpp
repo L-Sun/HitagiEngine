@@ -1,18 +1,16 @@
-module;
-#include <vulkan/vulkan_raii.hpp>
-#include <SDL3/SDL_vulkan.h>
-#include <spirv_reflect.h>
-#include <fmt/color.h>
-#include <spdlog/logger.h>
-#include <vk_mem_alloc.h>
-
 export module gfx.vulkan:utils;
+import interop.sdl;
+import interop.spirv_reflect;
+import interop.fmt;
+import interop.spdlog;
+import interop.vulkan;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :configs;
 
 export namespace hitagi::gfx {

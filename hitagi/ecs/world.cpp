@@ -1,8 +1,8 @@
 module;
-#include <spdlog/spdlog.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module ecs;
+import interop.tracy;
 import std;
 namespace hitagi::ecs {
 World::World(std::string_view name)

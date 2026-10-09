@@ -1,9 +1,8 @@
 module;
-#include <spdlog/spdlog.h>
-#include <fmt/color.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 export module gfx.render_graph:pass_builder;
+import interop.tracy;
 import std;
 import utils;
 import gfx.base;

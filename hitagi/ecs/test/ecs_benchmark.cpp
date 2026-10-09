@@ -1,5 +1,7 @@
+#include "interop/benchmark_macros.hpp"
 #include "test_macros.hpp"
-#include <spdlog/spdlog.h>
+import interop.gtest;
+import interop.benchmark;
 
 import std;
 import ecs;

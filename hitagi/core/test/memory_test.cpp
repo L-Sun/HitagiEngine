@@ -1,4 +1,5 @@
 #include "test_macros.hpp"
+import interop.gtest;
 
 import std;
 import core;

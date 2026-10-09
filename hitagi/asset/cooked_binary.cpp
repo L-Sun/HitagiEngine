@@ -8,7 +8,7 @@ import std;
 import core;
 import gfx;
 import math;
-import magic_enum;
+import interop.magic_enum;
 import :cooked_format;
 import :shader;
 import :pipeline;

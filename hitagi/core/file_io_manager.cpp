@@ -1,7 +1,5 @@
-module;
-#include <spdlog/logger.h>
-
 module core;
+import std;
 
 namespace hitagi::core {
 

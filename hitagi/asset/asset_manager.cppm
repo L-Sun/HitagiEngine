@@ -1,5 +1,3 @@
-module;
-
 export module asset:manager;
 import std;
 import core;

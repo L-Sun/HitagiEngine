@@ -1,9 +1,7 @@
-module;
-
-#include "imfilebrowser.hpp"
-#include <spdlog/logger.h>
-
 export module editor;
+import interop.imfilebrowser;
+import interop.imgui;
+import std;
 export import :state;
 export import :command;
 export import :asset_browser;

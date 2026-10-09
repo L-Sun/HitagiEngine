@@ -1,8 +1,8 @@
 #include "test_macros.hpp"
-#include <spdlog/spdlog.h>
+import interop.gtest;
+import interop.magic_enum;
 
 import std;
-import magic_enum;
 import gfx;
 import asset;
 import core;

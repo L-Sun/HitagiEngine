@@ -1,26 +1,12 @@
 module;
+#include "interop/jolt_macros.hpp"
 
-#include <Jolt/Jolt.h>
-#include <Jolt/RegisterTypes.h>
-#include <Jolt/Core/Factory.h>
-#include <Jolt/Core/JobSystemWithBarrier.h>
-#include <Jolt/Core/TempAllocator.h>
-#include <Jolt/Physics/Body/BodyCreationSettings.h>
-#include <Jolt/Physics/Body/BodyInterface.h>
-#include <Jolt/Physics/Body/MotionType.h>
-#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
-#include <Jolt/Physics/Collision/ObjectLayer.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
-#include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <Jolt/Physics/EActivation.h>
-#include <Jolt/Physics/EPhysicsUpdateError.h>
-#include <Jolt/Physics/PhysicsSettings.h>
-#include <Jolt/Physics/PhysicsSystem.h>
 
 #include <cstdarg>
 #include <cstdio>
 
 module physics;
+import interop.jolt;
 
 import std;
 import core;
@@ -273,7 +259,7 @@ auto CreateShape(const ShapeDesc& desc) -> JPH::RefConst<JPH::Shape> {
 struct PhysicsWorld::Impl {
     Impl(core::JobSystem& core_job_system, const PhysicsWorldDesc& desc)
         : temp_allocator(desc.temp_allocator_size),
-          job_system(core_job_system, JPH::cMaxPhysicsBarriers) {
+          job_system(core_job_system, hitagi::interop::max_physics_barriers) {
         physics_system.Init(
             desc.max_bodies,
             desc.num_body_mutexes,

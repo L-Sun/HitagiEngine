@@ -1,8 +1,5 @@
-module;
-
-#include <spdlog/logger.h>
-
 export module engine;
+import std;
 export import std;
 export import utils;
 export import core;

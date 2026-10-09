@@ -1,9 +1,10 @@
-#include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
+import interop.nlohmann_json;
+import interop.spdlog;
+import interop.magic_enum;
 
+import std;
 import editor;
 import engine;
-import magic_enum;
 import pbr_demo_game;
 
 namespace {

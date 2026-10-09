@@ -1,8 +1,5 @@
-module;
-
-#include <spdlog/spdlog.h>
-
 module app;
+import interop.spdlog;
 import std;
 
 namespace hitagi {

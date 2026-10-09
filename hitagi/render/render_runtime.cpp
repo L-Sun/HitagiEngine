@@ -1,8 +1,9 @@
 module;
 
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module render;
+import interop.tracy;
 import std;
 
 namespace hitagi::render {

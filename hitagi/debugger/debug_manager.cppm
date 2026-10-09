@@ -1,7 +1,3 @@
-module;
-
-#include <spdlog/logger.h>
-
 export module debugger;
 import std;
 import math;

@@ -1,8 +1,6 @@
-module;
-#include <spdlog/logger.h>
-#include <taskflow/taskflow.hpp>
-
 module core;
+import interop.taskflow;
+import std;
 
 namespace hitagi::core {
 

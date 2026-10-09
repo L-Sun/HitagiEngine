@@ -1,5 +1,3 @@
-module;
-
 export module editor:material_compiler;
 import engine;
 

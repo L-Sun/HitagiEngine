@@ -1,8 +1,10 @@
 #include "test_macros.hpp"
-#include <spdlog/spdlog.h>
+#include <cstdint>
+import interop.gtest;
+import interop.spdlog;
+import interop.magic_enum;
 
 import std;
-import magic_enum;
 import gfx;
 import asset;
 import app;

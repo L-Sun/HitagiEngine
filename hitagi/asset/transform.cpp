@@ -1,5 +1,3 @@
-module;
-
 export module asset:transform;
 import std;
 import math;

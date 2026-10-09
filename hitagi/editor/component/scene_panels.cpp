@@ -1,10 +1,10 @@
 module;
 
-#include <imgui.h>
-#include <imgui_internal.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module editor;
+import interop.imgui;
+import interop.tracy;
 
 using namespace hitagi::math;
 using namespace hitagi::asset;

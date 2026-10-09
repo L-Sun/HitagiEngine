@@ -1,7 +1,9 @@
-#include <spdlog/spdlog.h>
-#include <vcruntime_new_debug.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
+import interop.spdlog;
+import interop.tracy;
+
+import std;
 import engine;
 import editor;
 

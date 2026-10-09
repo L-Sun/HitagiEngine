@@ -1,5 +1,6 @@
-#include <spdlog/spdlog.h>
 
+import interop.spdlog;
+import std;
 import editor;
 import engine;
 import snake_demo;

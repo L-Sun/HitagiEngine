@@ -1,10 +1,8 @@
-module;
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
 export module utils;
+import interop.spdlog;
+import interop.magic_enum;
+
 import std;
-import magic_enum;
 
 export constexpr std::size_t operator""_kB(unsigned long long val) { return val << 10; }
 

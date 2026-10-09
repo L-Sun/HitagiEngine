@@ -1,15 +1,15 @@
 module;
 
-#include <imgui.h>
-#include <imgui_internal.h>
-#include <nlohmann/json.hpp>
-#include <spdlog/logger.h>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 module editor;
-import magic_enum;
+import interop.imgui;
+import interop.nlohmann_json;
+import interop.spdlog;
+import interop.tracy;
+import interop.magic_enum;
+
+import std;
 
 using namespace hitagi::math;
 using namespace hitagi::asset;

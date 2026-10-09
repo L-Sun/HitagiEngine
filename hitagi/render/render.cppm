@@ -1,7 +1,3 @@
-module;
-
-#include <spdlog/logger.h>
-
 export module render;
 export import gfx;
 import std;

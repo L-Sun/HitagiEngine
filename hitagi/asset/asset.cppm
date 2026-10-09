@@ -1,5 +1,3 @@
-module;
-
 export module asset;
 export import :cooked_format;
 export import :resource;

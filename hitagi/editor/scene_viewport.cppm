@@ -1,5 +1,3 @@
-module;
-
 export module editor:scene_viewport;
 import engine;
 import :state;

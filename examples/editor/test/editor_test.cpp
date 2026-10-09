@@ -1,6 +1,7 @@
-#include <gtest/gtest.h>
-#include <spdlog/spdlog.h>
-
+#include "interop/gtest_macros.hpp"
+import interop.gtest;
+import interop.spdlog;
+import std;
 import editor;
 import engine;
 

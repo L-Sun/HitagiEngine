@@ -1,4 +1,4 @@
-#include <imgui.h>
+import interop.imgui;
 
 import engine;
 

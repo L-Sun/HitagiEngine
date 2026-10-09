@@ -1,8 +1,8 @@
 module;
-#include <spdlog/spdlog.h>
-#include <tracy/Tracy.hpp>
+#include "interop/tracy_macros.hpp"
 
 export module gfx.render_graph:pass_node;
+import interop.tracy;
 import std;
 import utils;
 import gfx.base;

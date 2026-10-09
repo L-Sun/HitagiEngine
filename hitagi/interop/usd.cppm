@@ -1,0 +1,68 @@
+module;
+#include <pxr/base/gf/camera.h>
+#include <pxr/base/gf/matrix4d.h>
+#include <pxr/base/gf/vec2f.h>
+#include <pxr/base/gf/vec3f.h>
+#include <pxr/base/gf/vec4f.h>
+#include <pxr/base/tf/token.h>
+#include <pxr/base/vt/array.h>
+#include <pxr/usd/ar/asset.h>
+#include <pxr/usd/ar/resolver.h>
+#include <pxr/usd/ar/resolverContextBinder.h>
+#include <pxr/usd/sdf/assetPath.h>
+#include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usd/timeCode.h>
+#include <pxr/usd/usdGeom/camera.h>
+#include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/primvarsAPI.h>
+#include <pxr/usd/usdGeom/tokens.h>
+#include <pxr/usd/usdGeom/xformable.h>
+#include <pxr/usd/usdLux/boundableLightBase.h>
+#include <pxr/usd/usdLux/distantLight.h>
+#include <pxr/usd/usdLux/lightAPI.h>
+#include <pxr/usd/usdLux/nonboundableLightBase.h>
+#include <pxr/usd/usdLux/shapingAPI.h>
+#include <pxr/usd/usdShade/connectableAPI.h>
+#include <pxr/usd/usdShade/input.h>
+#include <pxr/usd/usdShade/material.h>
+#include <pxr/usd/usdShade/materialBindingAPI.h>
+#include <pxr/usd/usdShade/shader.h>
+#include <pxr/usd/usdShade/tokens.h>
+
+export module interop.usd;
+
+export namespace pxr {
+using ::PXR_INTERNAL_NS::ArGetResolver;
+using ::PXR_INTERNAL_NS::ArResolvedPath;
+using ::PXR_INTERNAL_NS::ArResolverContextBinder;
+using ::PXR_INTERNAL_NS::GfCamera;
+using ::PXR_INTERNAL_NS::GfMatrix4d;
+using ::PXR_INTERNAL_NS::GfVec2f;
+using ::PXR_INTERNAL_NS::GfVec3f;
+using ::PXR_INTERNAL_NS::GfVec4f;
+using ::PXR_INTERNAL_NS::SdfAssetPath;
+using ::PXR_INTERNAL_NS::TfToken;
+using ::PXR_INTERNAL_NS::TfTokenVector;
+using ::PXR_INTERNAL_NS::UsdGeomCamera;
+using ::PXR_INTERNAL_NS::UsdGeomMesh;
+using ::PXR_INTERNAL_NS::UsdGeomPrimvarsAPI;
+using ::PXR_INTERNAL_NS::UsdGeomTokens;
+using ::PXR_INTERNAL_NS::UsdGeomXformable;
+using ::PXR_INTERNAL_NS::UsdLuxBoundableLightBase;
+using ::PXR_INTERNAL_NS::UsdLuxDistantLight;
+using ::PXR_INTERNAL_NS::UsdLuxLightAPI;
+using ::PXR_INTERNAL_NS::UsdLuxNonboundableLightBase;
+using ::PXR_INTERNAL_NS::UsdLuxShapingAPI;
+using ::PXR_INTERNAL_NS::UsdPrim;
+using ::PXR_INTERNAL_NS::UsdShadeAttributeType;
+using ::PXR_INTERNAL_NS::UsdShadeConnectableAPI;
+using ::PXR_INTERNAL_NS::UsdShadeInput;
+using ::PXR_INTERNAL_NS::UsdShadeMaterial;
+using ::PXR_INTERNAL_NS::UsdShadeMaterialBindingAPI;
+using ::PXR_INTERNAL_NS::UsdShadeShader;
+using ::PXR_INTERNAL_NS::UsdShadeTokens;
+using ::PXR_INTERNAL_NS::UsdStage;
+using ::PXR_INTERNAL_NS::UsdTimeCode;
+using ::PXR_INTERNAL_NS::VtArray;
+}  // namespace pxr

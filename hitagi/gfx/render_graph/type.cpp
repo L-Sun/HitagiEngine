@@ -1,6 +1,3 @@
-module;
-#include <spdlog/logger.h>
-
 export module gfx.render_graph:type;
 import std;
 import utils;

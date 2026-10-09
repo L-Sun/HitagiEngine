@@ -1,9 +1,5 @@
-module;
-
-#include <imgui.h>
-#include <imgui_internal.h>
-
 export module snake_demo;
+import interop.imgui;
 
 import engine;
 import std;
@@ -131,11 +127,11 @@ void DrawSnakeBoard(const SnakeGameState& state, float max_size) {
     const auto origin = ImGui::GetItemRectMin();
     auto*      draw   = ImGui::GetWindowDrawList();
 
-    const auto bg     = IM_COL32(19, 23, 29, 255);
-    const auto grid   = IM_COL32(45, 52, 62, 255);
-    const auto snake  = IM_COL32(78, 190, 132, 255);
-    const auto head   = IM_COL32(122, 230, 166, 255);
-    const auto food   = IM_COL32(235, 83, 83, 255);
+    const auto bg     = hitagi::interop::imgui_color(19, 23, 29, 255);
+    const auto grid   = hitagi::interop::imgui_color(45, 52, 62, 255);
+    const auto snake  = hitagi::interop::imgui_color(78, 190, 132, 255);
+    const auto head   = hitagi::interop::imgui_color(122, 230, 166, 255);
+    const auto food   = hitagi::interop::imgui_color(235, 83, 83, 255);
 
     draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y}, bg, 3.0f);
     for (int x = 0; x <= board.width; ++x) {

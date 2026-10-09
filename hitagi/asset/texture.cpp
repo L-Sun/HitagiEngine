@@ -1,5 +1,3 @@
-module;
-
 export module asset:texture;
 import std;
 import core;

@@ -1,6 +1,6 @@
 export module gfx.base:utils;
 import std;
-import magic_enum;
+import interop.magic_enum;
 import :types;
 
 export namespace hitagi::gfx {

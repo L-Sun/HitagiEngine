@@ -1,7 +1,7 @@
 #include "test_macros.hpp"
-#include <vulkan/vulkan_raii.hpp>
+import interop.gtest;
 #ifdef _WIN32
-#include <d3d12.h>
+import interop.dx12;
 #endif
 
 import std;

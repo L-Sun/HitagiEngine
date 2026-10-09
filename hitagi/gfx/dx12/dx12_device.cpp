@@ -1,19 +1,21 @@
 module;
-#include <d3d12.h>
-#include <wrl.h>
-#include <D3D12MemAlloc.h>
-#include <dxgi1_6.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <tracy/Tracy.hpp>
-#include <d3dx12/d3dx12.h>
+#include "interop/win32_macros.hpp"
+#include "interop/tracy_macros.hpp"
 
 export module gfx.dx12:device;
+#ifdef _WIN32
+import interop.win32;
+#endif
+import interop.tracy;
+import interop.dx12;
+import interop.d3d12ma;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :types;
 import :utils;
 import :descriptor_heap;
@@ -38,7 +40,7 @@ public:
 
 private:
     auto GetStorageBufferViewRequirements() const noexcept -> StorageViewRequirements final {
-        return {.offset_alignment = D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT, .size_alignment = 4};
+        return {.offset_alignment = interop::raw_uav_srv_byte_alignment, .size_alignment = 4};
     }
 
     static void ReportDebugLog(const ComPtr<ID3D12Device>& device);
@@ -68,7 +70,7 @@ namespace hitagi::gfx {
 
 DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
     ComPtr<ID3D12SDKConfiguration1> sdk_configuration;
-    if (const auto result = D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&sdk_configuration)); FAILED(result)) {
+    if (const auto result = D3D12GetInterface(CLSID_D3D12SDKConfiguration, IID_PPV_ARGS(&sdk_configuration)); interop::failed(result)) {
         const auto error_message = std::format("Failed to get D3D12 SDK configuration (HRESULT 0x{:08X}).", static_cast<unsigned long>(result));
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -90,13 +92,13 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
         }
         return (std::filesystem::path(executable).parent_path() / "D3D12").string() + "\\";
     }();
-    if (const auto result = sdk_configuration->CreateDeviceFactory(D3D12SDK_VERSION, sdk_directory.c_str(), IID_PPV_ARGS(&m_DeviceFactory)); FAILED(result)) {
+    if (const auto result = sdk_configuration->CreateDeviceFactory(D3D12SDK_VERSION, sdk_directory.c_str(), IID_PPV_ARGS(&m_DeviceFactory)); interop::failed(result)) {
         const auto error_message = std::format("Failed to create D3D12 device factory (HRESULT 0x{:08X}).", static_cast<unsigned long>(result));
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
     }
     // A singleton fallback would copy the factory's debug configuration into global state.
-    if (const auto result = m_DeviceFactory->SetFlags(D3D12_DEVICE_FACTORY_FLAG_DISALLOW_STORING_NEW_DEVICE_AS_SINGLETON); FAILED(result)) {
+    if (const auto result = m_DeviceFactory->SetFlags(D3D12_DEVICE_FACTORY_FLAG_DISALLOW_STORING_NEW_DEVICE_AS_SINGLETON); interop::failed(result)) {
         const auto error_message = std::format("Failed to require independent D3D12 devices (HRESULT 0x{:08X}).", static_cast<unsigned long>(result));
         m_Logger->error(error_message);
         throw std::runtime_error(error_message);
@@ -107,8 +109,8 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
 #ifdef HITAGI_DEBUG
     {
         ComPtr<ID3D12Debug> debug_controller;
-        if (SUCCEEDED(m_DeviceFactory->GetConfigurationInterface(CLSID_D3D12Debug, IID_PPV_ARGS(&debug_controller)))) {
-            dxgi_factory_flags |= DXGI_CREATE_FACTORY_DEBUG;
+        if (interop::succeeded(m_DeviceFactory->GetConfigurationInterface(CLSID_D3D12Debug, IID_PPV_ARGS(&debug_controller)))) {
+            dxgi_factory_flags |= interop::dxgi_create_factory_debug;
             m_Logger->trace("Enabled factory-local D3D12 debug layer.");
             debug_controller->EnableDebugLayer();
 
@@ -121,7 +123,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
     }
 #endif
 
-    if (FAILED(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&m_Factory)))) {
+    if (interop::failed(CreateDXGIFactory2(dxgi_factory_flags, IID_PPV_ARGS(&m_Factory)))) {
         m_Logger->error("Failed to create DXGI factory");
         throw std::runtime_error("Failed to create DXGI factory.");
     }
@@ -129,13 +131,13 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
     m_Logger->trace("Pick GPU...");
     {
         ComPtr<IDXGIFactory6> factory_6;
-        if (FAILED(m_Factory.As(&factory_6))) {
+        if (interop::failed(m_Factory.As(&factory_6))) {
             m_Logger->error("Failed to get IDXGIFactory6");
             throw std::runtime_error("Failed to get IDXGIFactory6.");
         }
 
         ComPtr<IDXGIAdapter1> p_adapter = nullptr;
-        for (UINT adapter_index = 0; SUCCEEDED(factory_6->EnumAdapterByGpuPreference(adapter_index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&p_adapter))); adapter_index++) {
+        for (UINT adapter_index = 0; interop::succeeded(factory_6->EnumAdapterByGpuPreference(adapter_index, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&p_adapter))); adapter_index++) {
             DXGI_ADAPTER_DESC1 desc;
             p_adapter->GetDesc1(&desc);
 
@@ -143,7 +145,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
                 continue;
             }
 
-            if (SUCCEEDED(m_DeviceFactory->CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
+            if (interop::succeeded(m_DeviceFactory->CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
                 std::pmr::wstring description = desc.Description;
                 m_Logger->info("Pick: {}", std::pmr::string(description.begin(), description.end()));
                 p_adapter.As(&m_Adapter);
@@ -155,7 +157,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
             m_Logger->warn("Fail to pick high performance gpu.");
 
             std::optional<UINT> warp_adapter_index;
-            for (UINT adapter_index = 0; SUCCEEDED(m_Factory->EnumAdapters1(adapter_index, &p_adapter)); adapter_index++) {
+            for (UINT adapter_index = 0; interop::succeeded(m_Factory->EnumAdapters1(adapter_index, &p_adapter)); adapter_index++) {
                 DXGI_ADAPTER_DESC1 desc;
                 p_adapter->GetDesc1(&desc);
 
@@ -164,7 +166,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
                     continue;
                 }
 
-                if (SUCCEEDED(m_DeviceFactory->CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
+                if (interop::succeeded(m_DeviceFactory->CreateDevice(p_adapter.Get(), D3D_FEATURE_LEVEL_12_1, __uuidof(ID3D12Device), nullptr))) {
                     std::pmr::wstring description = desc.Description;
                     m_Logger->info("Pick: {}", std::pmr::string(description.begin(), description.end()));
                     p_adapter.As(&m_Adapter);
@@ -175,7 +177,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
             if (m_Adapter == nullptr && warp_adapter_index.has_value()) {
                 m_Logger->error("Use wrap device.");
 
-                if (FAILED(m_Factory->EnumAdapters1(warp_adapter_index.value(), &p_adapter))) {
+                if (interop::failed(m_Factory->EnumAdapters1(warp_adapter_index.value(), &p_adapter))) {
                     m_Logger->error("Failed to get warp adapter.");
                     throw std::runtime_error("Failed to get warp adapter.");
                 }
@@ -191,14 +193,14 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
 
     m_Logger->trace("Create D3D12 device...");
     {
-        if (const auto result = m_DeviceFactory->CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&m_Device)); FAILED(result)) {
+        if (const auto result = m_DeviceFactory->CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&m_Device)); interop::failed(result)) {
             const auto error_message = std::format("Failed to create independent D3D12 device (HRESULT 0x{:08X}).", static_cast<unsigned long>(result));
             m_Logger->error(error_message);
             throw std::runtime_error(error_message);
         }
 
         CD3DX12FeatureSupport feature_support;
-        if (FAILED(feature_support.Init(m_Device.Get()))) {
+        if (interop::failed(feature_support.Init(m_Device.Get()))) {
             m_Logger->error("Failed to init feature support.");
             throw std::runtime_error("Failed to init feature support.");
         }
@@ -251,7 +253,7 @@ DX12Device::DX12Device(std::string_view name) : Device(Type::DX12, name) {
             .pAllocationCallbacks = &m_CustomAllocationCallback,
             .pAdapter             = m_Adapter.Get(),
         };
-        if (FAILED(D3D12MA::CreateAllocator(&desc, &m_MemoryAllocator))) {
+        if (interop::failed(D3D12MA::CreateAllocator(&desc, &m_MemoryAllocator))) {
             m_Logger->error("Failed to create D3D12 Memory Allocator");
             throw std::runtime_error("Failed to create D3D12 Memory Allocator");
         }
@@ -297,7 +299,7 @@ void DX12Device::Profile() const {
 void DX12Device::ReportDebugLog(const ComPtr<ID3D12Device>& device) {
 #ifdef HITAGI_DEBUG
     ComPtr<ID3D12DebugDevice1> debug_interface;
-    if (FAILED(device->QueryInterface(debug_interface.ReleaseAndGetAddressOf()))) {
+    if (interop::failed(device->QueryInterface(debug_interface.ReleaseAndGetAddressOf()))) {
         return;
     }
     debug_interface->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
@@ -306,7 +308,7 @@ void DX12Device::ReportDebugLog(const ComPtr<ID3D12Device>& device) {
 
 void DX12Device::IntegrateD3D12Logger() {
     ComPtr<ID3D12InfoQueue1> info_queue;
-    if (SUCCEEDED(m_Device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
+    if (interop::succeeded(m_Device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
         m_Logger->trace("Enabled D3D12 debug logger");
         info_queue->RegisterMessageCallback(
             [](D3D12_MESSAGE_CATEGORY, D3D12_MESSAGE_SEVERITY severity, D3D12_MESSAGE_ID, LPCSTR description, void* context) {
@@ -337,7 +339,7 @@ void DX12Device::IntegrateD3D12Logger() {
 void DX12Device::UnregisterIntegratedD3D12Logger() {
     m_Logger->trace("Unregister D3D12 Logger");
     ComPtr<ID3D12InfoQueue1> info_queue;
-    if (SUCCEEDED(m_Device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
+    if (interop::succeeded(m_Device->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
         m_Logger->trace("Unable D3D12 debug logger");
         info_queue->UnregisterMessageCallback(m_DebugCookie);
     }

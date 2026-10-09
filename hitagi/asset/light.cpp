@@ -1,5 +1,3 @@
-module;
-
 export module asset:light;
 import gfx;
 import math;

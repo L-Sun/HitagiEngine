@@ -1,5 +1,3 @@
-module;
-
 export module asset:resource;
 import std;
 import core;

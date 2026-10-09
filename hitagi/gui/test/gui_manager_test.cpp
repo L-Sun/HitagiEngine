@@ -1,7 +1,8 @@
 #include "test_macros.hpp"
-#include <imgui.h>
-#include <spdlog/spdlog.h>
-
+import interop.gtest;
+import interop.imgui;
+import interop.spdlog;
+import std;
 import app;
 import core;
 import gfx;

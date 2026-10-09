@@ -1,6 +1,3 @@
-module;
-#include <spdlog/logger.h>
-
 export module hid;
 import std;
 import math;

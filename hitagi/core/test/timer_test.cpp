@@ -1,7 +1,8 @@
 #include "test_macros.hpp"
-#include <spdlog/spdlog.h>
 #include <thread>
+import interop.gtest;
 
+import std;
 import core;
 import test_utils;
 

@@ -1,11 +1,9 @@
 module;
-
-#include <benchmark/benchmark.h>
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include <concepts>
 
 export module test_utils;
 import std;
+import interop.gtest;
 import math;
 
 export namespace hitagi::testing {

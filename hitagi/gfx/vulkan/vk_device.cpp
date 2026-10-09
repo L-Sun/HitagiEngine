@@ -1,34 +1,18 @@
 module;
-#include <vulkan/vulkan_raii.hpp>
-#include <vk_mem_alloc.h>
-#include <tracy/Tracy.hpp>
-#include <tracy/TracyVulkan.hpp>
-#include <SDL3/SDL_vulkan.h>
-#include <spirv_reflect.h>
-
-#if defined(_WIN32)
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <Windows.h>
-#include <vulkan/vulkan_win32.h>
-#elif defined(__linux__)
-#include <vulkan/vulkan_wayland.h>
-#endif
-#include <fmt/color.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <vulkan/vulkan.hpp>
+#include "interop/tracy_macros.hpp"
 
 export module gfx.vulkan:device;
+import interop.fmt;
+import interop.vma;
+import interop.tracy;
+import interop.vulkan;
+import interop.magic_enum;
+
 import std;
 import core;
 import utils;
 import math;
 import gfx.base;
-import magic_enum;
 import :types;
 import :utils;
 import :configs;
@@ -92,15 +76,15 @@ VulkanDevice::VulkanDevice(std::string_view name)
     {
         const vk::ApplicationInfo app_info{
             .pApplicationName   = "Hitagi",
-            .applicationVersion = VK_MAKE_VERSION(0, 0, 1),
+            .applicationVersion = vk::makeVersion(0, 0, 1),
             .pEngineName        = "Hitagi",
-            .engineVersion      = VK_MAKE_VERSION(0, 0, 1),
+            .engineVersion      = vk::makeVersion(0, 0, 1),
             .apiVersion         = m_Context.enumerateInstanceVersion(),
         };
         m_Logger->trace("Vulkan API Version: {}.{}.{}",
-                        VK_VERSION_MAJOR(app_info.apiVersion),
-                        VK_VERSION_MINOR(app_info.apiVersion),
-                        VK_VERSION_PATCH(app_info.apiVersion));
+                        vk::versionMajor(app_info.apiVersion),
+                        vk::versionMinor(app_info.apiVersion),
+                        vk::versionPatch(app_info.apiVersion));
 
         m_Instance = std::make_unique<vk::raii::Instance>(
             m_Context,

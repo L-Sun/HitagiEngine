@@ -1,5 +1,3 @@
-module;
-
 export module asset:pipeline;
 import gfx;
 import :resource;

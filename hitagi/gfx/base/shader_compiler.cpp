@@ -1,31 +1,26 @@
 module;
 
-#if defined(_WIN32)
-#include <unknwn.h>
-#include <wrl.h>
-#include <dxc/dxcapi.h>
-using namespace Microsoft::WRL;
-#elif defined(__linux__)
-#include <dxc/dxcapi.h>
-template <typename T>
-struct ComPtr : public CComPtr<T> {
-    inline auto Get() const noexcept { return this->p; }
-};
-#endif
-
-#include <d3d12shader.h>
-#include <fmt/color.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-
-#include <spdlog/logger.h>
+#include "interop/dxc_macros.hpp"
 
 export module gfx.base:shader_compiler;
+import interop.dxc;
+import interop.fmt;
+import interop.spdlog;
 import std;
 import utils;
 import core;
 import :types;
 import :gpu_resource;
 import :utils;
+
+#ifdef _WIN32
+using namespace Microsoft::WRL;
+#elif defined(__linux__)
+template <typename T>
+struct ComPtr : public CComPtr<T> {
+    inline auto Get() const noexcept { return this->p; }
+};
+#endif
 
 export namespace hitagi::gfx {
 
@@ -104,11 +99,11 @@ inline auto create_compile_args(const ShaderDesc& desc, bool spirv = false) noex
     args.emplace_back(L"-HV 2021");
 
     // We use row major order
-    args.emplace_back(DXC_ARG_PACK_MATRIX_ROW_MAJOR);
+    args.emplace_back(hitagi::interop::dxc_arg_pack_matrix_row_major);
 
 #ifdef HITAGI_DEBUG
-    args.emplace_back(DXC_ARG_OPTIMIZATION_LEVEL0);
-    args.emplace_back(DXC_ARG_DEBUG);
+    args.emplace_back(hitagi::interop::dxc_arg_optimization_level0);
+    args.emplace_back(hitagi::interop::dxc_arg_debug);
     args.emplace_back(L"-Qembed_debug");
 #endif
     return args;
@@ -169,10 +164,10 @@ ShaderCompiler::ShaderCompiler(std::string_view name)
     : m_Logger(utils::try_create_logger(std::format("ShaderCompiler{}", utils::add_parentheses(name)))) {
     m_Logger->trace("Create shader compiler...");
     {
-        if (FAILED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&m_DxcUtils)))) {
+        if (hitagi::interop::dxc_failed(DxcCreateInstance(hitagi::interop::clsid_dxcutils, IID_PPV_ARGS(&m_DxcUtils)))) {
             throw std::runtime_error("Failed to create DXC utils!");
         }
-        if (FAILED(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&m_ShaderCompiler)))) {
+        if (hitagi::interop::dxc_failed(DxcCreateInstance(hitagi::interop::clsid_dxccompiler, IID_PPV_ARGS(&m_ShaderCompiler)))) {
             throw std::runtime_error("Failed to create DXC shader compiler!");
         }
     }
@@ -204,7 +199,7 @@ auto ShaderCompiler::ExtractVertexLayout(const ShaderDesc& desc) const -> Vertex
     ComPtr<IDxcResult> compiled_result = CompileWithArgs(desc.source_code, create_compile_args(desc, false));
 
     ComPtr<IDxcBlob> dxil_reflection_buffer = nullptr;
-    if (FAILED(compiled_result->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&dxil_reflection_buffer), nullptr))) {
+    if (hitagi::interop::dxc_failed(compiled_result->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&dxil_reflection_buffer), nullptr))) {
         m_Logger->error("Failed to get compiled reflection.");
         return {};
     }
@@ -212,17 +207,17 @@ auto ShaderCompiler::ExtractVertexLayout(const ShaderDesc& desc) const -> Vertex
     DxcBuffer dxc_buffer{
         .Ptr      = dxil_reflection_buffer->GetBufferPointer(),
         .Size     = dxil_reflection_buffer->GetBufferSize(),
-        .Encoding = DXC_CP_ACP,
+        .Encoding = hitagi::interop::dxc_cp_acp,
     };
 
     ComPtr<ID3D12ShaderReflection> shader_reflection = nullptr;
-    if (FAILED(m_DxcUtils->CreateReflection(&dxc_buffer, IID_PPV_ARGS(&shader_reflection))) || shader_reflection == nullptr) {
+    if (hitagi::interop::dxc_failed(m_DxcUtils->CreateReflection(&dxc_buffer, IID_PPV_ARGS(&shader_reflection))) || shader_reflection == nullptr) {
         m_Logger->error("Fail to create reflection");
         return {};
     }
 
     D3D12_SHADER_DESC d3d12_shader_desc{};
-    if (FAILED(shader_reflection->GetDesc(&d3d12_shader_desc))) {
+    if (hitagi::interop::dxc_failed(shader_reflection->GetDesc(&d3d12_shader_desc))) {
         m_Logger->error("Fail to get shader desc");
         return {};
     }
@@ -253,19 +248,19 @@ auto ShaderCompiler::CompileWithArgs(std::string_view source_code, const std::pm
 
     ComPtr<IDxcIncludeHandler> include_handler = nullptr;
 
-    if (FAILED(m_DxcUtils->CreateDefaultIncludeHandler(&include_handler))) {
+    if (hitagi::interop::dxc_failed(m_DxcUtils->CreateDefaultIncludeHandler(&include_handler))) {
         m_Logger->error("failed to create include handler");
         return {};
     }
     DxcBuffer source_buffer{
         .Ptr      = source_code.data(),
         .Size     = source_code.size(),
-        .Encoding = DXC_CP_ACP,
+        .Encoding = hitagi::interop::dxc_cp_acp,
     };
 
     ComPtr<IDxcResult> compiled_result = nullptr;
 
-    if (FAILED(m_ShaderCompiler->Compile(
+    if (hitagi::interop::dxc_failed(m_ShaderCompiler->Compile(
             &source_buffer,
             p_args.data(),
             p_args.size(),
@@ -284,11 +279,11 @@ auto ShaderCompiler::CompileWithArgs(std::string_view source_code, const std::pm
     }
 
     HRESULT hr;
-    if (FAILED(compiled_result->GetStatus(&hr))) {
+    if (hitagi::interop::dxc_failed(compiled_result->GetStatus(&hr))) {
         m_Logger->error("Failed to get compile status.");
         return {};
     }
-    if (FAILED(hr)) {
+    if (hitagi::interop::dxc_failed(hr)) {
         m_Logger->error("Failed to compile shader.");
         return {};
     }
@@ -300,7 +295,7 @@ auto ShaderCompiler::GetShaderBuffer(IDxcResult* _compiled_result) const -> core
     ComPtr<IDxcResult> compiled_result = _compiled_result;
 
     ComPtr<IDxcBlob> shader_buffer = nullptr;
-    if (FAILED(compiled_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), nullptr)) || shader_buffer == nullptr) {
+    if (hitagi::interop::dxc_failed(compiled_result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shader_buffer), nullptr)) || shader_buffer == nullptr) {
         m_Logger->error("Failed to get compiled output.");
         return {};
     }
