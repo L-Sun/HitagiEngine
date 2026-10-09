@@ -1,13 +1,42 @@
 module;
 #include <cstddef>
 
-
-module render;
+export module render:gui;
 import std;
+import utils;
+import math;
+import gfx;
+import gui;
+
+export namespace hitagi::render {
+
+class GuiRenderUtils {
+public:
+    GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler);
+
+    void GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target);
+
+protected:
+    // GUI render data
+    struct GuiRenderData {
+        std::shared_ptr<gfx::Shader>         vs, ps;
+        std::shared_ptr<gfx::RenderPipeline> pipeline;
+        std::shared_ptr<gfx::Texture>        font_texture;
+        std::shared_ptr<gfx::Sampler>        sampler;
+    } m_GfxData;
+
+    rg::TextureHandle m_FontTexture;
+    std::uint64_t     m_FontTextureGeneration = 0;
+};
+
+namespace passes {
+using Gui = GuiRenderUtils;
+}  // namespace passes
+
+}  // namespace hitagi::render
 
 namespace hitagi::render {
 
-namespace {
 
 struct GuiFrameConstant {
     math::mat4f orth;
@@ -62,7 +91,6 @@ auto CollectTextures(const gui::GuiDrawData& draw_data) -> std::pmr::vector<rg::
     return textures;
 }
 
-}  // namespace
 
 GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler) {
     const std::pmr::string gui_shader = R"""(

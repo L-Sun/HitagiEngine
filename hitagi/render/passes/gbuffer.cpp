@@ -1,10 +1,161 @@
-module render;
+export module render:gbuffer;
 import interop.magic_enum;
+
 import std;
+import utils;
+import math;
+import core;
+import gfx;
+import asset;
+
+import :types;
+
+export namespace hitagi::render::passes {
+
+struct GBufferOutput {
+    rg::TextureHandle albedo;
+    rg::TextureHandle normal;
+    rg::TextureHandle material;
+    rg::TextureHandle emissive;
+    rg::TextureHandle object_material_id;
+    rg::TextureHandle depth;
+};
+
+class DepthPrepass {
+public:
+    struct Desc {
+        std::uint32_t width  = 1;
+        std::uint32_t height = 1;
+        gfx::Format   format = gfx::Format::D32_FLOAT;
+    };
+
+    struct BuildDesc {
+        std::pmr::string                     pass_name;
+        rg::TextureHandle                    depth;
+        rg::GPUBufferHandle                  frame_constant;
+        rg::GPUBufferHandle                  instance_constant;
+        std::shared_ptr<gfx::RenderPipeline> pipeline;
+        bool                                 clear_depth = true;
+        std::uint32_t                        width       = 1;
+        std::uint32_t                        height      = 1;
+    };
+
+    static auto CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle;
+    static void Build(RenderContext& context, const BuildDesc& desc);
+};
+
+class ShadowMapPass {
+public:
+    struct Desc {
+        std::uint32_t width  = 1024;
+        std::uint32_t height = 1024;
+        gfx::Format   format = gfx::Format::D32_FLOAT;
+    };
+
+    struct BuildDesc {
+        std::pmr::string                     pass_name;
+        rg::TextureHandle                    shadow_map;
+        rg::GPUBufferHandle                  light_frame_constant;
+        rg::GPUBufferHandle                  instance_constant;
+        std::shared_ptr<gfx::RenderPipeline> pipeline;
+        bool                                 clear_depth = true;
+        std::uint32_t                        width       = 1024;
+        std::uint32_t                        height      = 1024;
+    };
+
+    static auto CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle;
+    static void Build(RenderContext& context, const BuildDesc& desc);
+};
+
+class ObjectMaterialIdPass {
+public:
+    struct Desc {
+        std::uint32_t width  = 1;
+        std::uint32_t height = 1;
+        gfx::Format   format = gfx::Format::R32G32_UINT;
+    };
+
+    static auto CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle;
+};
+
+class GBuffer {
+public:
+    GBuffer(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader);
+
+    struct Desc {
+        std::uint32_t width                     = 1;
+        std::uint32_t height                    = 1;
+        gfx::Format   albedo_format             = gfx::Format::R32G32B32A32_FLOAT;
+        gfx::Format   normal_format             = gfx::Format::R8G8B8A8_UNORM;
+        gfx::Format   material_format           = gfx::Format::R8G8B8A8_UNORM;
+        gfx::Format   emissive_format           = gfx::Format::R11G11B10_FLOAT;
+        gfx::Format   object_material_id_format = gfx::Format::R32G32_UINT;
+    };
+
+    struct AttributePassDesc {
+        std::pmr::string                     pass_name;
+        rg::TextureHandle                    target;
+        rg::TextureHandle                    depth;
+        rg::TextureHandle                    dependency;
+        rg::GPUBufferHandle                  frame_constant;
+        rg::GPUBufferHandle                  instance_constant;
+        rg::GPUBufferHandle                  bindless_info;
+        rg::SamplerHandle                    sampler;
+        std::shared_ptr<gfx::RenderPipeline> pipeline;
+        bool                                 clear_depth     = false;
+        std::uint32_t                        width           = 1;
+        std::uint32_t                        height          = 1;
+        std::uint64_t                        instance_stride = 0;
+        std::uint64_t                        bindless_stride = 0;
+    };
+
+    struct AlbedoPassDesc {
+        std::pmr::string    pass_name;
+        rg::TextureHandle   target;
+        rg::TextureHandle   depth;
+        FrameConstant       frame_constant;
+        rg::GPUBufferHandle frame_constant_buffer;
+        rg::GPUBufferHandle instance_constant_buffer;
+        rg::GPUBufferHandle bindless_info_buffer;
+        rg::SamplerHandle   sampler;
+        gfx::Device::Type   device_type     = gfx::Device::Type::Mock;
+        bool                clear_depth     = true;
+        std::uint32_t       width           = 1;
+        std::uint32_t       height          = 1;
+        std::uint64_t       instance_stride = 0;
+        std::uint64_t       bindless_stride = 0;
+    };
+
+    auto CreateTargets(RenderContext& context, const Desc& desc) -> GBufferOutput;
+    auto GetAlbedoPipeline() -> std::shared_ptr<gfx::RenderPipeline>;
+    auto GetNormalPipeline() -> std::shared_ptr<gfx::RenderPipeline>;
+    auto GetMaterialPipeline() -> std::shared_ptr<gfx::RenderPipeline>;
+    auto GetEmissivePipeline() -> std::shared_ptr<gfx::RenderPipeline>;
+    void BuildAlbedoPass(RenderContext& context, RenderDrawState& draw_state, const AlbedoPassDesc& desc);
+    void BuildAttributePass(RenderContext& context, RenderDrawState& draw_state, const AttributePassDesc& desc);
+
+private:
+    void EnsureResources();
+
+    gfx::Device&                         m_Device;
+    gfx::BindlessUtils&                  m_Bindings;
+    const gfx::ShaderCompiler&           m_ShaderCompiler;
+    ShaderSource                         m_Shader;
+    std::shared_ptr<gfx::Shader>         m_VS;
+    std::shared_ptr<gfx::Shader>         m_AlbedoPS;
+    std::shared_ptr<gfx::Shader>         m_NormalPS;
+    std::shared_ptr<gfx::Shader>         m_MaterialPS;
+    std::shared_ptr<gfx::Shader>         m_EmissivePS;
+    std::shared_ptr<gfx::RenderPipeline> m_AlbedoPipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_NormalPipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_MaterialPipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_EmissivePipeline;
+};
+
+}  // namespace hitagi::render::passes
 
 namespace hitagi::render {
 
-namespace {
 
 auto CountDraws(const RenderDrawState& draw_state) noexcept -> std::size_t {
     std::size_t result = 0;
@@ -25,7 +176,6 @@ void UploadMaterialData(
     material_data_buffer.UnMap();
 }
 
-}  // namespace
 auto passes::DepthPrepass::CreateTarget(RenderContext& context, const Desc& desc) -> rg::TextureHandle {
     return context.graph.Create(gfx::TextureDesc{
         .name        = std::pmr::string(std::format("depth_prepass_{}", context.graph.GetFrameIndex())),

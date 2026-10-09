@@ -2,10 +2,39 @@ module;
 
 #include "interop/tracy_macros.hpp"
 
-module core;
+export module core:runtime_module;
 import interop.tracy;
+import interop.spdlog;
+
 import std;
 import utils;
+
+export namespace hitagi::core {
+
+class RuntimeModule {
+public:
+    RuntimeModule(std::string_view name);
+    virtual ~RuntimeModule();
+    virtual void Tick();
+
+    inline auto GetName() const noexcept -> std::string_view { return m_Name; };
+
+    auto         GetSubModule(std::string_view name) -> RuntimeModule*;
+    auto         GetSubModules() const noexcept -> std::pmr::vector<RuntimeModule*>;
+    virtual auto AddSubModule(std::unique_ptr<RuntimeModule> module, RuntimeModule* after = nullptr) -> RuntimeModule*;
+    virtual void UnloadSubModule(std::string_view name);
+
+protected:
+    // Destroys sub-modules in reverse insertion order (what the destructor does).
+    // Lets a derived module end its sub-modules' lifetime before its own members.
+    void UnloadAllSubModules() noexcept;
+
+    std::pmr::string                               m_Name;
+    std::shared_ptr<spdlog::logger>                m_Logger;
+    std::pmr::list<std::unique_ptr<RuntimeModule>> m_SubModules;
+};
+
+}  // namespace hitagi::core
 
 namespace hitagi::core {
 

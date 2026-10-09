@@ -1,5 +1,58 @@
-module render;
+export module render:gbuffer_debug;
 import std;
+import utils;
+import math;
+import core;
+import gfx;
+import asset;
+
+import :types;
+import :gbuffer;
+
+export namespace hitagi::render::passes {
+
+class GBufferDebugView {
+public:
+    GBufferDebugView(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader);
+
+    auto Build(
+        RenderContext&       context,
+        const GBufferOutput& gbuffer,
+        rg::SamplerHandle    sampler,
+        std::string_view     view_name,
+        rg::TextureHandle    target) -> rg::TextureHandle;
+
+private:
+    void EnsureResources(gfx::Format target_format);
+
+    struct BindlessInfo {
+        gfx::BindlessHandle gbuffer_albedo;
+        gfx::BindlessHandle gbuffer_normal;
+        gfx::BindlessHandle gbuffer_material;
+        gfx::BindlessHandle gbuffer_emissive;
+        gfx::BindlessHandle object_material_id;
+        gfx::BindlessHandle sampler;
+    };
+
+    gfx::Device&                         m_Device;
+    gfx::BindlessUtils&                  m_Bindings;
+    const gfx::ShaderCompiler&           m_ShaderCompiler;
+    ShaderSource                         m_Shader;
+    std::shared_ptr<gfx::Shader>         m_VS;
+    std::shared_ptr<gfx::Shader>         m_AlbedoPS;
+    std::shared_ptr<gfx::Shader>         m_NormalPS;
+    std::shared_ptr<gfx::Shader>         m_MaterialPS;
+    std::shared_ptr<gfx::Shader>         m_EmissivePS;
+    std::shared_ptr<gfx::Shader>         m_ObjectMaterialIdPS;
+    std::shared_ptr<gfx::RenderPipeline> m_AlbedoPipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_NormalPipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_MaterialPipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_EmissivePipeline;
+    std::shared_ptr<gfx::RenderPipeline> m_ObjectMaterialIdPipeline;
+    gfx::Format                          m_TargetFormat = gfx::Format::UNKNOWN;
+};
+
+}  // namespace hitagi::render::passes
 
 namespace hitagi::render {
 

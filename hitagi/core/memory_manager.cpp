@@ -3,12 +3,35 @@ module;
 #include <cassert>
 #include "interop/tracy_macros.hpp"
 
-module core;
+export module core:memory_manager;
 import interop.fmt;
 import interop.spdlog;
 import interop.tracy;
 
 import std;
+
+import :runtime_module;
+
+export namespace hitagi::core {
+
+class MemoryManager final : public RuntimeModule {
+public:
+    MemoryManager();
+    ~MemoryManager() final;
+
+    template <typename T = std::byte>
+    std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
+
+private:
+    std::unique_ptr<std::pmr::memory_resource> m_Pools;
+};
+
+template <typename T>
+std::pmr::polymorphic_allocator<T> MemoryManager::GetAllocator() const noexcept {
+    return std::pmr::polymorphic_allocator<T>(m_Pools.get());
+}
+
+}  // namespace hitagi::core
 
 namespace hitagi::core {
 

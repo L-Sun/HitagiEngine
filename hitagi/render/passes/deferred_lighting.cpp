@@ -1,5 +1,54 @@
-module render;
+export module render:deferred_lighting;
 import std;
+import utils;
+import math;
+import core;
+import gfx;
+import asset;
+
+import :types;
+import :gbuffer;
+
+export namespace hitagi::render::passes {
+
+class DeferredLighting {
+public:
+    DeferredLighting(gfx::Device& device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, ShaderSource shader);
+
+    struct BindlessInfo {
+        gfx::BindlessHandle frame_constant;
+        gfx::BindlessHandle gbuffer_albedo;
+        gfx::BindlessHandle gbuffer_normal;
+        gfx::BindlessHandle gbuffer_material;
+        gfx::BindlessHandle gbuffer_emissive;
+        gfx::BindlessHandle sampler;
+    };
+
+    auto GetPipeline(gfx::Format target_format) -> std::shared_ptr<gfx::RenderPipeline>;
+
+    auto Build(
+        RenderContext&                              context,
+        const GBufferOutput&                        gbuffer,
+        rg::GPUBufferHandle                         frame_constant,
+        rg::GPUBufferHandle                         bindless_info,
+        rg::SamplerHandle                           sampler,
+        const std::shared_ptr<gfx::RenderPipeline>& pipeline,
+        rg::TextureHandle                           target) -> rg::TextureHandle;
+
+private:
+    void EnsureResources(gfx::Format target_format);
+
+    gfx::Device&                         m_Device;
+    gfx::BindlessUtils&                  m_Bindings;
+    const gfx::ShaderCompiler&           m_ShaderCompiler;
+    ShaderSource                         m_Shader;
+    std::shared_ptr<gfx::Shader>         m_VS;
+    std::shared_ptr<gfx::Shader>         m_PS;
+    std::shared_ptr<gfx::RenderPipeline> m_Pipeline;
+    gfx::Format                          m_TargetFormat = gfx::Format::UNKNOWN;
+};
+
+}  // namespace hitagi::render::passes
 
 namespace hitagi::render {
 

@@ -1,5 +1,21 @@
-module render;
+export module render:present;
 import std;
+import utils;
+import math;
+import core;
+import gfx;
+import asset;
+
+import :types;
+
+export namespace hitagi::render::passes {
+
+class Present {
+public:
+    void Build(RenderContext& context, rg::TextureHandle input);
+};
+
+}  // namespace hitagi::render::passes
 
 namespace hitagi::render {
 

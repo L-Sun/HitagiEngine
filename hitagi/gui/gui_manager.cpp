@@ -5,10 +5,69 @@ module;
 #undef near
 #undef far
 
-module gui;
+export module gui:manager;
 import interop.imgui;
 import interop.tracy;
+
 import std;
+import core;
+import gfx;
+import app;
+import math;
+import hid;
+
+import :key_mapping;
+import :draw_data;
+
+export namespace hitagi::gui {
+
+class GuiManager final : public core::RuntimeModule {
+public:
+    // Font files are read through `file_io` and the atlas keeps pointing into its
+    // cache, so `file_io` must outlive this manager.
+    GuiManager(Application& application, core::FileIOManager& file_io);
+    ~GuiManager() final;
+    void Tick() final;
+
+    template <typename DrawFunc>
+    inline void DrawGui(DrawFunc&& draw_func) {
+        m_GuiDrawTasks.emplace_back([func = std::forward<DrawFunc>(draw_func)] { func(); });
+    }
+
+    template <typename DrawFunc>
+    inline void DrawGuiEarly(DrawFunc&& draw_func) {
+        m_EarlyGuiDrawTasks.emplace_back([func = std::forward<DrawFunc>(draw_func)] { func(); });
+    }
+
+    auto         ReadTexture(rg::TextureHandle texture) -> ImTextureID;
+    inline auto& GetDrawData() const noexcept { return m_DrawData; }
+
+private:
+    void LoadFont(core::FileIOManager& file_io);
+    void BuildDrawData();
+    void MouseEvent();
+    void KeysEvent();
+
+    static auto DecodeColor(std::uint32_t color) noexcept -> math::Color;
+    static auto DecodeTexture(ImTextureID texture_id) noexcept -> GuiTextureRef;
+
+    Application&       m_App;
+    hid::InputManager& m_InputManager;
+    core::Clock        m_Clock;
+
+    std::pmr::deque<std::function<void()>> m_EarlyGuiDrawTasks;
+    std::pmr::deque<std::function<void()>> m_GuiDrawTasks;
+
+    GuiDrawData      m_DrawData;
+    const std::byte* m_FontAtlasPixels     = nullptr;
+    std::size_t      m_FontAtlasDataSize   = 0;
+    std::uint32_t    m_FontAtlasWidth      = 0;
+    std::uint32_t    m_FontAtlasHeight     = 0;
+    std::uint64_t    m_FontAtlasGeneration = 0;
+};
+
+}  // namespace hitagi::gui
+
 namespace hitagi::gui {
 
 GuiManager::GuiManager(Application& app, core::FileIOManager& file_io) : core::RuntimeModule("GuiManager"), m_App(app), m_InputManager(app.GetInputManager()) {

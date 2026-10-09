@@ -2,9 +2,68 @@ module;
 
 #include "interop/tracy_macros.hpp"
 
-module render;
+export module render:runtime;
 import interop.tracy;
+
 import std;
+import utils;
+import math;
+import core;
+import gfx;
+import asset;
+import gui;
+import app;
+
+import :types;
+import :gui;
+import :text;
+import :present;
+
+export namespace hitagi::render {
+
+class RenderRuntime : public core::RuntimeModule {
+public:
+    RenderRuntime(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, const Application& app, std::string_view name = "");
+
+    void Tick() override;
+
+    auto MakeContext() noexcept -> RenderContext;
+
+    void RenderGui(rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target);
+
+    void RenderText(rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target = false);
+
+    void CopyToTexture(rg::TextureHandle from, std::shared_ptr<gfx::Texture> to, gfx::TextureSubresourceLayer from_layer = {}, gfx::TextureSubresourceLayer to_layer = {});
+    void CopyToBuffer(rg::TextureHandle from, std::shared_ptr<gfx::GPUBuffer> to, gfx::TextureSubresourceLayer from_layer = {});
+
+    void ToSwapChain(rg::TextureHandle from);
+
+    inline auto GetFrameTime() const noexcept -> std::chrono::duration<double> { return m_Clock.DeltaTime(); }
+
+    inline auto GetRenderGraph() noexcept -> rg::RenderGraph& { return m_RenderGraph; }
+
+    auto GetSwapChain() const noexcept -> gfx::SwapChain& { return *m_SwapChain; }
+
+    auto GetSwapChainPtr() const noexcept -> std::shared_ptr<gfx::SwapChain> { return m_SwapChain; }
+
+private:
+    const Application&               m_App;
+    gfx::Device&                     m_GfxDevice;
+    gfx::CommandQueues&              m_Queues;
+    gfx::BindlessUtils&              m_Bindings;
+    const gfx::ShaderCompiler&       m_ShaderCompiler;
+    std::shared_ptr<gfx::SwapChain>  m_SwapChain;
+    rg::RenderGraph                  m_RenderGraph;
+    std::unique_ptr<GuiRenderUtils>  m_GuiRenderUtils;
+    std::unique_ptr<TextRenderUtils> m_TextRenderUtils;
+    passes::Present                  m_PresentPass;
+    rg::TextureHandle                m_GuiTarget;
+    const gui::GuiDrawData*          m_GuiDrawData    = nullptr;
+    bool                             m_ClearGuiTarget = false;
+    core::Clock                      m_Clock;
+};
+
+}  // namespace hitagi::render
 
 namespace hitagi::render {
 

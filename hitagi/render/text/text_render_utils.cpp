@@ -1,15 +1,44 @@
 module;
 #include <cstddef>
 
-
-
-module render;
+export module render:text;
 import interop.freetype;
 import interop.spdlog;
+
 import std;
+import utils;
+import math;
+import core;
+import gfx;
+
+import :types;
+
+export namespace hitagi::render {
+
+class TextRenderUtils {
+public:
+    TextRenderUtils(gfx::Device& gfx_device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, std::filesystem::path font_dir);
+    ~TextRenderUtils();
+
+    TextRenderUtils(const TextRenderUtils&)            = delete;
+    TextRenderUtils& operator=(const TextRenderUtils&) = delete;
+    TextRenderUtils(TextRenderUtils&&)                 = delete;
+    TextRenderUtils& operator=(TextRenderUtils&&)      = delete;
+
+    void TextPass(rg::RenderGraph& render_graph, rg::TextureHandle target, std::span<const TextDrawCommand> commands, bool clear_target);
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> m_Impl;
+};
+
+namespace passes {
+using Text = TextRenderUtils;
+}  // namespace passes
+
+}  // namespace hitagi::render
 
 namespace hitagi::render {
-namespace {
 
 constexpr std::uint32_t AtlasWidth   = 2048;
 constexpr std::uint32_t AtlasHeight  = 2048;
@@ -138,7 +167,6 @@ void AddGlyphQuad(
     indices.insert(indices.end(), {base, base + 1, base + 2, base + 2, base + 3, base});
 }
 
-}  // namespace
 
 struct TextRenderUtils::Impl {
     explicit Impl(gfx::Device& gfx_device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, std::filesystem::path font_dir)

@@ -5,19 +5,92 @@ module;
 #undef near
 #undef far
 
-module render;
+export module render:deferred_renderer;
 import interop.tracy;
 import interop.magic_enum;
+
 import std;
+import utils;
+import math;
+import core;
+import gfx;
+import asset;
+import app;
+
+import :types;
+import :renderer;
+import :gbuffer;
+import :deferred_lighting;
+import :gbuffer_debug;
+
+export namespace hitagi::render {
+
+class DeferredRenderer : public IRenderer {
+public:
+    // Shader sources are read through `file_io` during construction only; the
+    // renderer keeps no reference to it afterwards.
+    DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io, const Application& app, std::string_view name = "");
+
+    auto Render(RenderContext& context, const RenderRequest& request) -> RenderResult override;
+    void AddExtension(std::shared_ptr<IDeferredRenderExtension> extension);
+    void ClearExtensions();
+
+private:
+    auto RenderFrame(RenderContext& context, const RenderRequest& request) -> RenderResult;
+    void RecordMaterial(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Material>& material);
+    void RecordMesh(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Mesh>& mesh);
+    void RecordInstance(rg::RenderGraph& render_graph, const RenderDrawItem& item);
+    // this function must invoke after all instance are finished, it will:
+    // 1. update index of material in the constant buffer of material,
+    // 2. create constant buffer of materials
+    // 3. create constant buffer of instances
+    // 4. create constant buffer of frame
+    // 5. create constant buffer of bindless info
+    void UpdateConstantBuffer(rg::RenderGraph& render_graph, const std::shared_ptr<gfx::RenderPipeline>& default_pipeline);
+    void ClearFrameState();
+
+    const Application&         m_App;
+    gfx::Device&               m_GfxDevice;
+    gfx::CommandQueues&        m_Queues;
+    gfx::BindlessUtils&        m_Bindings;
+    const gfx::ShaderCompiler& m_ShaderCompiler;
+
+    // Execution environment handed to every asset Load() call in this renderer.
+    asset::ResourceLoadContext m_LoadContext;
+
+    std::shared_ptr<gfx::Sampler> m_PersistentSampler;
+
+    passes::GBuffer                                             m_GBufferPass;
+    passes::DeferredLighting                                    m_DeferredLightingPass;
+    passes::GBufferDebugView                                    m_GBufferDebugViewPass;
+    std::pmr::vector<std::shared_ptr<IDeferredRenderExtension>> m_Extensions;
+
+    // frame state
+    rg::SamplerHandle   m_Sampler;
+    rg::GPUBufferHandle m_FrameConstantBuffer;
+    rg::GPUBufferHandle m_InstanceConstantBuffer;
+    std::uint64_t       m_InstanceConstantStride = 0;
+    std::uint64_t       m_DrawBindlessInfoStride = 0;
+    rg::GPUBufferHandle m_BindlessInfoConstantBuffer;
+    rg::GPUBufferHandle m_NormalBindlessInfoConstantBuffer;
+    rg::GPUBufferHandle m_MaterialBindlessInfoConstantBuffer;
+    rg::GPUBufferHandle m_EmissiveBindlessInfoConstantBuffer;
+    rg::GPUBufferHandle m_DeferredLightingBindlessInfoConstantBuffer;
+    rg::GPUBufferHandle m_GBufferDebugViewBindlessInfoConstantBuffer;
+
+    RenderDrawState m_DrawState;
+};
+
+using DefaultRenderer = DeferredRenderer;
+
+}  // namespace hitagi::render
 
 namespace hitagi::render {
-namespace {
 
 constexpr auto ToIndexFormat(asset::IndexType type) noexcept -> gfx::Format {
     return type == asset::IndexType::UINT16 ? gfx::Format::R16_UINT : gfx::Format::R32_UINT;
 }
 
-}  // namespace
 
 auto LoadShaderSource(core::FileIOManager& file_io, std::filesystem::path path) -> ShaderSource {
     auto code = std::pmr::string(file_io.SyncOpenAndReadBinary(path).Str());

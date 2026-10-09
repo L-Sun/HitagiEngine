@@ -1,5 +1,40 @@
-module core;
+module;
+
+#include "interop/tracy_macros.hpp"
+
+export module core:file_io_manager;
+import interop.spdlog;
+import interop.tracy;
+
 import std;
+
+import :runtime_module;
+import :buffer;
+
+export namespace hitagi::core {
+
+class FileIOManager : public RuntimeModule {
+public:
+    FileIOManager() : RuntimeModule("FileIOManager") {}
+
+    auto SyncOpenAndReadBinary(const std::filesystem::path& file_path) -> const Buffer&;
+    void SaveString(std::string_view str, const std::filesystem::path& path);
+    void SaveBuffer(const Buffer& buffer, const std::filesystem::path& path);
+    void SaveBuffer(std::span<const std::byte> buffer, const std::filesystem::path& path);
+
+private:
+    bool          IsFileChanged(const std::filesystem::path& file_path) const;
+    const Buffer& CacheFile(const std::filesystem::path& file_path, Buffer buffer);
+
+    using PathHash = std::size_t;
+
+    TracyLockableN(std::mutex, m_CacheMutex, "FileIO Cache Mutex");
+    std::pmr::unordered_map<PathHash, std::filesystem::file_time_type> m_FileStateCache;
+    std::pmr::unordered_map<PathHash, Buffer>                          m_FileCache;
+    Buffer                                                             m_EmptyBuffer;
+};
+
+}  // namespace hitagi::core
 
 namespace hitagi::core {
 

@@ -1,19 +1,66 @@
 module;
 #include "interop/jolt_macros.hpp"
 
-
 #include <cstdarg>
 #include <cstdio>
 
-module physics;
+export module physics:world;
 import interop.jolt;
 
 import std;
 import core;
+import math;
+
+import :types;
+
+export namespace hitagi::physics {
+
+class PhysicsWorld final : public core::RuntimeModule {
+public:
+    // `job_system` drives Jolt's parallel simulation and must outlive the world.
+    explicit PhysicsWorld(core::JobSystem& job_system, const PhysicsWorldDesc& desc = {});
+    ~PhysicsWorld() final;
+
+    PhysicsWorld(const PhysicsWorld&)            = delete;
+    PhysicsWorld& operator=(const PhysicsWorld&) = delete;
+    PhysicsWorld(PhysicsWorld&&)                 = delete;
+    PhysicsWorld& operator=(PhysicsWorld&&)      = delete;
+
+    void Tick() final;
+
+    auto Step(float delta_time, int collision_steps = 1) -> PhysicsUpdateError;
+    void OptimizeBroadPhase();
+
+    auto CreateAndAddBody(const BodyDesc& desc, Activation activation = Activation::Activate) -> BodyID;
+    void RemoveAndDestroyBody(BodyID body_id);
+
+    auto IsBodyAdded(BodyID body_id) const -> bool;
+    auto GetNumBodies() const -> std::uint32_t;
+
+    void SetBodyTransform(BodyID body_id, const BodyTransform& transform, Activation activation = Activation::Activate);
+    auto GetBodyTransform(BodyID body_id) const -> BodyTransform;
+
+    void SetLinearVelocity(BodyID body_id, math::vec3f velocity);
+    auto GetLinearVelocity(BodyID body_id) const -> math::vec3f;
+
+    void SetAngularVelocity(BodyID body_id, math::vec3f velocity);
+    auto GetAngularVelocity(BodyID body_id) const -> math::vec3f;
+
+    void AddForce(BodyID body_id, math::vec3f force, Activation activation = Activation::Activate);
+    void AddImpulse(BodyID body_id, math::vec3f impulse);
+
+    void SetGravity(math::vec3f gravity);
+    auto GetGravity() const -> math::vec3f;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> m_Impl;
+};
+
+}  // namespace hitagi::physics
 
 namespace hitagi::physics {
 
-namespace {
 
 std::mutex  g_JoltRuntimeMutex;
 std::size_t g_JoltRuntimeRefCount = 0;
@@ -254,7 +301,6 @@ auto CreateShape(const ShapeDesc& desc) -> JPH::RefConst<JPH::Shape> {
     return result.Get();
 }
 
-}  // namespace
 
 struct PhysicsWorld::Impl {
     Impl(core::JobSystem& core_job_system, const PhysicsWorldDesc& desc)
