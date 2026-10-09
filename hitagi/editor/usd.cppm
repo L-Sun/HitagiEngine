@@ -183,9 +183,9 @@ auto DecodeUsdTexture(
     const pxr::SdfAssetPath&               asset_path,
     TextureCache&                          texture_cache,
     const std::shared_ptr<spdlog::logger>& logger) -> std::shared_ptr<Texture> {
-    const auto authored_path = asset_path.GetAssetPath();
-    const auto resolved_path = asset_path.GetResolvedPath();
-    const auto cache_key     = !resolved_path.empty() ? resolved_path : authored_path;
+    const auto& authored_path = asset_path.GetAssetPath();
+    const auto& resolved_path = asset_path.GetResolvedPath();
+    const auto  cache_key     = !resolved_path.empty() ? resolved_path : authored_path;
     if (cache_key.empty()) return nullptr;
 
     if (const auto iter = texture_cache.find(cache_key); iter != texture_cache.end()) return iter->second;
@@ -222,7 +222,7 @@ auto DecodeUsdTexture(
 
     auto texture = codec->Decode(buffer);
     if (texture) {
-        const auto resolved_path_text = resolved.GetPathString();
+        const auto& resolved_path_text = resolved.GetPathString();
         texture->SetName(authored_path.empty() ? resolved_path_text : authored_path);
         texture->SetPath(resolved_path_text);
     }

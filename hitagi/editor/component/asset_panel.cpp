@@ -145,7 +145,7 @@ void Editor::PreviewAssetFromBrowser(const EditorAssetBrowserEntry& entry) {
             auto texture = m_Engine.Assets().ImportTexture(entry.path);
             if (texture) {
                 texture->Load(m_Engine.ResourceLoadContext());
-                m_SelectedTexturePreview = texture;
+                m_SelectedTexturePreview = std::move(texture);
                 m_AssetPreviewStatus     = std::format("Previewing texture: {}", entry.relative_path);
                 Notify(m_AssetPreviewStatus);
             }

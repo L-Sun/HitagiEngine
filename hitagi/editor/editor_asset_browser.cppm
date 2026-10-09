@@ -56,7 +56,7 @@ public:
             }
             if (!entry.is_regular_file(ec)) continue;
 
-            const auto path = entry.path();
+            const auto& path = entry.path();
 
             std::error_code relative_ec;
             auto            relative_path = std::filesystem::relative(path, m_Root, relative_ec);

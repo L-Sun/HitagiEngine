@@ -615,7 +615,7 @@ void EditorSelectionMetadataPass::BuildTargetPass(
     rg::GPUBufferHandle                  bindless_info,
     rg::TextureHandle                    target,
     rg::TextureHandle                    depth_stencil,
-    std::shared_ptr<gfx::RenderPipeline> pipeline,
+    const std::shared_ptr<gfx::RenderPipeline>& pipeline,
     Target                               target_kind,
     std::span<const InstanceConstant>    selected_constants,
     std::span<const std::size_t>         selected_instances,
@@ -1377,7 +1377,7 @@ void SceneViewPort::FocusSelectedEntity() {
     m_State.MarkDirty();
 }
 
-void SceneViewPort::SetScene(std::shared_ptr<asset::Scene> scene) noexcept {
+void SceneViewPort::SetScene(const std::shared_ptr<asset::Scene>& scene) noexcept {
     m_CameraNavigation.orbiting        = false;
     m_CameraNavigation.orbit_pivot     = {};
     m_CameraNavigation.has_orbit_pivot = true;

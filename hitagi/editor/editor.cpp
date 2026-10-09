@@ -860,10 +860,8 @@ void Editor::PollSyntheticHidControl() {
         }
     }
 
-    m_HidControlOffset = static_cast<std::uintmax_t>(input.tellg());
-    if (m_HidControlOffset == static_cast<std::uintmax_t>(-1)) {
-        m_HidControlOffset = size;
-    }
+    const std::streamoff offset = input.tellg();
+    m_HidControlOffset          = offset < 0 ? size : static_cast<std::uintmax_t>(offset);
     std::ranges::sort(m_SyntheticHidEvents.begin() + static_cast<std::ptrdiff_t>(m_NextSyntheticHidEvent), m_SyntheticHidEvents.end(), {}, &EditorSyntheticHidEvent::frame);
 }
 

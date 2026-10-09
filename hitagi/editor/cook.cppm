@@ -55,7 +55,7 @@ struct EditorCookOptions {
 };
 
 // HTGC binary writers, the cooked output consumed by the runtime (see docs/assets/cooked_binary_format.md).
-auto CookEditorMaterial(const EditorMaterial& material, EditorCookOptions options = {}) -> core::Buffer;
+auto CookEditorMaterial(const EditorMaterial& material, const EditorCookOptions& options = {}) -> core::Buffer;
 auto CookEditorScene(asset::Scene& scene, EditorCookOptions options = {}) -> core::Buffer;
 
 }  // namespace hitagi
@@ -399,7 +399,7 @@ auto EditorCookContext::MakeEditorMaterial(const std::shared_ptr<asset::Material
     return result;
 }
 
-auto CookEditorMaterial(const EditorMaterial& material, EditorCookOptions options) -> core::Buffer {
+auto CookEditorMaterial(const EditorMaterial& material, const EditorCookOptions& options) -> core::Buffer {
     if (!material.material) {
         throw std::runtime_error("Cannot cook an empty editor material.");
     }

@@ -147,7 +147,7 @@ public:
 
 class MaterialShaderCache {
 public:
-    auto CompileOrGet(const MaterialGraph& graph, MaterialGraphCompileOptions options = {}) -> MaterialGraphCompileResult;
+    auto CompileOrGet(const MaterialGraph& graph, const MaterialGraphCompileOptions& options = {}) -> MaterialGraphCompileResult;
     auto Recompile(const MaterialGraph& graph, MaterialGraphCompileOptions options = {}) -> MaterialGraphCompileResult;
     bool Invalidate(std::uint64_t cache_key);
     void Clear() noexcept;
@@ -447,7 +447,7 @@ auto MaterialGraph::FindOutputSocket(MaterialGraphNodeId id, std::string_view na
 
 auto MaterialGraph::Validate() const -> MaterialGraphValidationResult {
     MaterialGraphValidationResult result;
-    const auto                    add_error = [&result](MaterialGraphValidationErrorCode code, std::string message) {
+    const auto                    add_error = [&result](MaterialGraphValidationErrorCode code, std::string_view message) {
         result.errors.emplace_back(MaterialGraphValidationError{.code = code, .message = std::pmr::string(message)});
     };
 
@@ -848,8 +848,8 @@ auto MaterialGraphCompiler::Compile(const MaterialGraph& graph, MaterialGraphCom
     return result;
 }
 
-auto MaterialShaderCache::CompileOrGet(const MaterialGraph& graph, MaterialGraphCompileOptions options) -> MaterialGraphCompileResult {
-    const auto compiled = m_Compiler.Compile(graph, options);
+auto MaterialShaderCache::CompileOrGet(const MaterialGraph& graph, const MaterialGraphCompileOptions& options) -> MaterialGraphCompileResult {
+    auto compiled = m_Compiler.Compile(graph, options);
     if (!compiled) return compiled;
     if (!options.force_recompile) {
         if (const auto iter = m_Cache.find(compiled.cache_key); iter != m_Cache.end()) return iter->second;
@@ -860,7 +860,7 @@ auto MaterialShaderCache::CompileOrGet(const MaterialGraph& graph, MaterialGraph
 
 auto MaterialShaderCache::Recompile(const MaterialGraph& graph, MaterialGraphCompileOptions options) -> MaterialGraphCompileResult {
     options.force_recompile = true;
-    return CompileOrGet(graph, std::move(options));
+    return CompileOrGet(graph, options);
 }
 
 bool MaterialShaderCache::Invalidate(std::uint64_t cache_key) {
