@@ -78,7 +78,7 @@ VulkanBindlessUtils::VulkanBindlessUtils(const vk::raii::Device& device, const v
         size                    = utils::align(size, alignments[kind]);
         m_Offsets[kind]         = static_cast<std::uint32_t>(size);
         m_DescriptorSizes[kind] = utils::align(m_DescriptorSizes[kind], alignments[kind]);
-        size += vk::DeviceSize(m_DescriptorSizes[kind]) * counts[kind];
+        size += static_cast<vk::DeviceSize>(m_DescriptorSizes[kind]) * counts[kind];
         m_Mappings[kind] = {
             .descriptorSet = kind,
             .firstBinding  = 0,

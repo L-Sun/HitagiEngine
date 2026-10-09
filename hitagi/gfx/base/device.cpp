@@ -20,7 +20,7 @@ public:
         Mock
     } const device_type;
 
-    virtual ~Device();
+    ~Device() override;
 
     void Tick() override;
 

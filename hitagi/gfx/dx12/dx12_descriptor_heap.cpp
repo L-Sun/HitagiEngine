@@ -43,7 +43,7 @@ private:
 
 class DescriptorHeap {
 public:
-    DescriptorHeap(ID3D12Device& device, std::shared_ptr<spdlog::logger> logger, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptors, std::string_view name = "");
+    DescriptorHeap(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptors, std::string_view name = "");
 
     bool               Empty() const;
     [[nodiscard]] auto Allocate() -> Descriptor;
@@ -106,9 +106,8 @@ Descriptor::~Descriptor() {
     if (m_HeapFrom) m_HeapFrom->DiscardDescriptor(*this);
 }
 
-DescriptorHeap::DescriptorHeap(ID3D12Device& device, std::shared_ptr<spdlog::logger> logger, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptors, std::string_view name) : m_Type(type) {
-    m_IncrementSize = device.GetDescriptorHandleIncrementSize(type);
-
+DescriptorHeap::DescriptorHeap(ID3D12Device& device, const std::shared_ptr<spdlog::logger>& logger, D3D12_DESCRIPTOR_HEAP_TYPE type, std::size_t num_descriptors, std::string_view name)
+    : m_IncrementSize(device.GetDescriptorHandleIncrementSize(type)), m_Type(type) {
     D3D12_DESCRIPTOR_HEAP_DESC desc{
         .Type           = type,
         .NumDescriptors = static_cast<UINT>(num_descriptors),

@@ -558,7 +558,7 @@ void VulkanSwapChain::Present() {
 
     const auto& queue = m_Queue;
 
-    std::uint32_t index                 = static_cast<std::uint32_t>(m_CurrentIndex);
+    auto          index                 = static_cast<std::uint32_t>(m_CurrentIndex);
     auto          presentable_semaphore = m_CurrentSemaphores.presentable;
     m_CurrentIndex                      = -1;
     m_CurrentSemaphores                 = {};
