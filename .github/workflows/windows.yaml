@@ -24,6 +24,9 @@ concurrency:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    env:
+      # Keep the package root short; USD install paths are long on Windows.
+      XMAKE_GLOBALDIR: ${{ runner.workspace }}/xmake-global
 
     strategy:
       matrix:
@@ -51,9 +54,25 @@ jobs:
           xmake-version: L-Sun/xmake#branch@hitagi-engine
           actions-cache-folder: ".xmake-cache"
 
+      - name: Restore xmake packages
+        id: restore-packages
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/packages
+          key: xmake-packages-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('xmake.lua', 'hitagi/**/xmake.lua', 'examples/**/xmake.lua', 'xmake/packages/**') }}
+          restore-keys: |
+            xmake-packages-${{ runner.os }}-${{ matrix.compiler }}-
+
       - name: Config
         run: |
           xmake f -y -a x64 -m release ${{ matrix.compiler }}
+
+      - name: Save xmake packages
+        if: ${{ !cancelled() && steps.restore-packages.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/packages
+          key: ${{ steps.restore-packages.outputs.cache-primary-key }}
 
       - name: Build
         run: |
