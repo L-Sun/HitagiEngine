@@ -183,7 +183,7 @@ void Win32Application::InitializeWindows() {
     wc.lpfnWndProc   = WindowProc;
     wc.hInstance     = h_instance;
     wc.hCursor       = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wc.hbrBackground = reinterpret_cast<HBRUSH>(static_cast<std::intptr_t>(COLOR_WINDOW + 1));
     wc.lpszClassName = title.c_str();
 
     // register the window class
@@ -309,7 +309,7 @@ float Win32Application::GetDpiRatio() const {
 
 std::size_t Win32Application::GetMemoryUsage() const {
     PROCESS_MEMORY_COUNTERS_EX pmc;
-    K32GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc));
+    K32GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof(pmc));
     return pmc.WorkingSetSize;
 }
 
