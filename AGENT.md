@@ -109,6 +109,8 @@ Name dependency modules `interop.<library_name>`, with backend extensions under 
 
 Keep a file's `import interop.*` declarations together, separate from standard-library and engine-module imports. Preserve platform guards around platform-specific imports.
 
+Taskflow must retain its native types through `interop.taskflow`, not engine-specific wrappers. Use the exported `hitagi::interop::tf` namespace alias (`interop::tf::` inside `hitagi`) for project calls; it refers to the original `::tf` namespace. Its MSVC compatibility fix consists of a node-container explicit instantiation in the bridge and two profiler-helper linkage patches in the local package recipe. See the interop documentation for this and USD's MSVC compatibility declarations. Publish module interfaces/partitions only, not ordinary `.cpp` implementation units.
+
 | Area | Entry point |
 | --- | --- |
 | Runtime composition and services | [engine.cppm](hitagi/engine/engine.cppm), [core.cppm](hitagi/core/core.cppm) |

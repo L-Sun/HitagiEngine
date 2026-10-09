@@ -6,6 +6,25 @@ exports the original entities with using-declarations. This retains upstream
 types, templates and ABI; it does not compile a second copy of the library.
 Vulkan-Hpp and magic_enum use their official modules through re-export bridges.
 
+Taskflow retains its native `tf::` types and APIs through `interop.taskflow`.
+The exported namespace alias `hitagi::interop::tf = ::tf` is the preferred spelling:
+engine code inside `hitagi` uses `interop::tf::Taskflow` and `interop::tf::Executor`.
+Outside `hitagi`, use the full name or a local `namespace interop = hitagi::interop;`
+alias. These are the same upstream types, not wrappers; the alias does not export
+additional upstream names beyond the bridge's export list. On MSVC 14.51 the bridge
+explicitly instantiates `std::vector<tf::Node*>` while Node is complete, avoiding
+recursive Graph/Node import errors. The local Taskflow 4.1.0 recipe's `modules`
+configuration changes only two profiler helpers from `static inline` to `inline`,
+so their definitions survive module import. Public classes, layouts and task
+execution behavior remain unchanged. The version is pinned so these compatibility
+fixes can be retested when upgrading. Extend the bridge's export list when using
+additional upstream names; do not replace native types with look-alike wrappers.
+
+For MSVC, `usd_count_compat.hpp` declares USD's reference-count overloads before
+the upstream template definition and gives the bridge's count-tag constants
+external linkage. This works around imported-template lookup and missing-tag
+link errors without modifying installed USD headers or reference-count behavior.
+
 ## Build ownership
 
 All bridges live in `hitagi/interop`. Targets are separated only at product
@@ -20,11 +39,23 @@ boundaries; there is no target per package.
 
 Every name in the table has the `interop.` prefix. USD and testing libraries
 are not dependencies of the runtime target. Package requirements/configuration
-are declared in the root configuration and interop build file, not in individual
-consumers. Shared linking is requested only for the intended compiled libraries;
+are centralized in `hitagi/interop/xmake.lua`, alongside the bridge targets.
+Consumers inherit dependencies through these targets. Shared linking is requested
+only for the intended compiled libraries;
 Windows DX12 packages are required only on Windows. Bridges never import
 engine modules. The vendored file browser's unchanged header/implementation now
 live beside its bridge; VMA's sole implementation also remains in this directory.
+
+fmt and spdlog use static compiled libraries, with spdlog's external fmt dependency
+matching the direct fmt configuration. This avoids MSVC module compilation errors
+in spdlog's header-only implementation while retaining the separate `interop.fmt`
+and `interop.spdlog` interfaces.
+
+Only module interfaces and interface partitions are public sources. The engine
+also recognizes `export module` declarations in `.cpp` files, since several
+partitions use that extension. Ordinary implementation units stay private to
+their static library; marking them public makes XMake propagate them to consumers
+without the module references they require.
 
 The default build includes the editor. `--examples=y` adds game/GUI examples to
 that build; their targets remain available explicitly when the option is off.
@@ -48,7 +79,10 @@ of their upstream libraries; the engine does not consume their APIs directly.
 ## Macros and configuration
 
 - Constants and ordinary function-like macros become typed constants/functions
-  at the bridge. Win32 A/W aliases are resolved explicitly at call sites.
+  at the bridge, after its named module declaration. The global module fragment
+  contains only preprocessing directives; vendor declarations enter through
+  includes. Capture macro values before undefining names reused by exported
+  constants. Win32 A/W aliases are resolved explicitly at call sites.
 - `tracy_macros.hpp` retains lexical scope, source location, and disabled
   argument elision. Test registration/assertion macros and COM type deduction
   also stay in thin headers without vendor includes.
@@ -81,5 +115,6 @@ It includes excluded historical benchmark/test-main sources in its scan and
 recognizes shader includes embedded in strings. This is an include audit, not
 a compiler or clang-tidy pass. Build and run both test targets, build all game
 and editor examples, and validate both `--profile=n` and `--profile=y` when
-changing shared dependency definitions. Current validation is Windows/clang-cl;
-Linux and other compilers require their own build checks.
+changing shared dependency definitions. The default Windows debug build has also
+been validated with MSVC 14.51. Linux, profiling-enabled configurations and other
+compilers require their own build checks for these compatibility changes.
