@@ -144,7 +144,7 @@ public:
     template <VertexAttribute T>
     auto Span() noexcept -> std::span<VertexDataType<T>>;
     template <VertexAttribute T>
-    void Modify(std::function<void(std::span<VertexDataType<T>>)> modifier);
+    void Modify(const std::function<void(std::span<VertexDataType<T>>)>& modifier);
     void Resize(std::size_t new_count);
 
     void Load(const ResourceLoadContext& context) final;
@@ -192,7 +192,7 @@ public:
     template <IndexType T>
     auto Span() noexcept -> std::span<IndexDataType<T>>;
     template <IndexType T>
-    void Modify(std::function<void(std::span<IndexDataType<T>>)> modifier);
+    void Modify(const std::function<void(std::span<IndexDataType<T>>)>& modifier);
     void Resize(std::size_t new_count);
 
     void Load(const ResourceLoadContext& context) final;
@@ -266,7 +266,7 @@ auto VertexArray::Span() noexcept -> std::span<VertexDataType<T>> {
 }
 
 template <VertexAttribute T>
-void VertexArray::Modify(std::function<void(std::span<VertexDataType<T>>)> modifier) {
+void VertexArray::Modify(const std::function<void(std::span<VertexDataType<T>>)>& modifier) {
     auto& attribute = m_Attributes[T];
     if (attribute.cpu_buffer.Empty() && m_VertexCount != 0) {
         attribute.cpu_buffer = core::Buffer(m_VertexCount * sizeof(VertexDataType<T>));
@@ -363,7 +363,7 @@ auto IndexArray::Span() noexcept -> std::span<IndexDataType<T>> {
 }
 
 template <IndexType T>
-void IndexArray::Modify(std::function<void(std::span<IndexDataType<T>>)> modifier) {
+void IndexArray::Modify(const std::function<void(std::span<IndexDataType<T>>)>& modifier) {
     if (T != m_Data.type) {
         modifier({});
         return;

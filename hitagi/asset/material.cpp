@@ -157,24 +157,12 @@ auto Material::GetParameter(std::string_view name) const noexcept -> std::option
 namespace hitagi::asset {
 
 Material::Material(MaterialParameters parameters, std::pmr::vector<MaterialPass> passes, std::string_view name)
-    : Resource(Type::Material, name) {
-    MaterialParameters unique;
-    unique.reserve(parameters.size());
-    for (const auto& parameter : parameters) {
-        if (std::ranges::none_of(unique, [&](const auto& existing) { return existing.name == parameter.name; })) {
-            unique.emplace_back(parameter);
+    : Resource(Type::Material, name), m_Passes(std::move(passes)) {
+    m_Parameters.reserve(parameters.size());
+    for (auto& parameter : parameters) {
+        if (std::ranges::none_of(m_Parameters, [&](const auto& existing) { return existing.name == parameter.name; })) {
+            m_Parameters.emplace_back(std::move(parameter));
         }
-    }
-    m_Parameters = std::move(unique);
-
-    m_Passes.reserve(passes.size());
-    for (const auto& source_pass : passes) {
-        auto& pass         = m_Passes.emplace_back();
-        pass.pass_contract = std::pmr::string(source_pass.pass_contract);
-        pass.pipeline      = source_pass.pipeline;
-        pass.bindings.reserve(source_pass.bindings.size());
-        for (const auto& binding : source_pass.bindings) pass.bindings.emplace_back(binding);
-        pass.material_data = source_pass.material_data;
     }
 }
 

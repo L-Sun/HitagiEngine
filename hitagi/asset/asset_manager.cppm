@@ -76,7 +76,7 @@ public:
 
     // Registration only records weak references for lookup; it never extends
     // the lifetime of the asset.
-    void AddScene(std::shared_ptr<Scene> scene);
+    void AddScene(const std::shared_ptr<Scene>& scene);
     void AddTexture(std::shared_ptr<Texture> texture);
     void AddMaterial(std::shared_ptr<Material> material);
 

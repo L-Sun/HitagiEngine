@@ -58,7 +58,7 @@ auto PngDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
         return {};
     }
 
-    if (setjmp(interop::png_jump_buffer(png_tr))) {
+    if (setjmp(interop::png_jump_buffer(png_tr))) {  // NOLINT(modernize-avoid-setjmp-longjmp): libpng reports errors via longjmp
         logger->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
         return {};
@@ -86,7 +86,7 @@ auto PngDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
     switch (png_get_color_type(png_tr, info_ptr)) {
         case PNG_COLOR_TYPE_GRAY: {
             for (int i = height - 1; i >= 0; i--) {
-                for (int j = 0; j < width; j++) {
+                for (decltype(width) j = 0; j < width; j++) {
                     p[j].r = rows[i][j];
                     p[j].g = rows[i][j];
                     p[j].b = rows[i][j];
@@ -98,7 +98,7 @@ auto PngDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
         } break;
         case PNG_COLOR_TYPE_GRAY_ALPHA: {
             for (int i = height - 1; i >= 0; i--) {
-                for (int j = 0; j < width; j++) {
+                for (decltype(width) j = 0; j < width; j++) {
                     p[j].r = rows[i][2 * j + 0];
                     p[j].g = rows[i][2 * j + 0];
                     p[j].b = rows[i][2 * j + 0];
@@ -110,7 +110,7 @@ auto PngDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
         } break;
         case PNG_COLOR_TYPE_RGB: {
             for (int i = height - 1; i >= 0; i--) {
-                for (int j = 0; j < width; j++) {
+                for (decltype(width) j = 0; j < width; j++) {
                     p[j].r = rows[i][3 * j + 0];
                     p[j].g = rows[i][3 * j + 1];
                     p[j].b = rows[i][3 * j + 2];
@@ -176,7 +176,7 @@ auto PngDecoder::EncodeImageData(const ImageData& image_data) -> core::Buffer {
         return {};
     }
 
-    if (setjmp(interop::png_jump_buffer(png_ptr))) {
+    if (setjmp(interop::png_jump_buffer(png_ptr))) {  // NOLINT(modernize-avoid-setjmp-longjmp): libpng reports errors via longjmp
         logger->error("[PNG] Error occurred during write_image.");
         png_destroy_write_struct(&png_ptr, &info_ptr);
         return {};

@@ -55,7 +55,7 @@ auto JpegDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
 
     } catch (struct jpeg_error_mgr* err) {
         std::array<char, 1024> error_message;
-        (cinfo.err->format_message)((j_common_ptr)&cinfo, error_message.data());
+        cinfo.err->format_message(reinterpret_cast<j_common_ptr>(&cinfo), error_message.data());
 
         logger->error(error_message.data());
     }

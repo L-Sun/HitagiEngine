@@ -122,7 +122,7 @@ void AssetManager::RegisterResource(const std::shared_ptr<Resource>& resource) {
     m_Registry.resources_by_uuid.insert_or_assign(resource->GetUUID(), resource);
 }
 
-void AssetManager::AddScene(std::shared_ptr<Scene> scene) {
+void AssetManager::AddScene(const std::shared_ptr<Scene>& scene) {
     if (!scene) return;
     std::scoped_lock lock(m_AssetsMutex);
     RegisterResource(scene);
