@@ -365,7 +365,7 @@ void DeferredRenderer::RecordInstance(rg::RenderGraph& render_graph, const Rende
     });
 }
 
-void DeferredRenderer::UpdateConstantBuffer(rg::RenderGraph& render_graph, std::shared_ptr<gfx::RenderPipeline> default_pipeline) {
+void DeferredRenderer::UpdateConstantBuffer(rg::RenderGraph& render_graph, const std::shared_ptr<gfx::RenderPipeline>& default_pipeline) {
     for (auto* const active_material : m_DrawState.active_materials) {
         const auto material = m_DrawState.material_texture_infos.at(active_material).material;
         if (!material) continue;

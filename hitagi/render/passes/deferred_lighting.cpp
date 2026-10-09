@@ -48,7 +48,7 @@ auto passes::DeferredLighting::Build(
     rg::GPUBufferHandle                  frame_constant,
     rg::GPUBufferHandle                  bindless_info,
     rg::SamplerHandle                    sampler,
-    std::shared_ptr<gfx::RenderPipeline> pipeline,
+    const std::shared_ptr<gfx::RenderPipeline>& pipeline,
     rg::TextureHandle                    target) -> rg::TextureHandle {
     auto& render_graph = context.graph;
     if (!render_graph.IsValid(target) ||

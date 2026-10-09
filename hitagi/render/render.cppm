@@ -400,7 +400,7 @@ class IRenderer : public core::RuntimeModule {
 public:
     using core::RuntimeModule::RuntimeModule;
 
-    virtual ~IRenderer() = default;
+    ~IRenderer() override = default;
 
     virtual auto Render(RenderContext& context, const RenderRequest& request) -> RenderResult = 0;
 };
@@ -661,7 +661,7 @@ public:
         rg::GPUBufferHandle      frame_constant,
         rg::GPUBufferHandle      bindless_info,
         rg::SamplerHandle        sampler,
-        std::shared_ptr<gfx::RenderPipeline> pipeline,
+        const std::shared_ptr<gfx::RenderPipeline>& pipeline,
         rg::TextureHandle        target) -> rg::TextureHandle;
 
 private:
@@ -783,7 +783,7 @@ private:
     // 3. create constant buffer of instances
     // 4. create constant buffer of frame
     // 5. create constant buffer of bindless info
-    void UpdateConstantBuffer(rg::RenderGraph& render_graph, std::shared_ptr<gfx::RenderPipeline> default_pipeline);
+    void UpdateConstantBuffer(rg::RenderGraph& render_graph, const std::shared_ptr<gfx::RenderPipeline>& default_pipeline);
     void ClearFrameState();
 
     const Application& m_App;
