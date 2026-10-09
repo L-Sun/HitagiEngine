@@ -93,7 +93,7 @@ void GuiManager::Tick() {
 void GuiManager::LoadFont(core::FileIOManager& file_io) {
     auto& io = ImGui::GetIO();
 
-    auto add_font = [&](std::filesystem::path path, std::u8string_view name, const ImWchar* ranges = nullptr, bool merge = false) {
+    auto add_font = [&](const std::filesystem::path& path, std::u8string_view name, const ImWchar* ranges = nullptr, bool merge = false) {
         const auto& font_buffer = file_io.SyncOpenAndReadBinary(path);
         if (font_buffer.Empty()) return;
 
@@ -128,7 +128,7 @@ void GuiManager::LoadFont(core::FileIOManager& file_io) {
 
     m_Logger->info("ImGui font atlas built: {}x{} ({} bytes)", width, height, data_size);
 
-    io.Fonts->TexID = (ImTextureID)0;
+    io.Fonts->TexID = static_cast<ImTextureID>(0);
 }
 
 void GuiManager::BuildDrawData() {
@@ -263,9 +263,9 @@ void GuiManager::KeysEvent() {
 
 auto GuiManager::ReadTexture(rg::TextureHandle texture) -> ImTextureID {
     if (!texture) {
-        return (ImTextureID)0;
+        return static_cast<ImTextureID>(0);
     }
-    return (ImTextureID)(texture.index + 1);
+    return texture.index + 1;
 }
 
 auto GuiManager::DecodeColor(std::uint32_t color) noexcept -> math::Color {
