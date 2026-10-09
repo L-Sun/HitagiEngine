@@ -32,9 +32,9 @@ boundaries; there is no target per package.
 
 | Target | Consumers | Modules |
 | --- | --- | --- |
-| `hitagi_interop` | Runtime engine and games | `fmt`, `spdlog`, `taskflow`, `imgui`, `sdl`, `jolt`, `freetype`, `png`, `jpeg`, `range_v3`, `cxxopts`, `dxc`, `spirv_reflect`, `vulkan`, `vma`, `magic_enum`, `tracy`, `tracy.vulkan`; Windows: `win32`, `dx12`, `d3d12ma`, `tracy.dx12` |
+| `hitagi_interop` | Runtime engine and games | `fmt`, `spdlog`, `taskflow`, `imgui`, `sdl`, `jolt`, `freetype`, `png`, `jpeg`, `dxc`, `vulkan`, `vma`, `magic_enum`, `tracy`, `tracy.vulkan`; Windows: `win32`, `dx12`, `d3d12ma`, `tracy.dx12` |
 | `hitagi_interop_editor` | Editor and game editors | `usd`, `nlohmann_json`, `imfilebrowser` |
-| `hitagi_interop_test` | Unit/editor tests and benchmark test helpers | `gtest`, `gmock` |
+| `hitagi_interop_test` | Unit/editor tests and benchmark test helpers | `gtest` |
 | `hitagi_interop_benchmark` | Opt-in benchmarks (`--benchmarks=y`) | `benchmark` |
 
 Every name in the table has the `interop.` prefix. USD and testing libraries
@@ -98,7 +98,7 @@ of their upstream libraries; the engine does not consume their APIs directly.
   GoogleTest 1.17.0, with its license. It requires the project's normal
   exceptions/RTTI configuration. If an upgrade breaks compatibility, update the
   adapter against upstream; also extend it when a new macro is needed.
-  GMock currently exports matcher/mock types; no project caller uses MOCK_METHOD.
+  GoogleMock is disabled in the package configuration; project tests use GoogleTest only.
 - Standard library headers needed for macros/global C names or the current
   clang-cl/MSVC-STL module visibility limitations remain textual. They are not
   third-party bridges. Generated ISPC declarations also retain their C ABI header.

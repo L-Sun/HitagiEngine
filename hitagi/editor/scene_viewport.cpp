@@ -4,7 +4,6 @@ module;
 
 module editor;
 import interop.imgui;
-import interop.range_v3;
 import interop.tracy;
 import interop.magic_enum;
 
@@ -528,7 +527,7 @@ auto EditorSelectionMetadataPass::Build(
     std::pmr::vector<std::size_t> selected_instances;
     for (std::size_t i = 0; i < draw_state.instance_infos.size(); ++i) {
         const auto object_id = draw_state.instance_infos[i].object_id;
-        const auto item_it   = ranges::find_if(selected_items, [object_id](const EditorSelectionItem& item) {
+        const auto item_it   = std::ranges::find_if(selected_items, [object_id](const EditorSelectionItem& item) {
             return EditorEntityObjectId(item.entity) == object_id;
         });
         if (item_it != selected_items.end()) selected_instances.emplace_back(i);
@@ -583,7 +582,7 @@ auto EditorSelectionMetadataPass::Build(
     selected_constants.resize(selected_instances.size());
     for (std::size_t selection_index = 0; selection_index < selected_instances.size(); ++selection_index) {
         const auto& instance                = draw_state.instance_infos[selected_instances[selection_index]];
-        const auto  item_it                 = ranges::find_if(selected_items, [object_id = instance.object_id](const EditorSelectionItem& item) {
+        const auto  item_it                 = std::ranges::find_if(selected_items, [object_id = instance.object_id](const EditorSelectionItem& item) {
             return EditorEntityObjectId(item.entity) == object_id;
         });
         const auto  visual_id               = item_it != selected_items.end()

@@ -1,6 +1,5 @@
 export module gfx.vulkan:utils;
 import interop.sdl;
-import interop.spirv_reflect;
 import interop.fmt;
 import interop.spdlog;
 import interop.vulkan;
@@ -364,48 +363,6 @@ inline constexpr auto from_vk_format(vk::Format format) noexcept -> Format {
     }
 }
 
-inline constexpr auto from_spv_format(SpvReflectFormat format) noexcept -> Format {
-    switch (format) {
-        case SPV_REFLECT_FORMAT_R32_UINT:
-            return Format::R32_UINT;
-        case SPV_REFLECT_FORMAT_R32_SINT:
-            return Format::R32_SINT;
-        case SPV_REFLECT_FORMAT_R32_SFLOAT:
-            return Format::R32_FLOAT;
-        case SPV_REFLECT_FORMAT_R32G32_UINT:
-            return Format::R32G32_UINT;
-        case SPV_REFLECT_FORMAT_R32G32_SINT:
-            return Format::R32G32_SINT;
-        case SPV_REFLECT_FORMAT_R32G32_SFLOAT:
-            return Format::R32G32_FLOAT;
-        case SPV_REFLECT_FORMAT_R32G32B32_UINT:
-            return Format::R32G32B32_UINT;
-        case SPV_REFLECT_FORMAT_R32G32B32_SINT:
-            return Format::R32G32B32_SINT;
-        case SPV_REFLECT_FORMAT_R32G32B32_SFLOAT:
-            return Format::R32G32B32_FLOAT;
-        case SPV_REFLECT_FORMAT_R32G32B32A32_UINT:
-            return Format::R32G32B32A32_UINT;
-        case SPV_REFLECT_FORMAT_R32G32B32A32_SINT:
-            return Format::R32G32B32A32_SINT;
-        case SPV_REFLECT_FORMAT_R32G32B32A32_SFLOAT:
-            return Format::R32G32B32A32_FLOAT;
-        default:
-            return Format::UNKNOWN;
-    }
-}
-
-inline auto to_vertex_attribute(SpvReflectInterfaceVariable variable) -> VertexAttribute {
-    const auto semantic_name_index = split_semantic(variable.semantic);
-
-    return {
-        .semantic = std::pmr::string(std::format("{}{}", semantic_name_index.first, semantic_name_index.second)),
-        .format   = from_spv_format(variable.format),
-        .binding  = variable.location,
-        .stride   = get_format_byte_size(from_spv_format(variable.format)),
-    };
-}
-
 inline constexpr auto to_vk_address_mode(AddressMode mode) noexcept -> vk::SamplerAddressMode {
     switch (mode) {
         case AddressMode::Clamp:
@@ -551,50 +508,6 @@ inline constexpr auto to_vk_shader_stage(ShaderType type) noexcept -> vk::Shader
             return vk::ShaderStageFlagBits::eCompute;
         default:
             utils::unreachable();
-    }
-}
-
-inline constexpr auto to_vk_shader_stage(SpvReflectShaderStageFlagBits stage) noexcept -> vk::ShaderStageFlagBits {
-    switch (stage) {
-        case SPV_REFLECT_SHADER_STAGE_VERTEX_BIT:
-            return vk::ShaderStageFlagBits::eVertex;
-        case SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT:
-            return vk::ShaderStageFlagBits::eFragment;
-        case SPV_REFLECT_SHADER_STAGE_GEOMETRY_BIT:
-            return vk::ShaderStageFlagBits::eGeometry;
-        case SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT:
-            return vk::ShaderStageFlagBits::eCompute;
-        default:
-            return vk::ShaderStageFlagBits::eAll;
-    }
-}
-
-inline constexpr auto to_vk_descriptor_type(SpvReflectDescriptorType type) noexcept -> vk::DescriptorType {
-    switch (type) {
-        case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
-            return vk::DescriptorType::eSampler;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-            return vk::DescriptorType::eCombinedImageSampler;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-            return vk::DescriptorType::eSampledImage;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-            return vk::DescriptorType::eStorageImage;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
-            return vk::DescriptorType::eUniformTexelBuffer;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-            return vk::DescriptorType::eStorageTexelBuffer;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-            return vk::DescriptorType::eUniformBuffer;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-            return vk::DescriptorType::eStorageBuffer;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-            return vk::DescriptorType::eUniformBufferDynamic;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
-            return vk::DescriptorType::eStorageBufferDynamic;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-            return vk::DescriptorType::eInputAttachment;
-        case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
-            return vk::DescriptorType::eAccelerationStructureKHR;
     }
 }
 

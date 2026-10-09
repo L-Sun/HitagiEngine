@@ -1,11 +1,8 @@
 add_requires(
-    "cxxopts",
     "nlohmann_json",
-    "range-v3",
     "vulkansdk",
     "vulkan-memory-allocator",
-    "directx-shader-compiler",
-    "spirv-reflect"
+    "directx-shader-compiler"
 )
 add_requires("taskflow v4.1.0", {configs = {modules = true}})
 
@@ -16,9 +13,9 @@ add_requires(
     "freetype",
     "libsdl3",
     "joltphysics",
-    "gtest",
     {configs = {shared = true}}
 )
+add_requires("gtest", {configs = {shared = true, gmock = false}})
 
 -- Compiled libraries avoid MSVC module errors in spdlog's header-only implementation.
 -- Keep the direct and transitive fmt dependencies on the same static configuration.
@@ -43,17 +40,9 @@ target("hitagi_interop")
     add_files("fmt.cppm", "spdlog.cppm", "vulkan.cppm", "magic_enum.cppm", "vma.cppm", "tracy.cppm", "tracy_vulkan.cppm", {public = true})
     add_files("vma.cpp")
     add_files("dxc.cppm", {public = true})
-    add_files("cxxopts.cppm", {public = true})
-    add_packages("cxxopts", {public = true})
     add_packages("directx-shader-compiler", {public = true})
-    add_files("taskflow.cppm", "imgui.cppm", "sdl.cppm", "jolt.cppm", "freetype.cppm", "png.cppm", "jpeg.cppm", "spirv_reflect.cppm", "range_v3.cppm", {public = true})
-    add_packages("taskflow", "imgui", "libsdl3", "joltphysics", "freetype", "libpng", "libjpeg-turbo", "spirv-reflect", {public = true})
-    if get_config("toolchain") == "clang-cl" then
-        -- clang-cl is already strict; omit range-v3's redundant /permissive-.
-        add_packages("range-v3", {public = true, cxxflags = {}})
-    else
-        add_packages("range-v3", {public = true})
-    end
+    add_files("taskflow.cppm", "imgui.cppm", "sdl.cppm", "jolt.cppm", "freetype.cppm", "png.cppm", "jpeg.cppm", {public = true})
+    add_packages("taskflow", "imgui", "libsdl3", "joltphysics", "freetype", "libpng", "libjpeg-turbo", {public = true})
     add_includedirs("..", {public = true})
     add_packages("magic_enum", "fmt", "spdlog", "vulkansdk", "vulkan-memory-allocator", {public = true})
     if has_config("profile") then
@@ -104,9 +93,9 @@ target("hitagi_interop_editor")
 target("hitagi_interop_test")
     set_kind("static")
     set_default(false)
-    add_files("gtest.cppm", "gmock.cppm", {public = true})
+    add_files("gtest.cppm", {public = true})
     add_includedirs("..", {public = true})
-    add_packages("gtest", "gmock", {public = true})
+    add_packages("gtest", {public = true})
 
 if has_config("benchmarks") then
     target("hitagi_interop_benchmark")
