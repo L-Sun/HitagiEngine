@@ -20,5 +20,6 @@ Diagnostics:
         modernize-use-trailing-return-type,
         modernize-use-nodiscard,
         performance-no-int-to-ptr,
+        performance-enum-size,
       ]
   UnusedIncludes: Strict
