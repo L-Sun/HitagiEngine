@@ -71,6 +71,274 @@ public:
     SystemManager&  sm;
 };
 
+TEST_F(EcsTest, FailedComponentConstructionPreservesEntityAndNeighbours) {
+    static int live = 0;
+    live            = 0;
+    struct Fragile {
+        explicit Fragile(bool fail) {
+            if (fail) throw std::runtime_error("construction failed");
+            ++live;
+        }
+        Fragile(const Fragile&) noexcept { ++live; }
+        ~Fragile() { --live; }
+    };
+    auto entities                               = em.CreateMany<ContainerComponent>(3);
+    entities[0].Get<ContainerComponent>().value = "unchanged";
+    entities[1].Emplace<Fragile>(false);
+    EXPECT_THROW(entities[0].Emplace<Fragile>(true), std::runtime_error);
+    EXPECT_FALSE(entities[0].Has<Fragile>());
+    EXPECT_EQ(entities[0].Get<ContainerComponent>().value, "unchanged");
+    EXPECT_EQ(entities[1].Get<Entity>(), entities[1]);
+    EXPECT_EQ(live, 1);
+    entities[0].Emplace<Fragile>(false);
+    EXPECT_EQ(live, 2);
+    for (auto& entity : entities) em.Destroy(entity);
+    EXPECT_EQ(live, 0);
+}
+
+TEST_F(EcsTest, FailedBatchCreationRollsBackConstructedRows) {
+    static int live      = 0;
+    static int remaining = 100;
+    live                 = 0;
+    remaining            = 100;
+    struct Fragile {
+        Fragile() {
+            if (--remaining == 0) throw std::runtime_error("batch failed");
+            ++live;
+        }
+        Fragile(const Fragile&) noexcept { ++live; }
+        ~Fragile() { --live; }
+    };
+    auto existing = em.CreateMany<Fragile>(1).front();
+    remaining     = 3;
+    EXPECT_THROW((void)em.CreateMany<Fragile>(8), std::runtime_error);
+    EXPECT_EQ(em.NumEntities(), 1);
+    EXPECT_EQ(live, 1);
+    EXPECT_TRUE(existing.Valid());
+    EXPECT_EQ(existing.Get<Entity>(), existing);
+    remaining        = 100;
+    auto replacement = em.CreateMany<Fragile>(2);
+    EXPECT_EQ(live, 3);
+    em.Destroy(existing);
+    for (auto& entity : replacement) em.Destroy(entity);
+    EXPECT_EQ(live, 0);
+}
+
+TEST_F(EcsTest, FailedDynamicConstructionLeavesOldComponentsIntact) {
+    em.RegisterDynamicComponent({
+        .name                = "throws",
+        .size                = sizeof(int),
+        .default_constructor = [](std::byte*) { throw std::runtime_error("dynamic construction failed"); },
+    });
+    auto entity                            = em.CreateMany<ContainerComponent>(1).front();
+    entity.Get<ContainerComponent>().value = "keep me";
+    EXPECT_THROW(entity.Add("throws"), std::runtime_error);
+    EXPECT_FALSE(entity.Has("throws"));
+    EXPECT_EQ(entity.Get<ContainerComponent>().value, "keep me");
+    EXPECT_EQ(em.NumEntities(), 1);
+    entity.Emplace<Component_1>();
+    EXPECT_EQ(entity.Get<ContainerComponent>().value, "keep me");
+}
+
+TEST_F(EcsTest, RawDynamicComponentsSurviveMigrationAndCompaction) {
+    em.RegisterDynamicComponent({.name = "raw", .size = sizeof(int), .alignment = alignof(int)});
+    const auto* description = &em.GetDynamicComponentInfo("raw");
+    auto        entities    = em.CreateMany<Component_1>(320, {"raw"});
+    for (std::size_t index = 0; index < entities.size(); ++index) {
+        EXPECT_EQ(*reinterpret_cast<int*>(entities[index].Get("raw")), 0);
+        *reinterpret_cast<int*>(entities[index].Get("raw")) = static_cast<int>(index + 100);
+    }
+    // Rehashing the registry must not invalidate archetype column descriptions.
+    for (int index = 0; index < 200; ++index)
+        em.RegisterDynamicComponent({.name = std::pmr::string(std::format("extra-{}", index)), .size = 1});
+    EXPECT_EQ(&em.GetDynamicComponentInfo("raw"), description);
+    for (std::size_t index = 0; index < entities.size(); ++index) {
+        entities[index].Emplace<Component_2>();
+        entities[index].Remove<Component_2>();
+        EXPECT_EQ(*reinterpret_cast<int*>(entities[index].Get("raw")), index + 100);
+    }
+    for (std::size_t index = 1; index < entities.size(); index += 2) em.Destroy(entities[index]);
+    for (std::size_t index = 0; index < entities.size(); index += 2)
+        EXPECT_EQ(*reinterpret_cast<int*>(entities[index].Get("raw")), index + 100);
+}
+
+TEST_F(EcsTest, LargeAndOverAlignedComponentsHaveValidLayouts) {
+    struct alignas(256) Large {
+        std::array<std::byte, 4096> payload{};
+    };
+    auto entities = em.CreateMany<Large>(3);
+    for (std::size_t index = 0; index < entities.size(); ++index) {
+        auto& value = entities[index].Get<Large>();
+        EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&value) % alignof(Large), 0);
+        value.payload.back() = static_cast<std::byte>(index + 1);
+        entities[index].Emplace<Component_1>();
+        EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&entities[index].Get<Large>()) % alignof(Large), 0);
+        EXPECT_EQ(entities[index].Get<Large>().payload.back(), static_cast<std::byte>(index + 1));
+    }
+    em.Destroy(entities.front());
+    EXPECT_EQ(entities.back().Get<Large>().payload.back(), std::byte{3});
+}
+
+TEST_F(EcsTest, InvalidDynamicLayoutsAreRejectedAtRegistration) {
+    EXPECT_THROW(em.RegisterDynamicComponent({.name = "zero", .size = 0}), std::invalid_argument);
+    EXPECT_THROW(em.RegisterDynamicComponent({.name = "alignment", .size = 12, .alignment = 3}), std::invalid_argument);
+    EXPECT_THROW(em.RegisterDynamicComponent({.name = "stride", .size = 3, .alignment = 4}), std::invalid_argument);
+    em.RegisterDynamicComponent({.name = "valid", .size = 4, .alignment = 4});
+    EXPECT_THROW(em.RegisterDynamicComponent({.name = "valid", .size = 8, .alignment = 4}), std::invalid_argument);
+}
+
+TEST_F(EcsTest, CustomOrderSupportsMultipleSuccessorsAndDuplicateEdges) {
+    static std::atomic<int> phase = 0;
+    struct System {
+        static void OnUpdate(Schedule& schedule) {
+            schedule.Request("A", [](const Component_1&) { phase.store(1); });
+            schedule.Request("B", [](const Component_1&) { EXPECT_EQ(phase.load(), 1); });
+            schedule.Request("C", [](const Component_1&) { EXPECT_EQ(phase.load(), 1); });
+            schedule.SetOrder("A", "B");
+            schedule.SetOrder("A", "C");
+            schedule.SetOrder("A", "C");
+        }
+    };
+    (void)em.CreateMany<Component_1>(1);
+    world.RegisterSystem<System>();
+    for (int index = 0; index < 8; ++index) {
+        phase = 0;
+        world.Update();
+        phase = 0;
+        world.Update(job_system);
+    }
+}
+
+TEST_F(EcsTest, CyclicSchedulesAreRejectedBeforeEitherExecutorRuns) {
+    static int calls = 0;
+    calls            = 0;
+    struct Cyclic {
+        static void OnUpdate(Schedule& schedule) {
+            schedule.Request("A", [](const Component_1&) { ++calls; });
+            schedule.Request("B", [](const Component_1&) { ++calls; });
+            schedule.Request("independent", [](const Component_1&) { ++calls; });
+            schedule.SetOrder("A", "B");
+            schedule.SetOrder("B", "A");
+        }
+    };
+    struct Valid {
+        static void OnUpdate(Schedule& schedule) {
+            schedule.Request("valid", [](const Component_1&) { ++calls; });
+        }
+    };
+    (void)em.CreateMany<Component_1>(1);
+    world.RegisterSystem<Cyclic>();
+    EXPECT_THROW(world.Update(), std::invalid_argument);
+    EXPECT_THROW(world.Update(job_system), std::invalid_argument);
+    EXPECT_EQ(calls, 0);
+    sm.Unregister<Cyclic>();
+    world.RegisterSystem<Valid>();
+    world.Update();
+    world.Update(job_system);
+    EXPECT_EQ(calls, 2);
+}
+
+TEST_F(EcsTest, DynamicParameterCountAndAccessAliasesAreValidated) {
+    struct TooFew {
+        static void OnUpdate(Schedule& schedule) {
+            schedule.Request("bad", [](std::byte*) {});
+        }
+    };
+    struct TooMany {
+        static void OnUpdate(Schedule& schedule) {
+            schedule.Request("bad", [](std::byte*) {}, {"one", "two"});
+        }
+    };
+    struct Conflicting {
+        static void OnUpdate(Schedule& schedule) {
+            schedule.Request("bad", [](Component_1&, const Component_1&) {});
+        }
+    };
+    world.RegisterSystem<TooFew>();
+    EXPECT_THROW(world.Update(), std::invalid_argument);
+    sm.Unregister<TooFew>();
+    world.RegisterSystem<TooMany>();
+    EXPECT_THROW(world.Update(), std::invalid_argument);
+    sm.Unregister<TooMany>();
+    world.RegisterSystem<Conflicting>();
+    EXPECT_THROW(world.Update(), std::invalid_argument);
+}
+
+TEST_F(EcsTest, ChunkQueriesReevaluateFiltersAndSupportCallableOwnership) {
+    static bool enabled = false;
+    static int  visited = 0;
+    enabled             = false;
+    visited             = 0;
+    struct System {
+        static void OnUpdate(Schedule& schedule) {
+            auto increment = [](Component_1& value) { ++value.value; };
+            schedule.Request("lvalue-callable", increment);
+            schedule.Request("move-only-callable", [amount = std::make_unique<int>(3)](Component_1& value) {
+                value.value += *amount;
+            });
+            schedule.Request("filtered", [](const Component_1&, const ContainerComponent&) { ++visited; }, {}, [](const ComponentChecker&) { return enabled; });
+        }
+    };
+    auto small = em.CreateMany<Component_1>(100);
+    auto large = em.CreateMany<Component_1, ContainerComponent>(320);
+    world.RegisterSystem<System>();
+    world.Update();
+    EXPECT_EQ(visited, 0);
+    enabled = true;
+    world.Update(job_system);
+    EXPECT_EQ(visited, 320);
+    for (const auto entity : small) EXPECT_EQ(entity.Get<Component_1>().value, 9);
+    for (const auto entity : large) EXPECT_EQ(entity.Get<Component_1>().value, 9);
+    // The cached Schedule must discover newly-created archetypes and chunks.
+    (void)em.CreateMany<Component_1, ContainerComponent, Component_2>(75);
+    world.Update();
+    EXPECT_EQ(visited, 320 + 395);
+}
+
+TEST_F(EcsTest, DynamicParameterTraitsPreserveReadWriteOrdering) {
+    static std::vector<int> values;
+    values.clear();
+    struct System {
+        static void OnUpdate(Schedule& schedule) {
+            schedule.Request("after", [](const std::byte* data) { values.push_back(*reinterpret_cast<const int*>(data)); }, {"raw"});
+            schedule.Request("writer", [](std::byte* first, std::byte* alias) {
+                EXPECT_EQ(first, alias);
+                ++*reinterpret_cast<int*>(first);
+            },
+                             {"raw", "raw"});
+            schedule.Request("before", [](LastFrame<const std::byte*> data) {
+                values.push_back(*reinterpret_cast<const int*>(data.value));
+            },
+                             {"raw"});
+        }
+    };
+    em.RegisterDynamicComponent({.name = "raw", .size = sizeof(int)});
+    auto entity = em.CreateMany<>(1, {"raw"}).front();
+    world.RegisterSystem<System>();
+    world.Update();
+    world.Update(job_system);
+    EXPECT_EQ(values, (std::vector<int>{0, 1, 1, 2}));
+    EXPECT_EQ(*reinterpret_cast<int*>(entity.Get("raw")), 2);
+}
+
+TEST_F(EcsTest, ComponentSignaturesIgnoreDeclarationOrder) {
+    static int matches = 0;
+    static int visits  = 0;
+    matches            = 0;
+    visits             = 0;
+    struct System {
+        static void OnUpdate(Schedule& schedule) {
+            schedule.Request("visit", [](const Component_1&, const Component_2&) { ++visits; }, {}, [](const ComponentChecker&) { ++matches; return true; });
+        }
+    };
+    (void)em.CreateMany<Component_1, Component_2>(2);
+    (void)em.CreateMany<Component_2, Component_1>(3);
+    world.RegisterSystem<System>();
+    world.Update();
+    EXPECT_EQ(matches, 1);
+    EXPECT_EQ(visits, 5);
+}
+
 TEST_F(EcsTest, CreateEntity) {
     const auto entity = em.Create();
     EXPECT_TRUE(entity.Valid());
