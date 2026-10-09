@@ -146,6 +146,40 @@ TEST(SoaTest, ModifyElement) {
     data.emplace_back(2, 2.0f);
 }
 
+TEST(SoaTest, EmplaceMovesRepeatedTypesAndReturnsReferences) {
+    SoA<std::unique_ptr<int>, std::unique_ptr<int>> data;
+    auto                                            first          = std::make_unique<int>(3);
+    auto                                            second         = std::make_unique<int>(4);
+    auto*                                           first_address  = first.get();
+    auto*                                           second_address = second.get();
+
+    auto [stored_first, stored_second] = data.emplace_back(std::move(first), std::move(second));
+
+    EXPECT_EQ(data.size(), 1);
+    EXPECT_EQ(first, nullptr);
+    EXPECT_EQ(second, nullptr);
+    EXPECT_EQ(stored_first.get(), first_address);
+    EXPECT_EQ(stored_second.get(), second_address);
+    EXPECT_EQ(&stored_first, &data.element_at<0>(0));
+    EXPECT_EQ(&stored_second, &data.element_at<1>(0));
+
+    stored_first.reset();
+    EXPECT_EQ(data.element_at<0>(0), nullptr);
+    ASSERT_NE(data.element_at<1>(0), nullptr);
+    EXPECT_EQ(*data.element_at<1>(0), 4);
+}
+
+TEST(SoaTest, EmplaceEmptyStructure) {
+    SoA<> data;
+    auto  result = data.emplace_back();
+
+    static_assert(std::is_same_v<decltype(result), std::tuple<>>);
+    EXPECT_EQ(data.size(), 1);
+    EXPECT_FALSE(data.empty());
+    data.pop_back();
+    EXPECT_TRUE(data.empty());
+}
+
 TEST(SoaTest, Iteration) {
     debug_memory_resource res{"Init"};
     SoA<int, float>       data{&res};

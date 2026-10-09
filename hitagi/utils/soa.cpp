@@ -159,8 +159,10 @@ constexpr void SoA<Types...>::push_back(StructureConstRef values) {
 
 template <typename... Types>
 constexpr auto SoA<Types...>::emplace_back(Types&&... values) -> StructureRef {
+    // Avoid MSVC C3520 when expanding a captured parameter pack inside a generic lambda.
+    auto args   = std::forward_as_tuple(std::forward<Types>(values)...);
     auto result = [&]<std::size_t... I>(std::index_sequence<I...>) -> StructureRef {
-        return std::tie(std::get<I>(m_Data).emplace_back(std::forward<TypeAt<I>>(values))...);
+        return std::tie(std::get<I>(m_Data).emplace_back(std::get<I>(std::move(args)))...);
     }(std::index_sequence_for<Types...>{});
 
     m_Size++;
