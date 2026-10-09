@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
-        compiler: ["--toolchain=clang-cl"]
+        compiler: ["--toolchain=clang-cl", "--toolchain=msvc"]
 
     steps:
       - uses: actions/checkout@v4
