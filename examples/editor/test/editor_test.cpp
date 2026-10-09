@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
 }
 
 TEST_F(EditorTest, ParsesLaunchOptions) {
-    const char* argv[] = {
+    std::array argv = {
         "editor",
         "--open-scene",
         "assets/test/test.usda",
@@ -52,7 +52,7 @@ TEST_F(EditorTest, ParsesLaunchOptions) {
         "--exit-after-load",
     };
 
-    auto options = ParseEditorLaunchOptions(static_cast<int>(std::size(argv)), const_cast<char**>(argv));
+    auto options = ParseEditorLaunchOptions(static_cast<int>(argv.size()), const_cast<char**>(argv.data()));
 
     ASSERT_TRUE(options.open_scene);
     EXPECT_EQ(*options.open_scene, std::filesystem::path("assets/test/test.usda"));

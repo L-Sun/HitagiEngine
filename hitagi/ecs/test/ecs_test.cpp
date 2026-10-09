@@ -338,7 +338,7 @@ TEST_F(EcsTest, SystemUpdate) {
     world.Update(job_system);
 
     ASSERT_EQ(invoked_entities.size(), entities_with_both.size());
-    for (auto [invoked_entity, entity] : std::ranges::views::zip(invoked_entities, entities_with_both)) {
+    for (const auto& [invoked_entity, entity] : std::ranges::views::zip(invoked_entities, entities_with_both)) {
         EXPECT_EQ(invoked_entity, entity);
         EXPECT_COMPONENT_EQ(entity, Component_1, 1);
         EXPECT_COMPONENT_EQ(entity, Component_2, 200);

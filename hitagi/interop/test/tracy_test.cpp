@@ -15,7 +15,7 @@ TEST(InteropTracyTest, ScopeAndLockPreserveCallerLifetime) {
     ZoneScopedN("Interop caller scope");
     TracyLockableN(std::mutex, mutex, "Interop test mutex");
     {
-        std::lock_guard lock(mutex);
+        std::scoped_lock lock(mutex);
         ZoneScopedN("Interop nested scope");
         ZoneText("nested", 6);
     }

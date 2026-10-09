@@ -8,8 +8,8 @@ import interop.cxxopts;
 TEST(InteropPackageTest, CommandLineAndMatcherImports) {
     cxxopts::Options options("interop-test");
     options.add_options()("count", "Number", cxxopts::value<int>());
-    const char* argv[] = {"interop-test", "--count", "3"};
-    const auto  result = options.parse(3, argv);
+    std::array argv   = {"interop-test", "--count", "3"};
+    const auto result = options.parse(static_cast<int>(argv.size()), argv.data());
     EXPECT_TRUE(testing::Matches(testing::Eq(3))(result["count"].as<int>()));
 }
 

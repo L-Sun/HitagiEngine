@@ -155,7 +155,7 @@ TEST(SoaTest, Iteration) {
     data.emplace_back(3, 3.0f);
 
     int i = 1;
-    for (auto [_i, _f] : data) {
+    for (const auto& [_i, _f] : data) {
         EXPECT_EQ(_i, i);
         EXPECT_FLOAT_EQ(_f, static_cast<float>(i));
         i++;
