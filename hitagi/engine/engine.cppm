@@ -34,7 +34,7 @@ public:
     inline auto& Queues() const noexcept { return *m_Queues; }
     inline auto& Bindings() const noexcept { return *m_Bindings; }
     inline auto& ShaderCompiler() const noexcept { return *m_ShaderCompiler; }
-    inline auto  ResourceLoadContext() const noexcept -> asset::ResourceLoadContext { return {*m_Device, *m_Queues, *m_Bindings, *m_ShaderCompiler}; }
+    inline auto  ResourceLoadContext() const noexcept -> asset::ResourceLoadContext { return {.device = *m_Device, .queues = *m_Queues, .bindings = *m_Bindings, .shader_compiler = *m_ShaderCompiler}; }
     inline auto& Assets() const noexcept { return *m_AssetManager; }
     inline auto& Renderer() const noexcept { return *m_Renderer; };
     inline auto& RenderRuntime() const noexcept { return *m_RenderRuntime; }
