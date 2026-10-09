@@ -154,15 +154,15 @@ public:
         return [this](std::move_only_function<void()> job) { Submit(std::move(job)); };
     }
 
-    void RunTaskflow(tf::Taskflow& taskflow);
+    void RunTaskflow(interop::tf::Taskflow& taskflow);
     void WaitForAll();
 
     JobSystem(const JobSystem&)            = delete;
     JobSystem& operator=(const JobSystem&) = delete;
 
 private:
-    std::uint32_t m_NumWorkers = 0;
-    tf::Executor  m_Executor;
+    std::uint32_t         m_NumWorkers = 0;
+    interop::tf::Executor m_Executor;
 };
 
 template <typename Func, typename... Args>

@@ -24,7 +24,7 @@ auto JobSystem::GetCurrentWorkerId() const noexcept -> int {
     return m_Executor.this_worker_id();
 }
 
-void JobSystem::RunTaskflow(tf::Taskflow& taskflow) {
+void JobSystem::RunTaskflow(interop::tf::Taskflow& taskflow) {
     m_Executor.run(taskflow).wait();
 }
 

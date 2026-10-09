@@ -754,10 +754,10 @@ private:
 
     std::pmr::unordered_map<std::pmr::string, std::pmr::string> m_CustomOrder;
 
-    tf::Taskflow                  m_Taskflow;
-    std::pmr::vector<tf::Task>    m_TaskflowTasks;
-    std::pmr::vector<std::size_t> m_SerialOrder;  // topological order; empty if the graph is invalid
-    bool                          m_TaskflowDirty = true;
+    interop::tf::Taskflow                m_Taskflow;
+    std::pmr::vector<interop::tf::Task>   m_TaskflowTasks;
+    std::pmr::vector<std::size_t>         m_SerialOrder;  // topological order; empty if the graph is invalid
+    bool                                m_TaskflowDirty = true;
     // Executor of the in-flight parallel run; tasks read it to name worker threads.
     core::JobSystem* m_RunningJobSystem = nullptr;
 };

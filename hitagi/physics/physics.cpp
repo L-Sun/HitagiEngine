@@ -259,7 +259,7 @@ auto CreateShape(const ShapeDesc& desc) -> JPH::RefConst<JPH::Shape> {
 struct PhysicsWorld::Impl {
     Impl(core::JobSystem& core_job_system, const PhysicsWorldDesc& desc)
         : temp_allocator(desc.temp_allocator_size),
-          job_system(core_job_system, hitagi::interop::max_physics_barriers) {
+          job_system(core_job_system, interop::max_physics_barriers) {
         physics_system.Init(
             desc.max_bodies,
             desc.num_body_mutexes,

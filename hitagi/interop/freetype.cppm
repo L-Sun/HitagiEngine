@@ -2,15 +2,15 @@ module;
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+export module interop.freetype;
+
 namespace hitagi::interop {
-inline bool           has_kerning(FT_Face face) { return FT_HAS_KERNING(face); }
+export inline bool has_kerning(FT_Face face) { return FT_HAS_KERNING(face); }
 inline constexpr auto ft_load_render        = FT_LOAD_RENDER;
 inline constexpr auto ft_load_target_normal = FT_LOAD_TARGET_NORMAL;
 }  // namespace hitagi::interop
 #undef FT_LOAD_RENDER
 #undef FT_LOAD_TARGET_NORMAL
-
-export module interop.freetype;
 
 export {
     using ::FT_Bitmap;
@@ -31,7 +31,4 @@ export {
     using ::FT_Vector;
     inline constexpr auto FT_LOAD_RENDER        = hitagi::interop::ft_load_render;
     inline constexpr auto FT_LOAD_TARGET_NORMAL = hitagi::interop::ft_load_target_normal;
-}
-export namespace hitagi::interop {
-using ::hitagi::interop::has_kerning;
 }

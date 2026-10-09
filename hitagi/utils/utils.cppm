@@ -699,7 +699,7 @@ constexpr void SoA<Types...>::resize(std::size_t count, StructureConstRef values
 
 }  // namespace hitagi::utils
 
-export template <typename... Types>
+template <typename... Types>
 class std::back_insert_iterator<hitagi::utils::SoA<Types...>> {
 public:
     using container_type = hitagi::utils::SoA<Types...>;
@@ -754,7 +754,7 @@ private:
 };
 }  // namespace hitagi::utils
 
-export template <>
+template <>
 struct std::formatter<hitagi::utils::UUID> : std::formatter<std::string> {
     auto format(const hitagi::utils::UUID& uuid, std::format_context& ctx) const {
         return std::formatter<std::string>::format(

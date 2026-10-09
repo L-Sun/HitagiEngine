@@ -6,6 +6,8 @@ module;
 #include <objbase.h>
 #include <wrl.h>
 
+export module interop.win32;
+
 namespace hitagi::interop {
 inline constexpr auto max_path            = MAX_PATH;
 inline constexpr auto cfs_candidatepos    = CFS_CANDIDATEPOS;
@@ -82,12 +84,12 @@ inline constexpr auto infinite            = INFINITE;
 inline constexpr auto drive_removable     = DRIVE_REMOVABLE;
 inline constexpr auto drive_fixed         = DRIVE_FIXED;
 inline constexpr auto drive_remote        = DRIVE_REMOTE;
-inline int            get_x_lparam(LPARAM value) { return GET_X_LPARAM(value); }
-inline int            get_y_lparam(LPARAM value) { return GET_Y_LPARAM(value); }
-inline short          get_wheel_delta_wparam(WPARAM value) { return GET_WHEEL_DELTA_WPARAM(value); }
-inline WORD           hiword(DWORD_PTR value) { return HIWORD(value); }
-inline WORD           loword(DWORD_PTR value) { return LOWORD(value); }
-inline void           zero_memory(void* pointer, SIZE_T size) { ZeroMemory(pointer, size); }
+export inline int   get_x_lparam(LPARAM value) { return GET_X_LPARAM(value); }
+export inline int   get_y_lparam(LPARAM value) { return GET_Y_LPARAM(value); }
+export inline short get_wheel_delta_wparam(WPARAM value) { return GET_WHEEL_DELTA_WPARAM(value); }
+export inline WORD  hiword(DWORD_PTR value) { return HIWORD(value); }
+export inline WORD  loword(DWORD_PTR value) { return LOWORD(value); }
+export inline void  zero_memory(void* pointer, SIZE_T size) { ZeroMemory(pointer, size); }
 }  // namespace hitagi::interop
 #undef CFS_CANDIDATEPOS
 #undef CFS_FORCE_POSITION
@@ -165,7 +167,6 @@ inline void           zero_memory(void* pointer, SIZE_T size) { ZeroMemory(point
 #undef DRIVE_REMOTE
 
 #undef MAX_PATH
-export module interop.win32;
 
 export {
     inline constexpr auto MAX_PATH = hitagi::interop::max_path;
@@ -321,11 +322,3 @@ export {
     inline constexpr auto DRIVE_FIXED         = hitagi::interop::drive_fixed;
     inline constexpr auto DRIVE_REMOTE        = hitagi::interop::drive_remote;
 }
-export namespace hitagi::interop {
-using ::hitagi::interop::get_wheel_delta_wparam;
-using ::hitagi::interop::get_x_lparam;
-using ::hitagi::interop::get_y_lparam;
-using ::hitagi::interop::hiword;
-using ::hitagi::interop::loword;
-using ::hitagi::interop::zero_memory;
-}  // namespace hitagi::interop

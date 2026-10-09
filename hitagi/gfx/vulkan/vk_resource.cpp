@@ -287,7 +287,7 @@ auto VulkanBuffer::Map() -> std::byte* {
     }
 
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapRead)) {
-        if (const auto result = vmaInvalidateAllocation(m_Allocator, allocation, 0, hitagi::interop::whole_size);
+        if (const auto result = vmaInvalidateAllocation(m_Allocator, allocation, 0, interop::whole_size);
             result != VK_SUCCESS) {
             const auto error_message = fmt::format(
                 "failed to invalidate GPU buffer({}) for host read",
@@ -316,7 +316,7 @@ void VulkanBuffer::UnMap() {
     mapped_count--;
 
     if (utils::has_flag(m_Desc.usages, GPUBufferUsageFlags::MapWrite)) {
-        if (const auto result = vmaFlushAllocation(m_Allocator, allocation, 0, hitagi::interop::whole_size);
+        if (const auto result = vmaFlushAllocation(m_Allocator, allocation, 0, interop::whole_size);
             result != VK_SUCCESS) {
             const auto error_message = fmt::format(
                 "failed to flush GPU buffer({}) for host write",

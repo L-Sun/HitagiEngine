@@ -6,14 +6,14 @@ module;
 #include <dxc/dxcapi.h>
 #include <d3d12shader.h>
 
+export module interop.dxc;
+
 #ifndef _WIN32
-namespace hitagi::interop {
+export namespace hitagi::interop {
 template <typename T>
 inline auto dxc_uuidof() { return __uuidof(T); }
 }
 #endif
-
-export module interop.dxc;
 
 export {
     using ::D3D12_SHADER_DESC;
@@ -48,7 +48,6 @@ export {
 export {
     using ::CComPtr;
 }
-export namespace hitagi::interop { using ::hitagi::interop::dxc_uuidof; }
 #endif
 
 export namespace hitagi::interop {

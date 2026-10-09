@@ -20,7 +20,7 @@ auto JpegDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
     jerr.error_exit = [](j_common_ptr cinfo) { throw cinfo->err; };
 
     try {
-        hitagi::interop::create_jpeg_decompress(&cinfo);
+        interop::create_jpeg_decompress(&cinfo);
         jpeg_mem_src(&cinfo, reinterpret_cast<const std::uint8_t*>(buffer.GetData()), buffer.GetDataSize());
         jpeg_read_header(&cinfo, true);
         cinfo.out_color_space = JCS_EXT_RGBA;

@@ -1,6 +1,6 @@
 target("hitagi_editor")
     set_kind("static")
     add_files("*.cppm", {public = true})
-    add_files("*.cpp", {public = true})
-    add_files("component/*.cpp", {public = true})
+    add_files("*.cpp")
+    add_files("component/*.cpp")
     add_deps("engine", "hitagi_interop_editor")

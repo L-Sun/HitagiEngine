@@ -444,7 +444,7 @@ struct TextRenderUtils::Impl {
     }
 
     auto GetKerning(FT_UInt previous, FT_UInt current, std::uint32_t pixel_size) -> float {
-        if (previous == 0 || current == 0 || !hitagi::interop::has_kerning(face) || !EnsurePixelSize(pixel_size)) {
+        if (previous == 0 || current == 0 || !interop::has_kerning(face) || !EnsurePixelSize(pixel_size)) {
             return 0.0f;
         }
 

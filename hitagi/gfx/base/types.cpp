@@ -427,19 +427,19 @@ enum struct TextureLayout : std::uint16_t {
 
 }  // namespace hitagi::gfx
 
-export template <>
+template <>
 struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::GPUBufferUsageFlags> {
     static constexpr bool is_flags = true;
 };
-export template <>
+template <>
 struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::TextureUsageFlags> {
     static constexpr bool is_flags = true;
 };
-export template <>
+template <>
 struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::BarrierAccess> {
     static constexpr bool is_flags = true;
 };
-export template <>
+template <>
 struct hitagi::utils::enable_bitmask_operators<hitagi::gfx::PipelineStage> {
     static constexpr bool is_flags = true;
 };

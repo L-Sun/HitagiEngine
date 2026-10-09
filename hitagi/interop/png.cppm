@@ -1,9 +1,11 @@
 module;
 #include <png.h>
 
+export module interop.png;
+
 namespace hitagi::interop {
 // Only obtain the jump buffer here; setjmp must execute in the caller's frame.
-inline auto           png_jump_buffer(png_structp png) -> jmp_buf& { return png_jmpbuf(png); }
+export inline auto png_jump_buffer(png_structp png) -> jmp_buf& { return png_jmpbuf(png); }
 inline constexpr auto png_color_type_gray          = PNG_COLOR_TYPE_GRAY;
 inline constexpr auto png_color_type_gray_alpha    = PNG_COLOR_TYPE_GRAY_ALPHA;
 inline constexpr auto png_color_type_rgb           = PNG_COLOR_TYPE_RGB;
@@ -27,8 +29,6 @@ inline constexpr auto png_transform_strip_16       = PNG_TRANSFORM_STRIP_16;
 #undef PNG_TRANSFORM_EXPAND
 #undef PNG_TRANSFORM_PACKING
 #undef PNG_TRANSFORM_STRIP_16
-
-export module interop.png;
 
 export {
     using ::png_byte;
@@ -68,7 +68,4 @@ export {
     inline constexpr auto PNG_TRANSFORM_EXPAND         = hitagi::interop::png_transform_expand;
     inline constexpr auto PNG_TRANSFORM_PACKING        = hitagi::interop::png_transform_packing;
     inline constexpr auto PNG_TRANSFORM_STRIP_16       = hitagi::interop::png_transform_strip_16;
-}
-export namespace hitagi::interop {
-using ::hitagi::interop::png_jump_buffer;
 }

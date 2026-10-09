@@ -58,7 +58,7 @@ auto PngDecoder::DecodeImageData(const core::Buffer& buffer) -> ImageData {
         return {};
     }
 
-    if (setjmp(hitagi::interop::png_jump_buffer(png_tr))) {
+    if (setjmp(interop::png_jump_buffer(png_tr))) {
         logger->error("[PNG] Error occur during read_image.");
         png_destroy_read_struct(&png_tr, &info_ptr, nullptr);
         return {};
@@ -176,7 +176,7 @@ auto PngDecoder::EncodeImageData(const ImageData& image_data) -> core::Buffer {
         return {};
     }
 
-    if (setjmp(hitagi::interop::png_jump_buffer(png_ptr))) {
+    if (setjmp(interop::png_jump_buffer(png_ptr))) {
         logger->error("[PNG] Error occurred during write_image.");
         png_destroy_write_struct(&png_ptr, &info_ptr);
         return {};

@@ -5,7 +5,7 @@ target("engine")
     set_kind("static")
     add_deps("hitagi_interop", {public = true})
     add_files("**/*.cppm", {public = true})
-    add_files("**/*.cpp", {public = true})
+    add_files("**/*.cpp")
     remove_files("interop/*.cppm")
     remove_files("interop/*.cpp")
     remove_files("editor/*.cppm")
@@ -15,6 +15,17 @@ target("engine")
     remove_files("test/*.cpp")
     remove_files("*/test/*.cpp")
     remove_files("math/ispc/*.cpp")
+    on_load(function (target)
+        -- Some interface partitions use .cpp; implementations must stay private.
+        for _, sourcefile in ipairs(target:sourcefiles()) do
+            if path.extension(sourcefile) == ".cpp" then
+                local source = io.readfile(sourcefile)
+                if source:find("^export%s+module%s") or source:find("\nexport%s+module%s") then
+                    target:fileconfig_add(sourcefile, {public = true})
+                end
+            end
+        end
+    end)
     set_options("ispc")
     if has_config("ispc") then
         add_deps("ispc_math")

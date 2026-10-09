@@ -444,7 +444,7 @@ constexpr unsigned min_index(const Vector<T, D>& v) {
 
 }  // namespace hitagi::math
 
-export template <typename T, unsigned D>
+template <typename T, unsigned D>
 struct std::formatter<hitagi::math::Vector<T, D>> {
     constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
     auto           format(const hitagi::math::Vector<T, D>& v, std::format_context& ctx) const {
@@ -778,7 +778,7 @@ Matrix<T, D> absolute(const Matrix<T, D>& a) {
 
 }  // namespace hitagi::math
 
-export template <typename T, unsigned D>
+template <typename T, unsigned D>
 struct std::formatter<hitagi::math::Matrix<T, D>> {
     constexpr auto parse(std::format_parse_context& ctx) { return ctx.begin(); }
     auto           format(const hitagi::math::Matrix<T, D>& m, std::format_context& ctx) const {

@@ -168,20 +168,24 @@ package("usd")
             "    #if !defined(_MSVC_TRADITIONAL) || _MSVC_TRADITIONAL",
             "    #if !defined(__clang__) && (!defined(_MSVC_TRADITIONAL) || _MSVC_TRADITIONAL)",
             {plain = true})
-        io.replace("pxr/base/arch/attributes.h",
-            [[    __declspec(allocate(".pxrctor"))                                           \
+        -- clang-cl needs explicit retention for these section entries; cl.exe
+        -- does not support the GNU used attribute.
+        if package:has_tool("cxx", "clang_cl") then
+            io.replace("pxr/base/arch/attributes.h",
+                [[    __declspec(allocate(".pxrctor"))                                           \
     static const Arch_ConstructorEntry                                         \]],
-            [[    __declspec(allocate(".pxrctor"))                                           \
+                [[    __declspec(allocate(".pxrctor"))                                           \
     __attribute__((used))                                                      \
     static const Arch_ConstructorEntry                                         \]],
-            {plain = true})
-        io.replace("pxr/base/arch/attributes.h",
-            [[    __declspec(allocate(".pxrdtor"))                                           \
+                {plain = true})
+            io.replace("pxr/base/arch/attributes.h",
+                [[    __declspec(allocate(".pxrdtor"))                                           \
     static const Arch_ConstructorEntry                                         \]],
-            [[    __declspec(allocate(".pxrdtor"))                                           \
+                [[    __declspec(allocate(".pxrdtor"))                                           \
     __attribute__((used))                                                      \
     static const Arch_ConstructorEntry                                         \]],
-            {plain = true})
+                {plain = true})
+        end
         io.replace("pxr/exec/vdf/api.h",
             [[#       if defined(ARCH_OS_WINDOWS)
 #           define VDF_API_TYPE ARCH_EXPORT

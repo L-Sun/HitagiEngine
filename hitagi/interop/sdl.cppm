@@ -1,6 +1,8 @@
 module;
 #include <SDL3/SDL.h>
 
+export module interop.sdl;
+
 namespace hitagi::interop {
 inline constexpr auto sdl_init_video                          = SDL_INIT_VIDEO;
 inline constexpr auto sdl_prop_window_wayland_display_pointer = SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER;
@@ -21,8 +23,6 @@ inline constexpr auto sdl_window_vulkan                       = SDL_WINDOW_VULKA
 #undef SDL_WINDOW_MAXIMIZED
 #undef SDL_WINDOW_RESIZABLE
 #undef SDL_WINDOW_VULKAN
-
-export module interop.sdl;
 
 export {
     using ::SDL_CreateSystemCursor;

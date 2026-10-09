@@ -39,7 +39,7 @@ private:
         ~Heap();
         VmaAllocator        allocator  = nullptr;
         VmaAllocation       allocation = nullptr;
-        VkBuffer            buffer     = hitagi::interop::null_handle;
+        VkBuffer            buffer     = interop::null_handle;
         std::byte*          mapped     = nullptr;
         vk::BindHeapInfoEXT bind_info;
     };

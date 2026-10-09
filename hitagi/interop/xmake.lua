@@ -1,3 +1,41 @@
+add_requires(
+    "cxxopts",
+    "nlohmann_json",
+    "range-v3",
+    "vulkansdk",
+    "vulkan-memory-allocator",
+    "directx-shader-compiler",
+    "spirv-reflect"
+)
+add_requires("taskflow v4.1.0", {configs = {modules = true}})
+
+-- Only compiled libraries that we intentionally link dynamically need this setting.
+add_requires(
+    "libpng",
+    "libjpeg-turbo",
+    "freetype",
+    "libsdl3",
+    "joltphysics",
+    "gtest",
+    {configs = {shared = true}}
+)
+
+-- Compiled libraries avoid MSVC module errors in spdlog's header-only implementation.
+-- Keep the direct and transitive fmt dependencies on the same static configuration.
+add_requires("fmt", {configs = {header_only = false, shared = false}})
+add_requires("magic_enum", {configs = {modules = true}})
+add_requires("tracy v0.13.1", {configs = {shared = true}})
+add_requires("spdlog", {configs = {header_only = false, shared = false, fmt_external = true}})
+add_requireconfs("spdlog.fmt", {version = "latest", override = true, configs = {header_only = false, shared = false}})
+add_requires("imgui v1.92.9+b-docking", {configs = {shared = true, freetype = true, wchar32 = true}})
+if is_plat("windows") then
+    add_requires("d3d12-memory-allocator", {configs = {shared = true}})
+    add_requires("directx12-agility-sdk")
+end
+if has_config("benchmarks") then
+    add_requires("benchmark", {configs = {shared = true}})
+end
+
 add_requires("usd")
 
 target("hitagi_interop")

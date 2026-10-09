@@ -14,10 +14,10 @@ using namespace hitagi::asset;
 
 namespace {
 constexpr auto kEmptyEntityPickExtents = vec3f{0.35f, 0.35f, 0.35f};
-constexpr auto kEditorGizmoYellow      = hitagi::interop::imgui_color(255, 201, 64, 235);
-constexpr auto kEditorAxisX            = hitagi::interop::imgui_color(238, 82, 82, 235);
-constexpr auto kEditorAxisY            = hitagi::interop::imgui_color(97, 210, 122, 235);
-constexpr auto kEditorAxisZ            = hitagi::interop::imgui_color(82, 150, 255, 235);
+constexpr auto kEditorGizmoYellow      = interop::imgui_color(255, 201, 64, 235);
+constexpr auto kEditorAxisX            = interop::imgui_color(238, 82, 82, 235);
+constexpr auto kEditorAxisY            = interop::imgui_color(97, 210, 122, 235);
+constexpr auto kEditorAxisZ            = interop::imgui_color(82, 150, 255, 235);
 
 struct ViewportProjection {
     mat4f view_projection;
@@ -272,7 +272,7 @@ void DrawViewportOrientationGizmo(ImDrawList* draw_list, vec2f image_min, vec2f 
     const auto y      = ImVec2{origin.x + 20.0f, origin.y - 16.0f};
     const auto z      = ImVec2{origin.x, origin.y - 30.0f};
 
-    draw_list->AddCircleFilled(origin, 3.5f, hitagi::interop::imgui_color(230, 235, 242, 210));
+    draw_list->AddCircleFilled(origin, 3.5f, interop::imgui_color(230, 235, 242, 210));
     draw_list->AddLine(origin, x, kEditorAxisX, 2.5f);
     draw_list->AddLine(origin, y, kEditorAxisY, 2.5f);
     draw_list->AddLine(origin, z, kEditorAxisZ, 2.5f);
@@ -1268,7 +1268,7 @@ void SceneViewPort::DrawTransformGizmo(math::vec2f image_min, math::vec2f image_
     draw_list->AddRect(
         ImVec2(image_min.x, image_min.y),
         ImVec2(image_min.x + image_size.x, image_min.y + image_size.y),
-        hitagi::interop::imgui_color(255, 201, 64, 180));
+        interop::imgui_color(255, 201, 64, 180));
 
     ImGui::SetCursorScreenPos(ImVec2(image_min.x + 10.0f, image_min.y + 10.0f));
     ImGui::BeginGroup();
@@ -1346,7 +1346,7 @@ void SceneViewPort::DrawViewportOverlays(math::vec2f image_min, math::vec2f imag
         draw_list->AddRect(
             ImVec2(image_min.x + 1.0f, image_min.y + 1.0f),
             ImVec2(image_min.x + image_size.x - 1.0f, image_min.y + image_size.y - 1.0f),
-            hitagi::interop::imgui_color(255, 201, 64, 160),
+            interop::imgui_color(255, 201, 64, 160),
             0.0f,
             0,
             2.0f);

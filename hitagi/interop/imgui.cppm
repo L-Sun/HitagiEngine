@@ -2,8 +2,10 @@ module;
 #include <imgui.h>
 #include <imgui_internal.h>
 
+export module interop.imgui;
+
 namespace hitagi::interop {
-inline constexpr ImU32 imgui_color(int r, int g, int b, int a) { return IM_COL32(r, g, b, a); }
+export inline constexpr ImU32 imgui_color(int r, int g, int b, int a) { return IM_COL32(r, g, b, a); }
 inline constexpr auto  im_col32_r_shift = IM_COL32_R_SHIFT;
 inline constexpr auto  im_col32_g_shift = IM_COL32_G_SHIFT;
 inline constexpr auto  im_col32_b_shift = IM_COL32_B_SHIFT;
@@ -13,8 +15,6 @@ inline constexpr auto  im_col32_a_shift = IM_COL32_A_SHIFT;
 #undef IM_COL32_G_SHIFT
 #undef IM_COL32_B_SHIFT
 #undef IM_COL32_A_SHIFT
-
-export module interop.imgui;
 
 export namespace ImGui {
 using ::ImGui::AcceptDragDropPayload;
@@ -378,7 +378,4 @@ export {
     inline constexpr auto IM_COL32_G_SHIFT = hitagi::interop::im_col32_g_shift;
     inline constexpr auto IM_COL32_B_SHIFT = hitagi::interop::im_col32_b_shift;
     inline constexpr auto IM_COL32_A_SHIFT = hitagi::interop::im_col32_a_shift;
-}
-export namespace hitagi::interop {
-using ::hitagi::interop::imgui_color;
 }

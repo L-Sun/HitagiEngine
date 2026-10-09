@@ -16,11 +16,11 @@ module;
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 
-namespace hitagi::interop {
+export module interop.jolt;
+
+export namespace hitagi::interop {
 inline constexpr int max_physics_barriers = JPH::cMaxPhysicsBarriers;
 }
-
-export module interop.jolt;
 
 export namespace JPH {
 using ::JPH::BodyCreationSettings;
@@ -59,7 +59,3 @@ export namespace JPH {
 using ::JPH::AssertFailed;
 }
 #endif
-
-export namespace hitagi::interop {
-using ::hitagi::interop::max_physics_barriers;
-}

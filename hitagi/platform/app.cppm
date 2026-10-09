@@ -175,7 +175,7 @@ void Win32Application::InitializeWindows() {
     WNDCLASSEXW wc;
 
     // clear out the window class for use
-    hitagi::interop::zero_memory(&wc, sizeof(WNDCLASSEXW));
+    interop::zero_memory(&wc, sizeof(WNDCLASSEXW));
 
     // fill in the struct with the needed information
     wc.cbSize        = sizeof(WNDCLASSEXW);
@@ -344,8 +344,8 @@ auto Win32Application::HitTestResizeBorder(LPARAM l_param) const -> LRESULT {
     const auto dpi           = ::GetDpiForWindow(m_Window);
     const auto resize_margin = std::max<LONG>(8, ::MulDiv(8, static_cast<int>(dpi), 96));
 
-    const auto x = hitagi::interop::get_x_lparam(l_param);
-    const auto y = hitagi::interop::get_y_lparam(l_param);
+    const auto x = interop::get_x_lparam(l_param);
+    const auto y = interop::get_y_lparam(l_param);
 
     const bool on_left   = x >= screen_client_rect.left && x < screen_client_rect.left + resize_margin;
     const bool on_right  = x < screen_client_rect.right && x >= screen_client_rect.right - resize_margin;
@@ -478,16 +478,16 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             return 0;
         }
         case WM_MOUSEMOVE:
-            p_this->m_InputManager->UpdatePointerState(static_cast<float>(hitagi::interop::get_x_lparam(l_param)), static_cast<float>(hitagi::interop::get_y_lparam(l_param)));
+            p_this->m_InputManager->UpdatePointerState(static_cast<float>(interop::get_x_lparam(l_param)), static_cast<float>(interop::get_y_lparam(l_param)));
             return 0;
         case WM_MOUSEWHEEL:
-            p_this->m_InputManager->UpdateWheelState(0.0f, static_cast<float>(hitagi::interop::get_wheel_delta_wparam(w_param)) / static_cast<float>(WHEEL_DELTA));
+            p_this->m_InputManager->UpdateWheelState(0.0f, static_cast<float>(interop::get_wheel_delta_wparam(w_param)) / static_cast<float>(WHEEL_DELTA));
             return 0;
         case WM_MOUSEHWHEEL:
-            p_this->m_InputManager->UpdateWheelState(static_cast<float>(hitagi::interop::get_wheel_delta_wparam(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
+            p_this->m_InputManager->UpdateWheelState(static_cast<float>(interop::get_wheel_delta_wparam(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
             return 0;
         case WM_CHAR: {
-            std::size_t repeat_count = (hitagi::interop::hiword(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(hitagi::interop::loword(l_param)) : 1;
+            std::size_t repeat_count = (interop::hiword(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(interop::loword(l_param)) : 1;
             p_this->m_InputManager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
         }
             return 0;

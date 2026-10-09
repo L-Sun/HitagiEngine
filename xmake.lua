@@ -46,42 +46,5 @@ if has_config("profile") then
     end
 end
 
-add_requires(
-    "taskflow",
-    "cxxopts",
-    "nlohmann_json",
-    "range-v3",
-    "vulkansdk",
-    "vulkan-memory-allocator",
-    "directx-shader-compiler",
-    "spirv-reflect"
-)
-
--- Only compiled libraries that we intentionally link dynamically need this setting.
-add_requires(
-    "libpng",
-    "libjpeg-turbo",
-    "freetype",
-    "libsdl3",
-    "joltphysics",
-    "gtest",
-    {configs = {shared = true}}
-)
-
--- Match spdlog's external fmt dependency instead of mixing header-only and shared builds.
-add_requires("fmt", {configs = {header_only = true, shared = false}})
-add_requires("magic_enum", {configs = {modules = true}})
-add_requires("tracy v0.13.1", {configs = {shared = true}})
-add_requires("spdlog", {configs = {fmt_external = true}})
-add_requireconfs("spdlog.fmt", {version = "latest", override = true, configs = {header_only = true, shared = false}})
-add_requires("imgui v1.92.9+b-docking", {configs = {shared = true, freetype = true, wchar32 = true}})
-if is_plat("windows") then
-    add_requires("d3d12-memory-allocator", {configs = {shared = true}})
-    add_requires("directx12-agility-sdk")
-end
-if has_config("benchmarks") then
-    add_requires("benchmark", {configs = {shared = true}})
-end
-
 includes("hitagi/xmake.lua")
 includes("examples/**/xmake.lua")

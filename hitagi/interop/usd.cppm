@@ -1,4 +1,5 @@
 module;
+#include "usd_count_compat.hpp"
 #include <pxr/base/gf/camera.h>
 #include <pxr/base/gf/matrix4d.h>
 #include <pxr/base/gf/vec2f.h>
