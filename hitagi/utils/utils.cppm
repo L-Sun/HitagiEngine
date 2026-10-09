@@ -276,7 +276,7 @@ struct function_traits<ReturnType (ClassType::*)(Args...) const> {
 
     template <std::size_t i>
     struct arg {
-        using type = typename std::tuple_element<i, std::tuple<Args...>>::type;
+        using type = std::tuple_element_t<i, std::tuple<Args...>>;
     };
 
     template <std::size_t i>
@@ -284,7 +284,7 @@ struct function_traits<ReturnType (ClassType::*)(Args...) const> {
 
     template <std::size_t i>
     struct no_cvref_arg {
-        using type = typename std::tuple_element<i, std::tuple<std::remove_cvref_t<Args>...>>::type;
+        using type = std::tuple_element_t<i, std::tuple<std::remove_cvref_t<Args>...>>;
     };
 };
 
