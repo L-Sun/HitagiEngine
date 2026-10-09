@@ -23,7 +23,7 @@ protected:
 class RelationShipSystemTest : public TransformTest {
 public:
     void SetUp() override {
-        sm.Register<RelationShipSystem>();
+        world.RegisterSystem<RelationShipSystem>();
     }
 };
 
@@ -67,8 +67,8 @@ TEST_F(RelationShipSystemTest, AutoAttachChildren) {
 class LocalToWorldSystemTest : public TransformTest {
 public:
     void SetUp() override {
-        sm.Register<RelationShipSystem>();
-        sm.Register<TransformSystem>();
+        world.RegisterSystem<RelationShipSystem>();
+        world.RegisterSystem<TransformSystem>();
     }
 };
 

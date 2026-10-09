@@ -67,8 +67,8 @@ Scene::Scene(std::string_view name)
     : Resource(Type::Scene, name),
       m_World(name) {
     m_RootEntity = CreateEmptyEntity(math::mat4f::identity(), ecs::Entity(), name);
-    m_World.GetSystemManager().Register<RelationShipSystem>();
-    m_World.GetSystemManager().Register<TransformSystem>();
+    m_World.RegisterSystem<RelationShipSystem>();
+    m_World.RegisterSystem<TransformSystem>();
 }
 
 void Scene::Update() {
