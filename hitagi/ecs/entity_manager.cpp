@@ -25,9 +25,18 @@ public:
         entity = {};
     }
 
+    // MSVC 19.51 miscompiles imported CreateMany(n) calls with a default argument
+    // after Create() instantiates CreateMany<> in this module: neither n nor the
+    // default empty set is passed. Forward explicitly instead of using a default.
     template <Component... Components>
         requires((std::default_initializable<Components> && utils::not_same_as<Components, Entity>) && ...)
-    [[nodiscard]] auto CreateMany(std::size_t num, const std::pmr::set<std::string_view>& dynamic_components = {}) -> std::pmr::vector<Entity>;
+    [[nodiscard]] auto CreateMany(std::size_t num) -> std::pmr::vector<Entity> {
+        return CreateMany<Components...>(num, {});
+    }
+
+    template <Component... Components>
+        requires((std::default_initializable<Components> && utils::not_same_as<Components, Entity>) && ...)
+    [[nodiscard]] auto CreateMany(std::size_t num, const std::pmr::set<std::string_view>& dynamic_components) -> std::pmr::vector<Entity>;
 
     auto NumEntities() const noexcept { return m_Storage.NumEntities(); }
 

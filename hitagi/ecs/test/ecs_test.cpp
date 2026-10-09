@@ -551,6 +551,8 @@ TEST_F(EcsTest, RecursiveUpdateIsRejectedWithoutInvalidatingTheSchedule) {
 
 TEST_F(EcsTest, CreateManyEntities) {
     const auto entities = em.CreateMany(100);
+    ASSERT_EQ(entities.size(), 100);
+    EXPECT_EQ(em.NumEntities(), 100);
     for (const auto entity : entities) {
         EXPECT_TRUE(entity.Valid());
         EXPECT_TRUE(em.Has(entity));
@@ -566,6 +568,8 @@ TEST_F(EcsTest, CreateManyEntitiesWithComponent) {
     });
 
     const auto entities = em.CreateMany<Component_1, Component_2>(100, {"DynamicComponent"});
+    ASSERT_EQ(entities.size(), 100);
+    EXPECT_EQ(em.NumEntities(), 100);
     for (const auto entity : entities) {
         EXPECT_TRUE(entity.Valid());
         EXPECT_TRUE(em.Has(entity));
