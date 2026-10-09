@@ -244,7 +244,7 @@ auto FindDefaultSourceScenePath() -> std::filesystem::path {
         std::string_view{"assets/test/test.usda"},
     };
     for (const auto candidate : candidates) {
-        if (std::filesystem::exists(candidate)) return std::filesystem::path(candidate);
+        if (std::filesystem::exists(candidate)) return {candidate};
     }
     return DefaultSourceScenePath();
 }
