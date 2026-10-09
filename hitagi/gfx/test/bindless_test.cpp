@@ -59,11 +59,11 @@ TEST_P(BindlessTest, RejectsForeignCreationDependencies) {
     EXPECT_THROW(SwapChain::Create(*device, queues.Get(CommandType::Copy), {}), std::invalid_argument);
     EXPECT_NO_THROW(GPUBufferView::Create(*device, *bindings, {.buffer = buffer}));
 }
-INSTANTIATE_TEST_SUITE_P(Backends, BindlessTest, testing::Values(
 #ifdef _WIN32
-                                                     Device::Type::DX12,
+INSTANTIATE_TEST_SUITE_P(Backends, BindlessTest, testing::Values(Device::Type::DX12, Device::Type::Vulkan));
+#else
+INSTANTIATE_TEST_SUITE_P(Backends, BindlessTest, testing::Values(Device::Type::Vulkan));
 #endif
-                                                     Device::Type::Vulkan));
 
 TEST_P(BindlessTest, SamplerHeapExhaustionAndReuse) {
     auto                                  device = create_device(GetParam(), "SamplerHeapExhaustion");
