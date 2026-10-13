@@ -5,7 +5,7 @@ module;
 #undef near
 #undef far
 
-export module render:deferred_renderer;
+export module preset.deferred:deferred_renderer;
 import interop.tracy;
 import interop.magic_enum;
 
@@ -17,23 +17,23 @@ import gfx;
 import asset;
 import app;
 
+import render;
 import :types;
-import :renderer;
 import :gbuffer;
 import :deferred_lighting;
 import :gbuffer_debug;
 
 export namespace hitagi::render {
 
-class DeferredRenderer : public IRenderer {
+class DeferredRenderer : public IDeferredRenderer {
 public:
     // Shader sources are read through `file_io` during construction only; the
     // renderer keeps no reference to it afterwards.
     DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io, const Application& app, std::string_view name = "");
 
     auto Render(RenderContext& context, const RenderRequest& request) -> RenderResult override;
-    void AddExtension(std::shared_ptr<IDeferredRenderExtension> extension);
-    void ClearExtensions();
+    void AddExtension(std::shared_ptr<IDeferredRenderExtension> extension) override;
+    void ClearExtensions() override;
 
 private:
     auto RenderFrame(RenderContext& context, const RenderRequest& request) -> RenderResult;
@@ -81,20 +81,12 @@ private:
     RenderDrawState m_DrawState;
 };
 
-using DefaultRenderer = DeferredRenderer;
-
 }  // namespace hitagi::render
 
 namespace hitagi::render {
 
 constexpr auto ToIndexFormat(asset::IndexType type) noexcept -> gfx::Format {
     return type == asset::IndexType::UINT16 ? gfx::Format::R16_UINT : gfx::Format::R32_UINT;
-}
-
-
-auto LoadShaderSource(core::FileIOManager& file_io, std::filesystem::path path) -> ShaderSource {
-    auto code = std::pmr::string(file_io.SyncOpenAndReadBinary(path).Str());
-    return {.path = std::move(path), .code = std::move(code)};
 }
 
 auto DeferredRenderer::Render(RenderContext& context, const RenderRequest& request) -> RenderResult {
@@ -113,7 +105,7 @@ void DeferredRenderer::ClearExtensions() {
 }
 
 DeferredRenderer::DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io, const Application& app, std::string_view name)
-    : IRenderer(std::format("DeferredRenderer{}", name.empty() ? "" : std::format("({})", name))),
+    : IDeferredRenderer(std::format("DeferredRenderer{}", name.empty() ? "" : std::format("({})", name))),
       m_App(app),
       m_GfxDevice(device),
       m_Queues(queues),
@@ -225,8 +217,8 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
             .device_type              = m_GfxDevice.device_type,
             .width                    = target_desc.width,
             .height                   = target_desc.height,
-            .instance_stride = m_InstanceConstantStride,
-            .bindless_stride = m_DrawBindlessInfoStride,
+            .instance_stride          = m_InstanceConstantStride,
+            .bindless_stride          = m_DrawBindlessInfoStride,
         });
 
     const auto  normal_pipeline = m_GBufferPass.GetNormalPipeline();
@@ -258,8 +250,8 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
             .pipeline          = normal_pipeline,
             .width             = target_desc.width,
             .height            = target_desc.height,
-            .instance_stride = m_InstanceConstantStride,
-            .bindless_stride = m_DrawBindlessInfoStride,
+            .instance_stride   = m_InstanceConstantStride,
+            .bindless_stride   = m_DrawBindlessInfoStride,
         });
 
     const auto material_pipeline = m_GBufferPass.GetMaterialPipeline();
@@ -285,8 +277,8 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
             .pipeline          = material_pipeline,
             .width             = target_desc.width,
             .height            = target_desc.height,
-            .instance_stride = m_InstanceConstantStride,
-            .bindless_stride = m_DrawBindlessInfoStride,
+            .instance_stride   = m_InstanceConstantStride,
+            .bindless_stride   = m_DrawBindlessInfoStride,
         });
 
     const auto emissive_pipeline = m_GBufferPass.GetEmissivePipeline();
@@ -312,8 +304,8 @@ auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& 
             .pipeline          = emissive_pipeline,
             .width             = target_desc.width,
             .height            = target_desc.height,
-            .instance_stride = m_InstanceConstantStride,
-            .bindless_stride = m_DrawBindlessInfoStride,
+            .instance_stride   = m_InstanceConstantStride,
+            .bindless_stride   = m_DrawBindlessInfoStride,
         });
 
     DeferredRenderResources resources{
@@ -415,7 +407,7 @@ void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const std::shar
             info.vertices[attr] = render_graph.Import(attr_data->get().gpu_buffer);
         });
 
-        info.indices = render_graph.Import(mesh->indices->GetGPUData());
+        info.indices      = render_graph.Import(mesh->indices->GetGPUData());
         info.index_format = ToIndexFormat(mesh->indices->Type());
     }
 

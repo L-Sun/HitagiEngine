@@ -1,4 +1,4 @@
-export module render:gbuffer;
+export module preset.deferred:gbuffer;
 import interop.magic_enum;
 
 import std;
@@ -8,6 +8,7 @@ import core;
 import gfx;
 import asset;
 
+import render;
 import :types;
 
 export namespace hitagi::render::passes {
@@ -155,7 +156,6 @@ private:
 }  // namespace hitagi::render::passes
 
 namespace hitagi::render {
-
 
 auto CountDraws(const RenderDrawState& draw_state) noexcept -> std::size_t {
     std::size_t result = 0;
@@ -501,7 +501,7 @@ void passes::GBuffer::BuildAlbedoPass(RenderContext& context, RenderDrawState& d
         auto& cmd = pass.GetCmd();
 
         pass.Resolve(frame_constant_buffer_access).GetMappedSpan<FrameConstant>().front() = desc.frame_constant;
-        auto bindless_infos                                                                   = pass.Resolve(bindless_info_buffer_access).GetMappedSpan<DrawBindlessInfo>();
+        auto bindless_infos                                                               = pass.Resolve(bindless_info_buffer_access).GetMappedSpan<DrawBindlessInfo>();
 
         const auto& render_target = pass.Resolve(desc.target);
         cmd.SetViewPort({

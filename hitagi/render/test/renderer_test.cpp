@@ -7,6 +7,7 @@ import interop.magic_enum;
 
 import std;
 import render;
+import preset.deferred;
 import asset;
 import core;
 import utils;
@@ -106,7 +107,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(RendererTest, DeferredRendererAcceptsExplicitFrame) {
     RenderRuntime   runtime(*device, queues, *bindings, compiler, *app, test_name);
-    DefaultRenderer renderer(*device, queues, *bindings, compiler, file_io, *app, test_name);
+    DeferredRenderer renderer(*device, queues, *bindings, compiler, file_io, *app, test_name);
 
     const std::array debug_views{
         RenderGraphDebugView::Final,

@@ -6,6 +6,7 @@ import interop.tracy;
 import std;
 import engine;
 import editor;
+import preset.deferred;
 
 auto main(int argc, char** argv) -> int {
 #ifdef HITAGI_DEBUG
@@ -17,6 +18,8 @@ auto main(int argc, char** argv) -> int {
     auto app_config  = hitagi::LoadEditorAppConfig(config_path);
 
     hitagi::Engine engine(std::move(app_config));
+    engine.SetRenderer(std::make_unique<hitagi::render::DeferredRenderer>(
+        engine.Device(), engine.Queues(), engine.Bindings(), engine.ShaderCompiler(), engine.FileIO(), engine.App()));
 
     engine.AddSubModule(std::make_unique<hitagi::Editor>(engine, std::move(options)));
 

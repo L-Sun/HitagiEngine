@@ -9,7 +9,7 @@ export import :cook;
 export import :usd;
 export import :scene_viewport;
 export import :image_viewer;
-export import :material_compiler;
+export import :material_graph;
 import engine;
 
 export namespace hitagi {

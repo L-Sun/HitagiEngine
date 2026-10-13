@@ -1,4 +1,4 @@
-export module render:deferred_lighting;
+export module preset.deferred:deferred_lighting;
 import std;
 import utils;
 import math;
@@ -6,6 +6,7 @@ import core;
 import gfx;
 import asset;
 
+import render;
 import :types;
 import :gbuffer;
 
@@ -92,13 +93,13 @@ auto passes::DeferredLighting::GetPipeline(gfx::Format target_format) -> std::sh
 }
 
 auto passes::DeferredLighting::Build(
-    RenderContext&                       context,
-    const GBufferOutput&                 gbuffer,
-    rg::GPUBufferHandle                  frame_constant,
-    rg::GPUBufferHandle                  bindless_info,
-    rg::SamplerHandle                    sampler,
+    RenderContext&                              context,
+    const GBufferOutput&                        gbuffer,
+    rg::GPUBufferHandle                         frame_constant,
+    rg::GPUBufferHandle                         bindless_info,
+    rg::SamplerHandle                           sampler,
     const std::shared_ptr<gfx::RenderPipeline>& pipeline,
-    rg::TextureHandle                    target) -> rg::TextureHandle {
+    rg::TextureHandle                           target) -> rg::TextureHandle {
     auto& render_graph = context.graph;
     if (!render_graph.IsValid(target) ||
         !render_graph.IsValid(gbuffer.albedo) ||

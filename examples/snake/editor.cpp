@@ -2,6 +2,7 @@
 import interop.spdlog;
 import std;
 import editor;
+import preset.deferred;
 import engine;
 import snake_demo;
 
@@ -15,6 +16,8 @@ auto main(int argc, char** argv) -> int {
     config.title = "Hitagi Snake Editor";
 
     hitagi::Engine engine(std::move(config));
+    engine.SetRenderer(std::make_unique<hitagi::render::DeferredRenderer>(
+        engine.Device(), engine.Queues(), engine.Bindings(), engine.ShaderCompiler(), engine.FileIO(), engine.App()));
     engine.AddSubModule(std::make_unique<hitagi::snake::SnakeEditorPanel>(engine));
     engine.AddSubModule(std::make_unique<hitagi::Editor>(engine, std::move(options)));
 

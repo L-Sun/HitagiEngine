@@ -4,6 +4,8 @@ import interop.magic_enum;
 
 import std;
 import editor;
+import preset.pbr.authoring;
+import preset.pbr;
 import engine;
 import pbr_demo_game;
 
@@ -217,11 +219,19 @@ void ExportMaterialTexturesForCook(hitagi::asset::Material& material, const std:
             ExportTextureForCook(material, parameter, *texture, asset_root_path);
         }
     }
+    for (const hitagi::asset::MaterialPass& pass : material.GetPasses()) {
+        for (const hitagi::asset::MaterialBinding& binding : pass.bindings) {
+            if (const auto* texture = std::get_if<std::shared_ptr<hitagi::asset::Texture>>(&binding.default_value)) {
+                ExportTextureForCook(material, {.name = binding.name, .value = binding.default_value}, *texture, asset_root_path);
+            }
+        }
+    }
 }
 
 auto PassToJson(const hitagi::asset::MaterialPass& pass) -> nlohmann::json {
     auto bindings = nlohmann::json::array();
-    for (const auto& binding : pass.bindings) bindings.emplace_back(std::string(binding));
+    for (const auto& binding : pass.bindings) bindings.emplace_back(nlohmann::json{
+        {"name", std::string(binding.name)}, {"type", std::string(hitagi::asset::MaterialParameterTypeName(binding.default_value))}});
 
     return nlohmann::json{
         {"contract", std::string(pass.pass_contract)},
@@ -260,7 +270,7 @@ auto SourceInfoToJson(const hitagi::MaterialSourceInfo& source) -> nlohmann::jso
 
 auto GeneratedMaterialPreviewToJson(
     const hitagi::EditorMaterial&             editor_material,
-    const hitagi::MaterialGraphCompileResult& result) -> nlohmann::json {
+    const hitagi::preset::pbr::MaterialGraphCompileResult& result) -> nlohmann::json {
     const auto& material     = *editor_material.material;
     auto        shader_paths = nlohmann::json::array();
     if (result.pass.pipeline) {
@@ -284,15 +294,12 @@ auto GeneratedMaterialPreviewToJson(
         {"pass", PassToJson(result.pass)},
         {"pipeline", PipelineToJson(result.pipeline_desc)},
         {"shaders", std::move(shader_paths)},
-        {"graphHash", result.graph_hash},
-        {"sourceHash", result.source_hash},
-        {"cacheKey", result.cache_key},
     };
 }
 
 void WriteGeneratedMaterialArtifacts(
     const hitagi::EditorMaterial&             material,
-    const hitagi::MaterialGraphCompileResult& result) {
+    const hitagi::preset::pbr::MaterialGraphCompileResult& result) {
     WriteTextArtifact(result.shader.path, result.hlsl);
 
     auto preview_path = result.shader.path;
@@ -427,11 +434,14 @@ auto CompilePbrDemoMaterialPass(hitagi::EditorMaterial& editor_material) -> std:
     if (!pbr_desc) return std::nullopt;
 
     auto graph  = LowerPbrDemoToIR(*pbr_desc);
-    auto result = hitagi::MaterialGraphCompiler{}.Compile(graph, hitagi::MaterialGraphCompileOptions{
+    auto result = hitagi::preset::pbr::PbrMaterialCompiler{}.Compile(graph, hitagi::preset::pbr::PbrMaterialDefaults(), hitagi::preset::pbr::MaterialGraphCompileOptions{
                                                                      .shader_name = MakeGeneratedShaderName(material),
                                                                      .entry_point = "PSMain",
                                                                  });
-    if (!result) return std::nullopt;
+    if (!result) {
+        for (const auto& error : result.validation.errors) spdlog::error("Material '{}': {}", material.GetName(), error.message);
+        return std::nullopt;
+    }
     result.pass.pass_contract = game::pbr_demo::kPbrForwardContract;
     WriteGeneratedMaterialArtifacts(editor_material, result);
     return std::move(result.pass);
@@ -448,10 +458,10 @@ bool CompilePbrDemoMaterial(hitagi::EditorMaterial& editor_material) {
 
 auto MakePbrDemoMaterialProcessor(std::filesystem::path asset_root_path) {
     return [asset_root_path = std::move(asset_root_path)](hitagi::EditorMaterial& material) {
-        ExportMaterialTexturesForCook(*material.material, asset_root_path);
         if (!CompilePbrDemoMaterial(material)) {
             throw std::runtime_error(std::format("PBR demo material compilation failed for '{}'", material.material->GetName()));
         }
+        ExportMaterialTexturesForCook(*material.material, asset_root_path);
     };
 }
 

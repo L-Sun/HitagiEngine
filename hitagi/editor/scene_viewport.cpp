@@ -509,7 +509,7 @@ auto EditorSelectionMetadataPass::GetPipeline(Target target) -> std::shared_ptr<
 
 auto EditorSelectionMetadataPass::Build(
     render::RenderContext&         context,
-    const render::RenderDrawState& draw_state,
+    const render::RenderGeometry& draw_state,
     rg::GPUBufferHandle            frame_constant,
     const EditorSelectionDesc&     desc,
     std::uint32_t                  width,
@@ -608,7 +608,7 @@ auto EditorSelectionMetadataPass::Build(
 
 void EditorSelectionMetadataPass::BuildTargetPass(
     render::RenderContext&               context,
-    const render::RenderDrawState&       draw_state,
+    const render::RenderGeometry&       draw_state,
     rg::GPUBufferHandle                  frame_constant,
     rg::GPUBufferHandle                  instance_constant,
     rg::GPUBufferHandle                  bindless_info,
@@ -632,7 +632,7 @@ void EditorSelectionMetadataPass::BuildTargetPass(
     rg::RenderPassBuilder builder(render_graph);
     builder.SetName(pass_name);
     builder.SetRenderTarget(target, true);
-    const auto frame_constant_access    = builder.Read(frame_constant, {.offset = 0, .element_size = sizeof(render::FrameConstant), .element_count = 1}, gfx::PipelineStage::VertexShader);
+    const auto frame_constant_access    = builder.Read(frame_constant, {.offset = 0, .element_size = sizeof(render::ViewConstant), .element_count = 1}, gfx::PipelineStage::VertexShader);
     const auto instance_constant_access = builder.Read(instance_constant, {.offset = 0, .element_size = sizeof(InstanceConstant), .element_count = std::max<std::size_t>(1, selected_instances.size()), .element_stride = instance_stride}, gfx::PipelineStage::VertexShader);
     const auto bindless_info_access     = builder.Read(bindless_info, {.offset = 0, .element_size = sizeof(BindlessInfo), .element_count = std::max<std::size_t>(1, selected_instances.size()), .element_stride = bindless_stride}, gfx::PipelineStage::All);
 
@@ -1028,7 +1028,7 @@ SceneViewPort::SceneViewPort(const Engine& engine, EditorState& state, EditorCom
       m_GridPass(std::make_unique<EditorViewportGridPass>(
           engine.Device(), engine.Bindings(), engine.ShaderCompiler(),
           render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/viewport_grid.hlsl"))) {
-    if (auto* deferred_renderer = dynamic_cast<render::DeferredRenderer*>(&m_Engine.Renderer())) {
+    if (auto* deferred_renderer = dynamic_cast<render::IDeferredRenderer*>(&m_Engine.Renderer())) {
         deferred_renderer->AddExtension(m_SelectionExtension);
     }
 }

@@ -70,7 +70,7 @@ Engine::Engine(AppConfig config)
 
     // use modified state -> Render
     add_inner_module(std::make_unique<debugger::DebugManager>());
-    m_Renderer      = add_inner_module(std::make_unique<render::DefaultRenderer>(*m_Device, *m_Queues, *m_Bindings, *m_ShaderCompiler, *m_FileIO, *m_App));
+    m_Renderer      = add_inner_module(std::make_unique<render::ClearRenderer>());
     m_GuiManager    = add_inner_module(std::make_unique<gui::GuiManager>(*m_App, *m_FileIO));
     m_RenderRuntime = static_cast<render::RenderRuntime*>(add_inner_module(std::make_unique<render::RenderRuntime>(*m_Device, *m_Queues, *m_Bindings, *m_ShaderCompiler, *m_App)));
 

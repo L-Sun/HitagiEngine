@@ -1,4 +1,4 @@
-export module render:gbuffer_debug;
+export module preset.deferred:gbuffer_debug;
 import std;
 import utils;
 import math;
@@ -6,6 +6,7 @@ import core;
 import gfx;
 import asset;
 
+import render;
 import :types;
 import :gbuffer;
 

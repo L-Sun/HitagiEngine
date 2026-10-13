@@ -111,7 +111,7 @@ public:
 
     auto Build(
         render::RenderContext&     context,
-        const render::RenderDrawState& draw_state,
+        const render::RenderGeometry& draw_state,
         rg::GPUBufferHandle        frame_constant,
         const EditorSelectionDesc& desc,
         std::uint32_t              width,
@@ -142,7 +142,7 @@ private:
     auto GetPipeline(Target target) -> std::shared_ptr<gfx::RenderPipeline>;
     void BuildTargetPass(
         render::RenderContext&              context,
-        const render::RenderDrawState&       draw_state,
+        const render::RenderGeometry&       draw_state,
         rg::GPUBufferHandle                 frame_constant,
         rg::GPUBufferHandle                 instance_constant,
         rg::GPUBufferHandle                 bindless_info,

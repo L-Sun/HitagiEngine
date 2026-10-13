@@ -5,8 +5,4 @@ export import :renderer;
 export import :gui;
 export import :text;
 export import :present;
-export import :gbuffer;
-export import :deferred_lighting;
-export import :gbuffer_debug;
 export import :runtime;
-export import :deferred_renderer;
