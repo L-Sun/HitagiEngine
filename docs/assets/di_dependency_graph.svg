@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="1170" viewBox="0 0 1480 1170" role="img" aria-labelledby="title desc">
+  <title id="title">Dependency Injection · Four Different Things to Pass</title>
+  <desc id="desc">Four injection shapes: AssetManager holds FileIOManager and JobSystem references; PhysicsWorld needs JobSystem; GuiManager needs Application and FileIOManager. Scene and World receive JobSystem for Update(jobs). Texture stores ImageLoader backed by FileIOManager and JobSubmitter backed by JobSystem. DeferredRenderer reads shader source through FileIOManager at construction and supplies ShaderSource values to GBuffer, DeferredLighting and GBufferDebugView; it also uses Device and Application.</desc>
+  <defs><style>
+    text { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; fill: #263443; }
+    .title { font-size: 32px; font-weight: 700; }
+    .section { font-size: 24px; font-weight: 700; }
+    .label { font-size: 21px; font-weight: 600; }
+    .body { font-size: 19px; }
+    .small { font-size: 17px; fill: #596878; }
+    .code { font-family: Consolas, monospace; font-size: 18px; }
+    .panel { fill: #fff; stroke: #c6d1dc; stroke-width: 1.5; }
+    .blue { fill: #e1eef9; stroke: #8db3d3; stroke-width: 1.5; }
+    .green { fill: #e2f1e7; stroke: #91b69b; stroke-width: 1.5; }
+    .orange { fill: #fbead8; stroke: #d6ac7a; stroke-width: 1.5; }
+    .purple { fill: #eee6f5; stroke: #b19acb; stroke-width: 1.5; }
+    .gray { fill: #edf0f4; stroke: #b1bdca; stroke-width: 1.5; }
+    .arrow { fill: none; stroke: #738293; stroke-width: 2; marker-end: url(#arrow); }
+    .ref { fill: none; stroke: #a07b4d; stroke-width: 2; stroke-dasharray: 6 5; marker-end: url(#amber); }
+    .line { fill: none; stroke: #b1bdca; stroke-width: 1.5; }
+  </style>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#738293"/></marker>
+  <marker id="amber" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#a07b4d"/></marker></defs>
+  <rect width="1480" height="1170" fill="#f8fafc"/>
+  <rect x="40" y="34" width="6" height="64" rx="3" fill="#608db4"/>
+  <text x="64" y="62" class="title" text-anchor="start">Dependency Injection · Four Different Things to Pass</text>
+  <text x="64" y="94" class="body" text-anchor="start">Choose the representation by how a dependency is used · Schematic objects and call scopes</text>
+  <rect x="40" y="144" width="680" height="430" rx="8" class="panel"/>
+  <text x="64" y="185" class="section" text-anchor="start">01   Reference / Keep Access to a Service</text>
+  <text x="64" y="215" class="small" text-anchor="start">The consumer stores a reference for its lifetime.</text>
+  <rect x="64" y="238" width="386" height="172" rx="5" class="green"/>
+  <text x="84" y="272" class="label" text-anchor="start">AssetManager</text>
+  <rect x="84" y="289" width="342" height="46" rx="0" class="blue"/>
+  <text x="104" y="319" class="code" text-anchor="start">FileIOManager&amp;</text>
+  <rect x="84" y="345" width="342" height="46" rx="0" class="purple"/>
+  <text x="104" y="375" class="code" text-anchor="start">JobSystem&amp;</text>
+  <rect x="504" y="289" width="192" height="46" rx="5" class="blue"/>
+  <text x="516" y="319" class="code" text-anchor="start">FileIOManager</text>
+  <rect x="504" y="345" width="192" height="46" rx="5" class="purple"/>
+  <text x="516" y="375" class="code" text-anchor="start">JobSystem</text>
+  <path d="M430 312H500" class="ref"/>
+  <path d="M430 368H500" class="ref"/>
+  <text x="64" y="451" class="label" text-anchor="start">Other constructor dependencies</text>
+  <text x="64" y="485" class="code" text-anchor="start">PhysicsWorld</text>
+  <text x="312" y="485" class="code" text-anchor="start">JobSystem&amp;</text>
+  <text x="64" y="520" class="code" text-anchor="start">GuiManager</text>
+  <text x="312" y="520" class="code" text-anchor="start">Application&amp; + FileIOManager&amp;</text>
+  <text x="64" y="550" class="small" text-anchor="start">Service objects remain owned by the composition root.</text>
+  <rect x="760" y="144" width="680" height="430" rx="8" class="panel"/>
+  <text x="784" y="185" class="section" text-anchor="start">02   Parameter / Borrow for One Call</text>
+  <text x="784" y="215" class="small" text-anchor="start">The caller supplies the executor when invoking Update.</text>
+  <rect x="1176" y="236" width="240" height="48" rx="5" class="purple"/>
+  <text x="1196" y="267" class="code" text-anchor="start">JobSystem (caller)</text>
+  <rect x="784" y="312" width="632" height="138" rx="5" class="orange"/>
+  <text x="808" y="346" class="label" text-anchor="start">During this call</text>
+  <text x="808" y="383" class="code" text-anchor="start">Scene::Update(jobs)</text>
+  <text x="808" y="418" class="code" text-anchor="start">World::Update(jobs)</text>
+  <rect x="1180" y="344" width="212" height="78" rx="5" class="panel"/>
+  <text x="1200" y="378" class="code" text-anchor="start">JobSystem&amp;</text>
+  <text x="1200" y="405" class="small" text-anchor="start">call parameter</text>
+  <path d="M1296 284V340" class="arrow"/>
+  <rect x="784" y="480" width="632" height="70" rx="5" class="gray"/>
+  <text x="804" y="509" class="label" text-anchor="start">Scene / World object state</text>
+  <text x="804" y="536" class="small" text-anchor="start">No persistent executor; Update() can also run serially.</text>
+  <rect x="40" y="602" width="680" height="504" rx="8" class="panel"/>
+  <text x="64" y="643" class="section" text-anchor="start">03   Function / Keep a Narrow Capability</text>
+  <text x="64" y="673" class="small" text-anchor="start">A function object supplies the operation the texture needs.</text>
+  <rect x="64" y="700" width="632" height="272" rx="5" class="green"/>
+  <text x="84" y="737" class="label" text-anchor="start">Texture</text>
+  <rect x="84" y="760" width="592" height="82" rx="0" class="orange"/>
+  <text x="104" y="791" class="code" text-anchor="start">ImageLoader</text>
+  <text x="104" y="824" class="code" text-anchor="start">Captured FileIOManager&amp; + path → ImageData</text>
+  <rect x="84" y="862" width="592" height="82" rx="0" class="purple"/>
+  <text x="104" y="893" class="code" text-anchor="start">JobSubmitter</text>
+  <text x="104" y="926" class="small" text-anchor="start">Capability supplied by JobSystem → task submission</text>
+  <text x="64" y="1016" class="label" text-anchor="start">The service is behind the function.</text>
+  <text x="64" y="1050" class="body" text-anchor="start">Texture can request pixels or submit work without</text>
+  <text x="64" y="1078" class="body" text-anchor="start">storing the full file or job service interface.</text>
+  <rect x="760" y="602" width="680" height="504" rx="8" class="panel"/>
+  <text x="784" y="643" class="section" text-anchor="start">04   Value / Pass the Result</text>
+  <text x="784" y="673" class="small" text-anchor="start">The pass needs shader data produced by a service.</text>
+  <text x="784" y="716" class="label" text-anchor="start">DeferredRenderer</text>
+  <text x="784" y="744" class="small" text-anchor="start">Reads using FileIOManager at construction</text>
+  <rect x="784" y="764" width="632" height="86" rx="0" class="purple"/>
+  <rect x="784" y="764" width="164" height="86" rx="0" class="purple"/>
+  <text x="798" y="813" class="code" text-anchor="start">ShaderSource</text>
+  <rect x="948" y="764" width="198" height="86" rx="0" class="panel"/>
+  <text x="966" y="797" class="code" text-anchor="start">path</text>
+  <text x="966" y="829" class="small" text-anchor="start">Diagnostics / includes</text>
+  <rect x="1146" y="764" width="270" height="86" rx="0" class="panel"/>
+  <text x="1164" y="797" class="code" text-anchor="start">code</text>
+  <text x="1164" y="829" class="small" text-anchor="start">Shader source text</text>
+  <path d="M1100 850V891" class="arrow"/>
+  <rect x="784" y="896" width="632" height="74" rx="5" class="purple"/>
+  <text x="804" y="925" class="code" text-anchor="start">GBuffer / DeferredLighting / GBufferDebugView</text>
+  <text x="804" y="953" class="small" text-anchor="start">Passes receive ShaderSource; they do not retain FileIOManager.</text>
+  <text x="784" y="1016" class="label" text-anchor="start">Renderer dependencies</text>
+  <text x="784" y="1050" class="small" text-anchor="start">Device + Application, plus file I/O during construction.</text>
+  <text x="784" y="1078" class="small" text-anchor="start">The file service is not retained after source loading.</text>
+  <text x="40" y="1144" class="body" text-anchor="start">Reference = service access · Parameter = call scope · Function = capability · Value = produced data</text>
+</svg>

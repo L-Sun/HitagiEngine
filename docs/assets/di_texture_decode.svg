@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img" aria-labelledby="title desc">
+  <title id="title">Texture Decode · Stored Capabilities and Worker Execution</title>
+  <desc id="desc">Engine creates FileIOManager, JobSystem and AssetManager. AssetManager constructs Texture with path, ImageLoader capturing file_io and path, and JobSubmitter from JobSystem. Later Texture submits DecodeCPU; JobSystem runs it on a worker. The task holds a shared_ptr to Texture. The loader reads bytes through FileIOManager and decodes them into ImageData.</desc>
+  <defs><style>
+    text { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; fill: #263443; }
+    .title { font-size: 32px; font-weight: 700; }
+    .section { font-size: 24px; font-weight: 700; }
+    .label { font-size: 21px; font-weight: 600; }
+    .body { font-size: 19px; }
+    .small { font-size: 17px; fill: #596878; }
+    .code { font-family: Consolas, monospace; font-size: 18px; }
+    .panel { fill: #fff; stroke: #c6d1dc; stroke-width: 1.5; }
+    .blue { fill: #e1eef9; stroke: #8db3d3; stroke-width: 1.5; }
+    .green { fill: #e2f1e7; stroke: #91b69b; stroke-width: 1.5; }
+    .orange { fill: #fbead8; stroke: #d6ac7a; stroke-width: 1.5; }
+    .purple { fill: #eee6f5; stroke: #b19acb; stroke-width: 1.5; }
+    .gray { fill: #edf0f4; stroke: #b1bdca; stroke-width: 1.5; }
+    .arrow { fill: none; stroke: #738293; stroke-width: 2; marker-end: url(#arrow); }
+    .ref { fill: none; stroke: #a07b4d; stroke-width: 2; stroke-dasharray: 6 5; marker-end: url(#amber); }
+    .line { fill: none; stroke: #b1bdca; stroke-width: 1.5; }
+  </style>
+  <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#738293"/></marker>
+  <marker id="amber" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#a07b4d"/></marker></defs>
+  <rect width="1440" height="1040" fill="#f8fafc"/>
+  <rect x="40" y="34" width="6" height="64" rx="3" fill="#608db4"/>
+  <text x="64" y="62" class="title" text-anchor="start">Texture Decode · Stored Capabilities and Worker Execution</text>
+  <text x="64" y="94" class="body" text-anchor="start">Two moments in the lifecycle · Assemble the object first, then invoke its capabilities</text>
+  <text x="40" y="148" class="section" text-anchor="start">01   ASSEMBLE THE TEXTURE</text>
+  <rect x="40" y="174" width="470" height="370" rx="8" class="panel"/>
+  <text x="64" y="213" class="label" text-anchor="start">Engine / Service Lifetime</text>
+  <rect x="64" y="238" width="202" height="52" rx="5" class="blue"/>
+  <text x="80" y="270" class="code" text-anchor="start">FileIOManager</text>
+  <rect x="282" y="238" width="204" height="52" rx="5" class="purple"/>
+  <text x="298" y="270" class="code" text-anchor="start">JobSystem</text>
+  <rect x="64" y="314" width="422" height="130" rx="5" class="green"/>
+  <text x="84" y="347" class="label" text-anchor="start">AssetManager</text>
+  <text x="84" y="380" class="small" text-anchor="start">Constructor receives file_io + job_system</text>
+  <text x="84" y="413" class="small" text-anchor="start">Creates Texture and supplies its functions</text>
+  <text x="64" y="483" class="code" text-anchor="start">MakeFileImageLoader(file_io, path)</text>
+  <text x="64" y="515" class="code" text-anchor="start">job_system.MakeSubmitter()</text>
+  <path d="M510 379H590" class="arrow"/>
+  <text x="550" y="363" class="small" text-anchor="middle">creates</text>
+  <rect x="594" y="174" width="806" height="370" rx="8" class="green"/>
+  <text x="618" y="213" class="label" text-anchor="start">Texture / Object State</text>
+  <text x="1376" y="213" class="small" text-anchor="end">Schematic fields, not byte layout</text>
+  <rect x="618" y="238" width="166" height="64" rx="0" class="gray"/>
+  <text x="638" y="275" class="code" text-anchor="start">path</text>
+  <rect x="784" y="238" width="592" height="64" rx="0" class="panel"/>
+  <text x="806" y="265" class="body" text-anchor="start">Resource identity / deduplication key</text>
+  <text x="806" y="291" class="small" text-anchor="start">Also used as the external reference written during Cook</text>
+  <rect x="618" y="322" width="758" height="82" rx="0" class="orange"/>
+  <text x="638" y="351" class="code" text-anchor="start">ImageLoader</text>
+  <text x="872" y="351" class="code" text-anchor="start">Captured: FileIOManager&amp; + path</text>
+  <text x="638" y="382" class="small" text-anchor="start">Returns ImageData; performs file I/O and image decoding when invoked.</text>
+  <rect x="618" y="424" width="758" height="82" rx="0" class="purple"/>
+  <text x="638" y="453" class="code" text-anchor="start">JobSubmitter</text>
+  <text x="872" y="453" class="code" text-anchor="start">Supplied by JobSystem</text>
+  <text x="638" y="484" class="small" text-anchor="start">Submits the decode callback; an empty submitter selects synchronous decoding.</text>
+  <text x="40" y="598" class="section" text-anchor="start">02   RUN AN ASYNCHRONOUS DECODE</text>
+  <text x="1400" y="598" class="small" text-anchor="end">Left to right: submission, scheduling, execution</text>
+  <rect x="40" y="626" width="374" height="316" rx="8" class="panel"/>
+  <text x="64" y="665" class="label" text-anchor="start">Texture / Calling Thread</text>
+  <rect x="64" y="692" width="326" height="138" rx="5" class="green"/>
+  <text x="84" y="727" class="label" text-anchor="start">Decode task</text>
+  <text x="84" y="762" class="code" text-anchor="start">shared_ptr&lt;Texture&gt;</text>
+  <text x="84" y="797" class="small" text-anchor="start">Keeps the texture alive</text>
+  <text x="64" y="873" class="code" text-anchor="start">submitter(DecodeCPU)</text>
+  <text x="64" y="907" class="small" text-anchor="start">Service lifetimes are still external.</text>
+  <rect x="454" y="626" width="360" height="316" rx="8" class="panel"/>
+  <text x="478" y="665" class="label" text-anchor="start">JobSystem / Pending Work</text>
+  <text x="478" y="710" class="small" text-anchor="start">Task queue (schematic)</text>
+  <rect x="478" y="734" width="62" height="64" rx="0" class="gray"/>
+  <text x="509" y="773" class="code" text-anchor="middle">…</text>
+  <rect x="540" y="734" width="180" height="64" rx="0" class="purple"/>
+  <text x="630" y="773" class="code" text-anchor="middle">DecodeCPU</text>
+  <rect x="720" y="734" width="70" height="64" rx="0" class="gray"/>
+  <text x="755" y="773" class="code" text-anchor="middle">…</text>
+  <path d="M418 766H450" class="arrow"/>
+  <path d="M818 766H850" class="arrow"/>
+  <text x="478" y="873" class="body" text-anchor="start">Schedule on a worker</text>
+  <text x="478" y="907" class="small" text-anchor="start">Run the submitted callback</text>
+  <rect x="854" y="626" width="546" height="316" rx="8" class="panel"/>
+  <text x="878" y="665" class="label" text-anchor="start">Worker / DecodeCPU</text>
+  <rect x="878" y="692" width="498" height="52" rx="5" class="orange"/>
+  <text x="898" y="725" class="code" text-anchor="start">loader()</text>
+  <text x="1050" y="725" class="small" text-anchor="start">Reads using FileIOManager</text>
+  <rect x="878" y="784" width="134" height="56" rx="5" class="blue"/>
+  <text x="945" y="819" class="small" text-anchor="middle">File bytes</text>
+  <path d="M1016 812H1052" class="arrow"/>
+  <rect x="1056" y="784" width="116" height="56" rx="5" class="gray"/>
+  <text x="1114" y="819" class="small" text-anchor="middle">Decode</text>
+  <path d="M1176 812H1212" class="arrow"/>
+  <rect x="1216" y="784" width="160" height="56" rx="5" class="green"/>
+  <text x="1296" y="819" class="code" text-anchor="middle">ImageData</text>
+  <text x="878" y="882" class="body" text-anchor="start">CPU pixels become available to the texture.</text>
+  <text x="878" y="911" class="small" text-anchor="start">GPU upload happens later through Load(context).</text>
+  <text x="40" y="990" class="body" text-anchor="start">Texture retains ImageLoader + JobSubmitter. The assembly boundary supplies the concrete services behind them.</text>
+</svg>
