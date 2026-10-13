@@ -11,6 +11,7 @@ import utils;
 import :resource;
 import :texture;
 import :pipeline;
+import interop.spdlog;
 
 export namespace hitagi::asset {
 
@@ -79,11 +80,49 @@ struct MaterialParameter {
 
 using MaterialParameters = std::pmr::vector<MaterialParameter>;
 
+// The required, typed default is the binding's type authority. There is no
+// name-only constructor and no separately maintained type tag.
+struct MaterialBinding {
+    MaterialBinding(std::string_view name, MaterialParameterValue default_value)
+        : name(name), default_value(std::move(default_value)) {}
+
+    std::pmr::string       name;
+    MaterialParameterValue default_value;
+};
+
+inline auto MaterialParameterTypeName(const MaterialParameterValue& value) -> std::string_view {
+    return std::visit([]<typename T>(const T&) -> std::string_view {
+        if constexpr (std::is_same_v<T, std::shared_ptr<Texture>>)
+            return "Texture2D";
+        else if constexpr (std::is_same_v<T, math::Color>)
+            return "Color";
+        else
+            return gfx::ShaderFieldType<T>();
+    },
+                      value);
+}
+
+inline auto MaterialDataFields(std::span<const MaterialBinding> bindings) -> std::pmr::vector<gfx::ShaderField> {
+    std::pmr::vector<gfx::ShaderField> fields;
+    std::size_t                        offset = 0;
+    for (const MaterialBinding& binding : bindings) {
+        fields.push_back(std::visit([&]<typename T>(const T&) -> gfx::ShaderField {
+            if constexpr (std::is_same_v<T, std::shared_ptr<Texture>>)
+                return gfx::MakeShaderResourceField(binding.name, offset, gfx::BindlessHandleType::Texture);
+            else
+                return gfx::MakeShaderField<T>(binding.name, offset);
+        },
+                                    binding.default_value));
+        offset += fields.back().size;
+    }
+    return fields;
+}
+
 struct MaterialPass {
-    std::pmr::string                   pass_contract;
-    std::shared_ptr<RenderPipeline>    pipeline;
-    std::pmr::vector<std::pmr::string> bindings;
-    core::Buffer                       material_data;
+    std::pmr::string                  pass_contract;
+    std::shared_ptr<RenderPipeline>   pipeline;
+    std::pmr::vector<MaterialBinding> bindings;
+    core::Buffer                      material_data;
 };
 
 class Material : public Resource {
@@ -95,6 +134,9 @@ public:
 
     void Load(const ResourceLoadContext& context) final;
     void Unload() final;
+
+    // Strict authoring/cook validation; runtime uses the same checks as warnings.
+    auto ValidateBindings() const -> std::pmr::vector<std::pmr::string>;
 
     inline auto GetParameters() const noexcept -> std::span<const MaterialParameter> { return m_Parameters; }
     inline auto GetPasses() const noexcept -> std::span<const MaterialPass> { return m_Passes; }
@@ -118,7 +160,8 @@ private:
     std::pmr::vector<MaterialPass> m_Passes;
     // True while any texture parameter is still decoding asynchronously; Load()
     // keeps repacking material_data (with placeholder handles) until all settle.
-    bool m_HasPendingTextures = false;
+    bool m_HasPendingTextures      = false;
+    bool m_ReportedBindingWarnings = false;
 };
 
 template <MaterialParametric T>
@@ -171,12 +214,32 @@ auto Material::FindPass(std::string_view pass_contract) const noexcept -> const 
     return iter == m_Passes.end() ? nullptr : std::addressof(*iter);
 }
 
+auto Material::ValidateBindings() const -> std::pmr::vector<std::pmr::string> {
+    std::pmr::vector<std::pmr::string> errors;
+    for (const MaterialPass& pass : m_Passes) {
+        for (const MaterialBinding& binding : pass.bindings) {
+            const auto parameter = std::ranges::find(m_Parameters, binding.name, &MaterialParameter::name);
+            if (parameter == m_Parameters.end() || parameter->value.index() != binding.default_value.index()) {
+                errors.emplace_back(std::format(
+                    "Material '{}', pass '{}', binding '{}': expected {}, got {}; contract default will be used at runtime",
+                    GetName(), pass.pass_contract, binding.name,
+                    MaterialParameterTypeName(binding.default_value),
+                    parameter == m_Parameters.end() ? "missing parameter" : MaterialParameterTypeName(parameter->value)));
+            }
+        }
+    }
+    return errors;
+}
+
 auto Material::GenerateMaterialData(const MaterialPass& pass) -> core::Buffer {
     std::pmr::vector<MaterialDataValue> values;
     values.reserve(pass.bindings.size());
     for (const auto& binding : pass.bindings) {
-        const auto parameter = std::ranges::find(m_Parameters, binding, &MaterialParameter::name);
-        if (parameter == m_Parameters.end()) continue;
+        const auto                    parameter = std::ranges::find(m_Parameters, binding.name, &MaterialParameter::name);
+        const MaterialParameterValue& value =
+            parameter != m_Parameters.end() && parameter->value.index() == binding.default_value.index()
+                ? parameter->value
+                : binding.default_value;
         std::visit(utils::Overloaded{
                        [&](const std::shared_ptr<Texture>& texture) {
                            auto view = texture ? texture->GetGPUView() : nullptr;
@@ -187,12 +250,13 @@ auto Material::GenerateMaterialData(const MaterialPass& pass) -> core::Buffer {
                        },
                        [&](const auto& value) { values.emplace_back(value); },
                    },
-                   parameter->value);
+                   value);
     }
     return EncodeMaterialData(values);
 }
 
 void Material::InvalidatePassData() noexcept {
+    m_ReportedBindingWarnings = false;
     for (auto& pass : m_Passes) {
         pass.material_data = {};
     }
@@ -202,16 +266,25 @@ void Material::InvalidatePassData() noexcept {
 void Material::Load(const ResourceLoadContext& context) {
     if (GetLoadState() == ResourceLoadState::Loaded && !m_HasPendingTextures) return;
 
-    bool pending = false;
-    for (auto& parameter : m_Parameters) {
-        const auto* texture = std::get_if<std::shared_ptr<Texture>>(std::addressof(parameter.value));
+    if (!m_ReportedBindingWarnings) {
+        for (const auto& warning : ValidateBindings()) spdlog::warn("{}", warning);
+        m_ReportedBindingWarnings = true;
+    }
+    bool       pending           = false;
+    bool       needs_placeholder = false;
+    const auto load_texture      = [&](const MaterialParameterValue& value) {
+        const auto* texture = std::get_if<std::shared_ptr<Texture>>(&value);
         if (texture && *texture && !(*texture)->Empty()) {
             (*texture)->Load(context);
             if (!(*texture)->IsSettled()) pending = true;
+            if (!(*texture)->GetGPUView()) needs_placeholder = true;
         }
-    }
+    };
+    for (const MaterialParameter& parameter : m_Parameters) load_texture(parameter.value);
+    for (const MaterialPass& pass : m_Passes)
+        for (const MaterialBinding& binding : pass.bindings) load_texture(binding.default_value);
     // Make sure the placeholder is resident before its handle gets packed below.
-    if (pending) Texture::DefaultTexture()->Load(context);
+    if (needs_placeholder) Texture::DefaultTexture()->Load(context);
 
     for (auto& pass : m_Passes) {
         if (pass.pipeline) pass.pipeline->Load(context);

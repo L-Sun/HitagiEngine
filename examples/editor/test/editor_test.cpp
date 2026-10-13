@@ -13,7 +13,7 @@ auto ResolvePassTextures(const asset::Material& material, const asset::MaterialP
     std::pmr::vector<std::shared_ptr<asset::Texture>> textures;
     textures.reserve(pass.bindings.size());
     for (const auto& binding : pass.bindings) {
-        const auto parameter = material.GetParameter<std::shared_ptr<asset::Texture>>(binding);
+        const auto parameter = material.GetParameter<std::shared_ptr<asset::Texture>>(binding.name);
         if (parameter) textures.emplace_back(*parameter);
     }
     return textures;
@@ -216,7 +216,7 @@ TEST_F(EditorTest, MaterialDebugDataExposesSourceAndPassBindings) {
         std::pmr::vector<asset::MaterialPass>{
             asset::MaterialPass{
                 .pass_contract = "DebugMaterial",
-                .bindings      = {"base_color", "roughness", "base_color_texture"},
+                .bindings = {{"base_color", math::Color::White()}, {"roughness", 0.5f}, {"base_color_texture", std::shared_ptr<asset::Texture>{}}},
             },
         },
         "debug-material");
@@ -243,9 +243,9 @@ TEST_F(EditorTest, MaterialDebugDataExposesSourceAndPassBindings) {
     EXPECT_EQ(source_info->unsupported_inputs.front(), "clearcoat");
 
     ASSERT_EQ(pass->bindings.size(), 3);
-    EXPECT_EQ(pass->bindings[0], "base_color");
-    EXPECT_EQ(pass->bindings[1], "roughness");
-    EXPECT_EQ(pass->bindings[2], "base_color_texture");
+    EXPECT_EQ(pass->bindings[0].name, "base_color");
+    EXPECT_EQ(pass->bindings[1].name, "roughness");
+    EXPECT_EQ(pass->bindings[2].name, "base_color_texture");
 
     const auto associated_textures = ResolvePassTextures(*material, *pass);
     ASSERT_EQ(associated_textures.size(), 1);

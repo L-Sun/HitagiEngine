@@ -247,6 +247,10 @@ auto BuildParameterRecord(StringTableBuilder& strings, const asset::MaterialPara
                     record.flags |= asset::kCookedParameterNullTexture;
                     return;
                 }
+                if (texture->GetPath().empty()) {
+                    throw std::invalid_argument(std::format(
+                        "Texture parameter/default '{}' must be exported before cook", parameter.name));
+                }
                 record.texture_name = strings.Add(texture->GetName());
                 record.texture_path = strings.Add(CookedPath(texture->GetPath(), options.asset_root_path));
             },
@@ -292,19 +296,25 @@ auto BuildPassRecord(SectionBuilder& meta, StringTableBuilder& strings, const as
     }
 
     const auto bindings = pass.bindings |
-                          std::views::transform([&](const auto& binding) { return strings.Add(binding); }) |
-                          std::ranges::to<std::pmr::vector<asset::StringRef>>();
+                          std::views::transform([&](const auto& binding) { return BuildParameterRecord(strings, {.name = binding.name, .value = binding.default_value}, options); }) |
+                          std::ranges::to<std::pmr::vector<asset::ParameterRecord>>();
 
     return {
         .contract     = strings.Add(pass.pass_contract),
         .has_pipeline = pass.pipeline ? 1u : 0u,
         .shaders      = meta.AppendArray(std::span<const asset::ShaderRecord>{shaders}),
-        .bindings     = meta.AppendArray(std::span<const asset::StringRef>{bindings}),
+        .bindings     = meta.AppendArray(std::span<const asset::ParameterRecord>{bindings}),
         .pipeline     = pass.pipeline ? BuildPipelineRecord(strings, pass.pipeline->GetDesc()) : asset::PipelineRecord{},
     };
 }
 
 auto BuildMaterialRecord(SectionBuilder& meta, StringTableBuilder& strings, const asset::Material& material, const EditorCookOptions& options) -> asset::MaterialRecord {
+    const auto errors = material.ValidateBindings();
+    if (!errors.empty()) {
+        std::string message = "Material cook validation failed:";
+        for (const auto& error : errors) message += std::format("\n{}", error);
+        throw std::invalid_argument(message);
+    }
     const auto parameters = material.GetParameters() |
                             std::views::transform([&](const auto& parameter) { return BuildParameterRecord(strings, parameter, options); }) |
                             std::ranges::to<std::pmr::vector<asset::ParameterRecord>>();

@@ -129,7 +129,7 @@ TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
 
     const auto material = std::make_shared<Material>(
         MaterialParameters{{.name = "base_color", .value = vec4f{1, 1, 1, 1}}},
-        std::pmr::vector<MaterialPass>{MaterialPass{.pass_contract = "Test", .bindings = {"base_color"}}},
+        std::pmr::vector<MaterialPass>{MaterialPass{.pass_contract = "Test", .bindings = {{"base_color", vec4f{1, 1, 1, 1}}}}},
         "SceneResidencyMaterial");
 
     const auto mesh                = MeshFactory::Cube();
@@ -207,7 +207,7 @@ TEST_F(AsyncTextureLoadTest, MaterialUsesPlaceholderUntilTextureReady) {
     const auto texture  = assets.AcquireTexture(kTestImagePath);
     const auto material = std::make_shared<Material>(
         MaterialParameters{{.name = "albedo", .value = texture}},
-        std::pmr::vector<MaterialPass>{MaterialPass{.pass_contract = "Test", .bindings = {"albedo"}}},
+        std::pmr::vector<MaterialPass>{MaterialPass{.pass_contract = "Test", .bindings = {{"albedo", texture}}}},
         "AsyncMaterial");
 
     // Frame 1: decode in flight, the pass packs the placeholder handle.

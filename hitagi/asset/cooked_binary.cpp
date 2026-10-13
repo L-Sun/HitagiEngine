@@ -178,7 +178,7 @@ auto PipelineDescFromRecord(const CookedReader& reader, const PipelineRecord& re
     };
 }
 
-auto PassFromRecord(const CookedReader& reader, const PassRecord& record, const std::filesystem::path& asset_root_path) -> MaterialPass {
+auto PassFromRecord(const CookedReader& reader, const PassRecord& record, const std::filesystem::path& asset_root_path, const CookedTextureResolver& texture_resolver) -> MaterialPass {
     MaterialPass pass;
     pass.pass_contract = std::pmr::string(reader.GetString(record.contract));
 
@@ -193,9 +193,11 @@ auto PassFromRecord(const CookedReader& reader, const PassRecord& record, const 
             std::move(shaders));
     }
 
-    pass.bindings = reader.ReadArray<StringRef>(record.bindings) |
-                    std::views::transform([&](StringRef binding) { return std::pmr::string(reader.GetString(binding)); }) |
-                    std::ranges::to<std::pmr::vector<std::pmr::string>>();
+    pass.bindings = reader.ReadArray<ParameterRecord>(record.bindings) |
+                    std::views::transform([&](const ParameterRecord& binding) {
+                        return MaterialBinding{reader.GetString(binding.name), ParameterValueFromRecord(reader, binding, asset_root_path, texture_resolver)};
+                    }) |
+                    std::ranges::to<std::pmr::vector<MaterialBinding>>();
     return pass;
 }
 
@@ -210,7 +212,7 @@ auto MaterialFromRecord(const CookedReader& reader, const MaterialRecord& record
                       std::ranges::to<MaterialParameters>();
 
     auto passes = reader.ReadArray<PassRecord>(record.passes) |
-                  std::views::transform([&](const PassRecord& pass) { return PassFromRecord(reader, pass, asset_root_path); }) |
+                  std::views::transform([&](const PassRecord& pass) { return PassFromRecord(reader, pass, asset_root_path, texture_resolver); }) |
                   std::ranges::to<std::pmr::vector<MaterialPass>>();
 
     return std::make_shared<Material>(std::move(parameters), std::move(passes), reader.GetString(record.name));

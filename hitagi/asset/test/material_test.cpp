@@ -15,6 +15,39 @@ using namespace hitagi::math;
 using namespace hitagi::testing;
 using namespace hitagi::utils;
 
+static_assert(!std::is_constructible_v<MaterialBinding, std::string_view>);
+
+TEST(MaterialTest, MissingAndMistypedBindingsUseContractDefaultsWithoutShifting) {
+    Material material(
+        {{.name = "metallic", .value = 0.8f},
+         {.name = "wrong_size", .value = vec4f{9, 8, 7, 6}},
+         {.name = "wrong_type", .value = std::uint32_t{123}},
+         {.name = "occlusion", .value = 0.9f}},
+        {{.pass_contract = "Forward", .bindings = {
+            {"metallic", 0.0f}, {"roughness", 0.5f}, {"wrong_size", 0.25f},
+            {"wrong_type", 0.75f}, {"occlusion", 1.0f}}}}, "FallbackMaterial");
+    ASSERT_EQ(material.ValidateBindings().size(), 3);
+    auto device = hitagi::gfx::create_device(hitagi::gfx::Device::Type::Mock, "Fallback");
+    hitagi::gfx::CommandQueues queues(*device);
+    auto bindings = hitagi::gfx::BindlessUtils::Create(*device);
+    hitagi::gfx::ShaderCompiler compiler("Fallback");
+    const ResourceLoadContext context{.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler};
+    EXPECT_NO_THROW(material.Load(context));
+    const MaterialPass* pass = material.FindPass("Forward");
+    ASSERT_NE(pass, nullptr);
+    ASSERT_EQ(pass->material_data.GetDataSize(), 5 * sizeof(float));
+    const auto values = pass->material_data.Span<const float>();
+    EXPECT_FLOAT_EQ(values[0], 0.8f);
+    EXPECT_FLOAT_EQ(values[1], 0.5f);
+    EXPECT_FLOAT_EQ(values[2], 0.25f);
+    EXPECT_FLOAT_EQ(values[3], 0.75f);
+    EXPECT_FLOAT_EQ(values[4], 0.9f);
+    EXPECT_EQ(material.GetLoadState(), ResourceLoadState::Loaded);
+    material.DefineParameter("roughness", 0.6f);
+    material.Load(context);
+    EXPECT_FLOAT_EQ(pass->material_data.Span<const float>()[1], 0.6f);
+}
+
 namespace {
 
 auto MakeMaterial(
@@ -39,7 +72,7 @@ auto ResolvePassTextures(const Material& material, const MaterialPass& pass) -> 
     std::pmr::vector<std::shared_ptr<Texture>> textures;
     textures.reserve(pass.bindings.size());
     for (const auto& binding : pass.bindings) {
-        const auto parameter = material.GetParameter<std::shared_ptr<Texture>>(binding);
+        const auto parameter = material.GetParameter<std::shared_ptr<Texture>>(binding.name);
         if (parameter) textures.emplace_back(*parameter);
     }
     return textures;
@@ -121,7 +154,7 @@ TEST(MaterialTest, DefineParameterFixesType) {
 }
 
 TEST(MaterialTest, RejectedAssignmentPreservesLoadedData) {
-    Material    material({{.name = "roughness", .value = 0.5f}}, {{.pass_contract = "Forward", .bindings = {"roughness"}}});
+    Material    material({{.name = "roughness", .value = 0.5f}}, {{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}});
     const auto& pass = LoadMaterialPass(material, "Forward");
     ASSERT_FALSE(pass.material_data.Empty());
     const auto size = pass.material_data.GetDataSize();
@@ -157,7 +190,7 @@ TEST(MaterialTest, MaterialBuffer_TightLayout) {
         {
             MaterialPass{
                 .pass_contract = "Test",
-                .bindings      = {"param1", "param2", "param3", "param4", "param5", "param6"},
+                .bindings = {{"param1", vec2f{1, 2}}, {"param2", float{1}}, {"param3", vec4f{1, 2, 3, 4}}, {"param4", std::shared_ptr<Texture>{nullptr}}, {"param5", vec2f{1, 2}}, {"param6", vec3f{1, 2, 3}}},
             },
         });
 
@@ -209,19 +242,19 @@ TEST(MaterialTest, MaterialPass_TightBindingOrder) {
         {
             MaterialPass{
                 .pass_contract = "Test",
-                .bindings      = {"param1", "param2", "param3", "tex1", "param4", "tex2"},
+                .bindings = {{"param1", vec2f{1, 2}}, {"param2", float{1}}, {"param3", vec4f{1, 2, 3, 4}}, {"tex1", tex1}, {"param4", vec3f{1, 2, 3}}, {"tex2", tex2}},
             },
         });
 
     const auto& pass = LoadMaterialPass(*mat, "Test");
 
     ASSERT_EQ(pass.bindings.size(), 6);
-    EXPECT_EQ(pass.bindings[0], "param1");
-    EXPECT_EQ(pass.bindings[1], "param2");
-    EXPECT_EQ(pass.bindings[2], "param3");
-    EXPECT_EQ(pass.bindings[3], "tex1");
-    EXPECT_EQ(pass.bindings[4], "param4");
-    EXPECT_EQ(pass.bindings[5], "tex2");
+    EXPECT_EQ(pass.bindings[0].name, "param1");
+    EXPECT_EQ(pass.bindings[1].name, "param2");
+    EXPECT_EQ(pass.bindings[2].name, "param3");
+    EXPECT_EQ(pass.bindings[3].name, "tex1");
+    EXPECT_EQ(pass.bindings[4].name, "param4");
+    EXPECT_EQ(pass.bindings[5].name, "tex2");
     EXPECT_EQ(pass.material_data.GetDataSize(), 72);
 
     const auto textures = ResolvePassTextures(*mat, pass);
@@ -243,18 +276,18 @@ TEST(MaterialTest, MaterialPass_BindingOrderAndReload) {
         {
             MaterialPass{
                 .pass_contract = "Test",
-                .bindings      = {"param1", "param2", "param3", "texture", "param4", "param5"},
+                .bindings = {{"param1", vec2f{1, 2}}, {"param2", float{1}}, {"param3", vec4f{1, 2, 3, 4}}, {"texture", std::shared_ptr<Texture>{nullptr}}, {"param4", vec2f{1, 2}}, {"param5", vec3f{1, 2, 3}}},
             },
         });
 
     const auto& pass_a = LoadMaterialPass(*mat, "Test");
     ASSERT_EQ(pass_a.bindings.size(), 6);
-    EXPECT_EQ(pass_a.bindings[0], "param1");
-    EXPECT_EQ(pass_a.bindings[1], "param2");
-    EXPECT_EQ(pass_a.bindings[2], "param3");
-    EXPECT_EQ(pass_a.bindings[3], "texture");
-    EXPECT_EQ(pass_a.bindings[4], "param4");
-    EXPECT_EQ(pass_a.bindings[5], "param5");
+    EXPECT_EQ(pass_a.bindings[0].name, "param1");
+    EXPECT_EQ(pass_a.bindings[1].name, "param2");
+    EXPECT_EQ(pass_a.bindings[2].name, "param3");
+    EXPECT_EQ(pass_a.bindings[3].name, "texture");
+    EXPECT_EQ(pass_a.bindings[4].name, "param4");
+    EXPECT_EQ(pass_a.bindings[5].name, "param5");
     EXPECT_EQ(pass_a.material_data.GetDataSize(), 64);
 
     mat->Unload();
@@ -279,7 +312,7 @@ TEST(MaterialTest, MaterialPass_GeneratesBufferAndTextures) {
         {
             MaterialPass{
                 .pass_contract = "Test",
-                .bindings      = {"param1", "param2", "tex1", "tex2"},
+                .bindings = {{"param1", vec2f{1, 2}}, {"param2", float{3}}, {"tex1", tex1}, {"tex2", tex2}},
             },
         });
 
@@ -321,7 +354,7 @@ TEST(MaterialTest, MaterialLoad_WritesTextureViewBindlessHandle) {
         {
             MaterialPass{
                 .pass_contract = "Test",
-                .bindings      = {"albedo"},
+                .bindings = {{"albedo", texture}},
             },
         });
 
@@ -341,4 +374,20 @@ TEST(MaterialTest, MaterialLoad_WritesTextureViewBindlessHandle) {
     EXPECT_EQ(stored_handle.type, expected_handle.type);
     EXPECT_EQ(stored_handle.writable, expected_handle.writable);
     EXPECT_EQ(stored_handle.version, expected_handle.version);
+
+    const auto default_texture = std::make_shared<Texture>(
+        1, 1, hitagi::gfx::Format::R8G8B8A8_UNORM,
+        hitagi::core::Buffer(pixels.size(), pixels.data()), "contract-white");
+    ASSERT_EQ(default_texture->GetGPUView(), nullptr);
+    Material fallback({}, {{.pass_contract = "Fallback", .bindings = {
+        {"missing_texture", default_texture}, {"tail", 0.75f}}}}, "TextureDefault");
+    fallback.Load({.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler});
+    const MaterialPass* fallback_pass = fallback.FindPass("Fallback");
+    ASSERT_NE(fallback_pass, nullptr);
+    ASSERT_EQ(fallback_pass->material_data.GetDataSize(), sizeof(hitagi::gfx::BindlessHandle) + sizeof(float));
+    const auto fallback_handle = *reinterpret_cast<const hitagi::gfx::BindlessHandle*>(fallback_pass->material_data.GetData());
+    EXPECT_TRUE(fallback_handle);
+    ASSERT_NE(default_texture->GetGPUView(), nullptr);
+    EXPECT_EQ(fallback_handle.index, default_texture->GetGPUView()->GetBindlessHandle().index);
+    EXPECT_FLOAT_EQ(*reinterpret_cast<const float*>(fallback_pass->material_data.GetData() + sizeof(hitagi::gfx::BindlessHandle)), 0.75f);
 }

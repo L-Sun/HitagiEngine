@@ -54,20 +54,14 @@ auto MaterialParameterValueTypeName(const asset::MaterialParameterValue& value) 
         value);
 }
 
-auto MaterialPassParameterTypeName(const asset::Material& material, std::string_view name) noexcept -> std::string_view {
-    const auto iter = std::ranges::find_if(material.GetParameters(), [name](const auto& parameter) {
-        return parameter.name == name;
-    });
-    return iter == material.GetParameters().end() ? "unknown" : MaterialParameterValueTypeName(iter->value);
-}
-
 auto ResolvePassTextures(const asset::Material& material, const asset::MaterialPass& pass) -> std::pmr::vector<std::shared_ptr<asset::Texture>> {
     std::pmr::vector<std::shared_ptr<asset::Texture>> textures;
     textures.resize(pass.bindings.size());
     for (std::size_t binding_index = 0; binding_index < pass.bindings.size(); ++binding_index) {
         const auto& binding   = pass.bindings[binding_index];
-        const auto  parameter = material.GetParameter<std::shared_ptr<asset::Texture>>(binding);
+        const auto  parameter = material.GetParameter<std::shared_ptr<asset::Texture>>(binding.name);
         if (parameter) textures[binding_index] = *parameter;
+        else if (const auto* fallback = std::get_if<std::shared_ptr<asset::Texture>>(&binding.default_value)) textures[binding_index] = *fallback;
     }
     return textures;
 }
@@ -164,12 +158,12 @@ void DrawMaterialPassLayout(Engine& engine, const asset::MaterialPass& pass, con
             ImGui::TableHeadersRow();
             for (std::size_t binding_index = 0; binding_index < pass.bindings.size(); ++binding_index) {
                 const auto& binding = pass.bindings[binding_index];
-                const auto  type    = MaterialPassParameterTypeName(material, binding);
+                const auto  type    = MaterialParameterValueTypeName(binding.default_value);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("%llu", static_cast<unsigned long long>(binding_index));
                 ImGui::TableSetColumnIndex(1);
-                ImGui::TextUnformatted(binding.c_str());
+                ImGui::TextUnformatted(binding.name.c_str());
                 ImGui::TableSetColumnIndex(2);
                 ImGui::TextUnformatted(type.data());
                 ImGui::TableSetColumnIndex(3);
@@ -178,7 +172,7 @@ void DrawMaterialPassLayout(Engine& engine, const asset::MaterialPass& pass, con
                     if (texture) {
                         const auto& path = texture->GetPath();
                         ImGui::TextWrapped("%s", path.empty() ? texture->GetName().data() : path.string().c_str());
-                        DrawTextureSlotPreview(engine, binding, texture);
+                        DrawTextureSlotPreview(engine, binding.name, texture);
                     } else {
                         ImGui::TextUnformatted("-");
                     }

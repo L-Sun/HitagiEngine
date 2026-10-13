@@ -18,7 +18,7 @@ import math;
 export namespace hitagi::asset {
 
 inline constexpr std::array<char, 4> kCookedMagic{'H', 'T', 'G', 'C'};
-inline constexpr std::uint32_t       kCookedVersion         = 1;
+inline constexpr std::uint32_t       kCookedVersion         = 2;
 inline constexpr std::uint32_t       kCookedInvalidIndex    = 0xFFFF'FFFFu;
 inline constexpr std::size_t         kCookedBlobAlignment   = 16;
 inline constexpr std::size_t         kCookedRecordAlignment = 8;
@@ -107,7 +107,7 @@ struct PassRecord {
     std::uint32_t  has_pipeline = 0;
     std::uint32_t  _padding     = 0;
     ArrayRef       shaders{};   // -> ShaderRecord[]
-    ArrayRef       bindings{};  // -> StringRef[]
+    ArrayRef       bindings{};  // -> ParameterRecord[] (mandatory typed contract defaults)
     PipelineRecord pipeline{};
 };
 
