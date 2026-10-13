@@ -48,6 +48,7 @@ External dependency modules are provided by the independent `hitagi_interop` tar
 - Texture attachment descriptors belong to Views: `DX12TextureView` owns RTV/DSV descriptors and `VulkanTextureView` owns its image view.
 - Record arrays normally use one View/descriptor with shader indexing. `BindlessMetaInfo` carries a handle, record index, and stride; preserve the CPU/HLSL ABI when changing it. Independent binding alignment does not determine the stride inside an already bound array.
 - Shaders use HLSL compiled by DXC to DXIL/SPIR-V. The shared storage path uses raw byte-address buffers. Integer ID textures use integer loads rather than filtered sampling.
+- `shader_layout.cpp` describes that raw 32-bit storage ABI: derive fields from CPU types/offsets and generate shader declarations through `GenerateShaderStruct`. It is not constant-buffer packing. Optional renderer presets own field semantics; gfx owns resource-handle wrappers and layout generation.
 
 ## Render Graph Contracts
 

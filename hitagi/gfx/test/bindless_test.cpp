@@ -18,6 +18,21 @@ using namespace hitagi;
 using namespace hitagi::gfx;
 using namespace hitagi::utils;
 
+TEST(ShaderLayoutTest, GeneratesTypedStorageFieldsAndRejectsOverlaps) {
+    const std::array fields{
+        MakeShaderField<float>("value", 0),
+        MakeShaderResourceField("texture", 4, BindlessHandleType::Texture),
+        MakeShaderField<math::mat4f>("transform", 20),
+    };
+    const auto source = GenerateShaderStruct("TestData", fields, 84);
+    EXPECT_NE(source.find("float value;"), std::pmr::string::npos);
+    EXPECT_NE(source.find("hitagi::Texture texture;"), std::pmr::string::npos);
+    EXPECT_NE(source.find("row_major float4x4 transform;"), std::pmr::string::npos);
+    const std::array overlap{MakeShaderField<math::vec4f>("a", 0), MakeShaderField<float>("b", 4)};
+    EXPECT_THROW(GenerateShaderStruct("Bad", overlap, 20), std::invalid_argument);
+    EXPECT_THROW(GenerateShaderStruct("Small", fields, 80), std::invalid_argument);
+}
+
 TEST(BindlessVulkanTest, SharedHeapsAcrossCommandBuffers) {
     auto                                                      device = create_device(Device::Type::Vulkan, "SharedHeaps");
     hitagi::gfx::CommandQueues                                queues(*device);

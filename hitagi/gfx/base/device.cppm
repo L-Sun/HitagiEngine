@@ -3,6 +3,7 @@ export import :types;
 export import :gpu_resource;
 export import :sync;
 export import :bindless;
+export import :shader_layout;
 export import :command_context;
 export import :command_queue;
 export import :shader_compiler;
