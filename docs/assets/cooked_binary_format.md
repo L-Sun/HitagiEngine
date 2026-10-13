@@ -37,7 +37,7 @@ Endianness: **little-endian only**, locked by a `static_assert` in `cooked_forma
 ```cpp
 struct CookedFileHeader {           // 80 bytes
     std::array<char, 4> magic{};    // 'H','T','G','C'
-    std::uint32_t       version;    // kCookedVersion, currently 1
+    std::uint32_t       version;    // kCookedVersion, currently 2
     CookedAssetType     asset_type; // Material = 1, Scene = 2
     std::uint32_t       flags;
     BufferView          meta;       // absolute file offset + length
@@ -62,7 +62,7 @@ struct StringRef  { std::uint32_t offset, length;};  //  8B, points into the str
 
 ## Records
 
-Every record is a trivially copyable POD. The `CookedRecord` concept enforces that, and each record's `sizeof` is locked by `static_assert`. Adding a field and forgetting to bump the version fails the build.
+Every record is a trivially copyable POD. The `CookedRecord` concept enforces that, and each record's `sizeof` is locked by `static_assert`. Record size changes are checked at build time; any layout or interpretation change also requires an explicit version bump.
 
 ### Material side
 
@@ -77,6 +77,10 @@ Every record is a trivially copyable POD. The `CookedRecord` concept enforces th
 `ParameterRecord.payload` is a 64-byte inline fixed payload. The largest alternative in `MaterialParameterValue` is `mat4f` (64 bytes). Inlining it into a fixed-size record wastes a few bytes and keeps parameter records fixed-size, so they can be `AppendArray`'d as a block.
 
 Texture parameters do not store pixels. They store `texture_path` (relative to the asset root) and `texture_name`. An empty texture is expressed by the `kCookedParameterNullTexture` flag, which is distinct from an empty path.
+
+In v2, `PassRecord.bindings` references an ordered `ParameterRecord[]`, not `StringRef[]`. Each record stores the binding name, expected type (the typed default's variant alternative), and mandatory default value. Default texture references are resolved through the same asset registry as ordinary parameters. v1 artifacts must be re-cooked.
+
+Cook validates final material parameters against these bindings before writing either material or scene records. Missing parameters and type mismatches are build errors, even though runtime can recover using the stored defaults.
 
 ### Mesh and scene side
 

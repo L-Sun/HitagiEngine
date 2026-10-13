@@ -79,12 +79,16 @@ Other application targets include `pbr-demo-game`, `pbr-demo-game-editor`, `snak
 
 These are intended ownership/dependency boundaries, not a claim that all current namespace names have been migrated.
 
+See [Overall abstraction design](docs/architecture/overview.md) for the four-layer dependency structure, game editor composition, and the shared authoring/runtime resource contracts.
+
 | Scope | Responsibility | Project dependencies |
 | --- | --- | --- |
 | engine | Runtime foundations, gfx/render primitives, ECS, physics, GUI, runtime assets | No editor or game dependency |
-| editor | Generic authoring, inspectors, viewports, USD import/export, cook tools | engine |
+| Editor Framework | Generic authoring, inspectors, viewports, USD import/export, cook tools | engine |
 | game | Gameplay, game assets, rendering composition and material/pass policy | engine |
 | game-editor | Integration of generic editor tools with game-specific rules | engine, editor, game |
+
+Editor Framework is the architectural layer name; its C++ module is still `editor`, its build target is `hitagi_editor`, and `hitagi::Editor` is a `RuntimeModule` implementation. Game Editor names the application that combines the framework with game-specific behavior.
 
 Runtime packaging should require only engine, game, and cooked assets. USD authoring data, editable document graphs, and save-back workflows belong to editor/game-editor. Game-specific render pipelines and material compiler policies belong to game; engine render code provides reusable primitives and explicitly owned defaults.
 
@@ -96,7 +100,7 @@ Current engine code generally uses `hitagi::`; some editor and example types sti
 - `Engine` is the composition root. It owns infrastructure services and the runtime module tree; injected dependencies must outlive their consumers. Tests own the services they need. See [dependency injection](docs/architecture/dependency_injection.md).
 - The host supplies `AppConfig` and owns configuration persistence. `Engine::Tick()` advances the runtime modules. Use the real [editor entry point](examples/editor/main.cpp) or [GUI example](examples/imgui_demo/main.cpp) as an integration reference.
 - `GuiManager` owns ImGui and produces `GuiDrawData`. `RenderRuntime::RenderGui()` consumes that data; `RenderRuntime` owns the graph/swapchain and compiles, executes, and presents. Rendering code must not acquire GUI data through hidden access to ImGui or a `GuiManager`.
-- `IRenderer` builds rendering work through `RenderContext`; the current `DefaultRenderer` aliases `DeferredRenderer`. Runtime assets use `Load(const ResourceLoadContext&)` / `Unload()`.
+- `IRenderer` builds rendering work through `RenderContext`. Engine starts with a shading-neutral `ClearRenderer`; application hosts explicitly select `preset.pbr`, `preset.deferred`, or their own renderer. Editor viewport hooks use `IDeferredRenderer`, not a concrete preset. Runtime assets use `Load(const ResourceLoadContext&)` / `Unload()`.
 - Matrices use row-major layout on CPU and GPU. DX12 is Windows-only; the Vulkan/platform code also has Linux/Wayland paths. Do not claim platform validation without running it.
 
 ### Modules and Source Navigation

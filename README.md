@@ -15,13 +15,13 @@ Hitagi Engine is an experimental game engine written with C++23 modules and buil
 - **Core**: pmr-based memory pools, file I/O, a [Taskflow](https://github.com/taskflow/taskflow)-based job system, timers, and a runtime module tree composed by `Engine` with explicit dependency injection
 - **Math**: a 3D math library with swizzle support and optional [ISPC](https://github.com/ispc/ispc) acceleration; matrices are row-major on both CPU and GPU
 - **Graphics (gfx)**: a graphics API abstraction with DX12, Vulkan, and mock backends, bindless resources, and a render graph
-- **Render**: a deferred renderer (depth prepass, shadow maps, G-buffer, deferred lighting, debug views) plus GUI and text rendering
+- **Render**: reusable rendering interfaces, render-graph integration, GUI and text rendering; optional PBR forward and deferred rendering presets live outside Engine
 - **Asset**: runtime resources (textures, materials, meshes, cameras, lights, scenes) loaded from a cooked binary format, with GPU residency management in `AssetManager`
 - **ECS**: archetype-based entities, filters, and system scheduling
 - **Physics**: integration of [Jolt Physics](https://github.com/jrouwe/JoltPhysics)
 - **GUI and input**: [Dear ImGui](https://github.com/ocornut/imgui) (docking branch) and an HID input manager
 - **Platform**: Win32 on Windows, SDL3 elsewhere
-- **Editor**: a generic authoring library with an asset browser, scene viewport, inspectors, OpenUSD import/export, and asset cooking
+- **Editor Framework**: reusable editing workflows and extension points, including an asset browser, scene viewport, inspectors, OpenUSD import, material graphs and validation, and asset cooking; concrete shader generation is supplied by games or optional presets
 
 Platform status: Windows is the primary target and the only one covered by CI. Linux/Wayland code paths exist for Vulkan and SDL3 but are not regularly validated.
 
@@ -31,6 +31,7 @@ Platform status: Windows is the primary target and the only one covered by CI. L
 | --- | --- |
 | [hitagi/](hitagi) | Engine modules (`core`, `math`, `gfx`, `render`, `asset`, `ecs`, `physics`, `gui`, `hid`, `platform`, ...) and the editor library |
 | [hitagi/interop/](hitagi/interop) | Module bridges for third-party dependencies (`interop.<library>`) |
+| [presets/](presets) | Opt-in rendering models and authoring companions; Engine and Editor Framework do not depend on them |
 | [examples/](examples) | Editor entry point, ImGui demo, PBR demo, and Snake game |
 | [assets/](assets) | Shaders, fonts, materials, scenes, and cooked assets |
 | [docs/](docs) | Architecture, asset, and development documentation |
@@ -94,6 +95,7 @@ xmake r editor_tests
 
 ## Documentation
 
+- [Overall abstraction design](docs/architecture/overview.md): Engine, Editor Framework, Game, and Game Editor responsibilities and integration
 - [Dependency injection](docs/architecture/dependency_injection.md)
 - [Asset module](docs/assets/README.md): resource lifecycle, materials, and the cooked binary format
 - [Interop boundaries](docs/development/interop.md)

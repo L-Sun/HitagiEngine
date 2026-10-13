@@ -33,10 +33,16 @@ struct MaterialParameter {
     MaterialParameterValue value;
 };
 
+struct MaterialBinding {
+    MaterialBinding(std::string_view name, MaterialParameterValue default_value);
+    std::pmr::string name;
+    MaterialParameterValue default_value; // required; its variant alternative defines the type
+};
+
 struct MaterialPass {
     std::pmr::string                   pass_contract;
     std::shared_ptr<RenderPipeline>    pipeline;
-    std::pmr::vector<std::pmr::string> bindings;
+    std::pmr::vector<MaterialBinding>   bindings;
     core::Buffer                       material_data;
 };
 
@@ -59,7 +65,7 @@ public:
 };
 ```
 
-The constructor deduplicates parameters by name (keeping the first occurrence) and deep-copies the passes.
+The constructor deduplicates parameters by name (keeping the first occurrence) and takes ownership of the supplied parameter and pass descriptions.
 
 `DefineParameter<T>(name, value)` adds a parameter and fixes its type through the active `MaterialParameterValue` variant alternative. Defining an existing name throws `std::invalid_argument`. Constructor-supplied parameters are already defined.
 
@@ -83,15 +89,15 @@ Material.parameters              (value table, order is meaningless)
   albedo     = Texture(...)
   unused     = 1.0
 
-MaterialPass("DemoPBRForward").bindings   (ABI, order is the layout)
-  base_color
-  roughness
-  albedo
+MaterialPass("PBRForward").bindings   (ABI, order is the layout)
+  base_color : Color     = White
+  roughness  : Float     = 0.5
+  albedo     : Texture2D = contract texture reference
         ↓
-  material_data : [base_color(16B)][roughness(4B)][albedo handle(4B)] + alignment
+  material_data : [base_color(16B)][roughness(4B)][albedo handle(16B)]
 ```
 
-A parameter that does not appear in `bindings` (such as `unused` above) is left out of that pass's `material_data`. A name in `bindings` that has no matching parameter is skipped.
+A parameter that does not appear in `bindings` (such as `unused` above) is left out of that pass's `material_data`. Every binding requires a typed default supplied by the game or preset. Cook rejects missing or mistyped final parameters. Runtime warns once per material parameter revision and substitutes the contract default, preserving the expected field size and all subsequent offsets. Equal byte sizes do not imply equal types (for example, `float` versus `uint32_t`).
 
 One material can have several passes, each with its own `bindings` and `material_data`. The renderer fetches a pass with `FindPass("the contract it agreed on")`. If the pass is missing, that material is skipped. The renderer does not infer a shading model from parameter names, and it does not synthesize a pass on the spot.
 
@@ -99,15 +105,27 @@ One material can have several passes, each with its own `bindings` and `material
 
 ## material_data packing rules
 
-`GenerateMaterialData` writes values in `bindings` order:
+`GenerateMaterialData` resolves exactly one value per binding: a matching parameter, or that binding's mandatory default. It then encodes those values in binding order.
 
-* Scalars, vectors, and matrices are `memcpy`'d as `sizeof(T)`.
-* Textures are written as a `gfx::BindlessHandle`, occupying `sizeof(gfx::BindlessHandle)` bytes.
-* The DX12 backend packs on 16-byte boundaries: if the space from the current offset to the next 16-byte boundary cannot hold the value, the writer pads to that boundary first so the value does not straddle it. The Vulkan backend does not do this.
-* The buffer size is `max(16, align(offset, 16))`. An empty `bindings` list allocates nothing.
-* The buffer is zeroed before writing, so unmatched bindings stay 0.
+- Scalars, vectors, and row-major matrices follow the shared tightly packed 32-bit storage ABI.
+- Textures become a 16-byte `gfx::BindlessHandle`, never a CPU pointer.
+- No backend-specific 16-byte field padding is inserted. Buffer binding alignment is separate from field layout.
+- `MaterialDataFields` derives shader field types, offsets, and sizes from the same binding defaults. `gfx::GenerateShaderStruct` emits the HLSL declaration.
+- Contract defaults are serialized in HTGC v2. Texture defaults use asset references; runtime handles are never cooked.
 
-The backend difference is decided by `context.device.device_type == gfx::Device::Type::DX12`, so the same material can pack to a different byte layout on different backends. That is why `material_data` must be generated at runtime and cannot be baked at cook time.
+`ValidateBindings()` is shared validation machinery: Cook treats its diagnostics as errors, while runtime logs warnings and continues with defaults. A binding cannot be constructed without an explicit default, so a separate expected-type tag cannot disagree with the default's type.
+
+## Optional PBR preset
+
+`presets/pbr` is opt-in. `hitagi_preset_pbr` owns the PBR description, defaults, `PBRForward` contract, and renderer; it depends only on Engine. `hitagi_preset_pbr_authoring` depends on that runtime preset and Editor Framework, and owns the PBR graph compiler and shader generation.
+
+The legacy deferred renderer, concrete routing rules, and lighting passes are separately available through `hitagi_preset_deferred`. Engine starts with `ClearRenderer`, and application entry points opt into their renderer.
+
+Engine and Editor Framework do not depend on these presets. The framework retains generic graph validation, USD import, inspectors, and Cook. The PBR game editor owns its USD-to-PBR adapter.
+
+Frame, instance, and draw-resource declarations are generated using Engine's `gfx::ShaderField` API from CPU member types and offsets. Applications choose resource roles; Engine owns handle allocation, resource lifetime, and shader ABI machinery. The raw storage layout API is not a constant-buffer packing API.
+
+The unfinished material shader cache, cache keys, and hot-reload toggle have been removed. This does not remove graphics shader compilation or unrelated resource registries.
 
 ## Placeholder textures and repacking
 
@@ -131,7 +149,7 @@ Frame 3  Material::Load
 
 The check uses `Texture::IsSettled()` (`Loaded` or `Failed`), so a texture that failed to decode does not make the material repack forever. It settles on the placeholder handle.
 
-`GenerateMaterialData` has one more fallback for textures: if it cannot get a GPU view and the texture is non-null, it takes the handle of `Texture::DefaultTexture()`, so the shader always samples a valid resource.
+`GenerateMaterialData` has one more fallback for textures: if a non-empty texture has no GPU view, the engine loads and uses `Texture::DefaultTexture()`. This applies to contract texture defaults as well as ordinary parameters. An explicit null texture default means no texture; the preset shader must guard sampling and define that case's behavior. The PBR preset does so.
 
 ## Load / Unload
 
@@ -141,13 +159,13 @@ void Material::Load(const ResourceLoadContext& context) {
 
     bool pending = false;
     for (auto& parameter : m_Parameters) {
-        // Load each non-null texture parameter; mark pending if it has not settled
+        // Load parameter AND contract-default textures; mark pending if not settled
     }
-    if (pending) Texture::DefaultTexture()->Load(context);
+    // Load the placeholder whenever a non-empty texture has no GPU view.
 
     for (auto& pass : m_Passes) {
         if (pass.pipeline) pass.pipeline->Load(context);
-        pass.material_data = GenerateMaterialData(pass, /* DX12 packing */);
+        pass.material_data = GenerateMaterialData(pass);
     }
     m_HasPendingTextures = pending;
     SetLoadState(ResourceLoadState::Loaded);
@@ -168,4 +186,4 @@ Shader descriptions are not stored directly on `MaterialPass`. `asset::RenderPip
 3. device.CreateRenderPipeline(desc, shaders)
 ```
 
-The renderer prefers `MaterialPass.pipeline->GetBuiltPipeline()`. If that is missing, it falls back to the renderer's own default pipeline.
+The renderer consumes `MaterialPass.pipeline->GetBuiltPipeline()`. Missing or unusable passes are handled by renderer policy; the asset layer does not invent a lighting-model fallback.

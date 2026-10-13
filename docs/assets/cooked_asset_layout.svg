@@ -1,0 +1,213 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1510" viewBox="0 0 1800 1510" role="img" aria-labelledby="title desc">
+  <title id="title">Hitagi Engine — Cooked Asset Runtime Format</title>
+  <desc id="desc">HTGC v1 file layout, record references and runtime loading. The 80-byte header stores absolute section offsets. Records use section-relative references. Scene records reference five record arrays. Vertex and index data are copied to CPU arrays, then uploaded on demand. Textures are loaded separately by path.</desc>
+  <metadata>Source of truth: hitagi/asset/cooked_format.cpp, hitagi/asset/cooked_binary.cpp, hitagi/editor/cook.cppm. Visual reference: Unity ECS ArchetypeChunkDiagram, https://docs.unity3d.com/Packages/com.unity.entities@0.1/manual/images/ArchetypeChunkDiagram.png . Diagram is schematic, not to byte scale; record graph is not physical write order.</metadata>
+  <defs>
+    <style>
+      text { font-family: 'Segoe UI', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: #263443; }
+      .title { font-size: 38px; font-weight: 700; }
+      .subtitle { font-size: 20px; fill: #637181; }
+      .section { font-size: 23px; font-weight: 700; }
+      .label { font-size: 20px; font-weight: 600; }
+      .body { font-size: 18px; }
+      .small { font-size: 16px; fill: #596878; }
+      .code { font-family: Consolas, 'Microsoft YaHei', monospace; font-size: 18px; }
+      .tiny { font-family: Consolas, 'Microsoft YaHei', monospace; font-size: 16px; fill: #596878; }
+      .panel { fill: #fff; stroke: #cbd3dc; stroke-width: 1.5; }
+      .blue { fill: #e1eef9; stroke: #8db3d3; stroke-width: 1.5; }
+      .green { fill: #e2f1e7; stroke: #91b69b; stroke-width: 1.5; }
+      .orange { fill: #fbead8; stroke: #d6ac7a; stroke-width: 1.5; }
+      .purple { fill: #eee6f5; stroke: #b19acb; stroke-width: 1.5; }
+      .gray { fill: #edf0f4; stroke: #b1bdca; stroke-width: 1.5; }
+      .line { fill: none; stroke: #768493; stroke-width: 2; }
+      .arrow { fill: none; stroke: #768493; stroke-width: 2; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L8 4L0 8Z" fill="#768493"/></marker>
+    <pattern id="padding" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#fafafa"/><path d="M-2 2L2-2M0 8L8 0M6 10L10 6" stroke="#ccd3dc" stroke-width="1"/></pattern>
+  </defs>
+
+  <rect width="1800" height="1510" fill="#f8fafc"/>
+  <rect x="56" y="48" width="6" height="70" rx="3" fill="#608db4"/>
+  <text x="80" y="78" class="title">Cooked Asset · Runtime Format</text>
+  <text x="80" y="112" class="subtitle">Hitagi Engine / HTGC — Fixed records for structure; contiguous byte blocks for bulk data</text>
+  <rect x="1478" y="54" width="266" height="42" rx="21" fill="#e8edf3"/>
+  <text x="1611" y="81" class="code" text-anchor="middle">v1 · Little-endian</text>
+
+  <text x="56" y="163" class="section">01   File Layout</text>
+  <text x="1744" y="163" class="small" text-anchor="end">Low to high addresses →  ·  Not drawn to byte scale</text>
+  <g transform="translate(56 185)">
+    <rect width="300" height="92" class="gray"/>
+    <rect x="300" width="560" height="92" class="blue"/>
+    <rect x="860" width="360" height="92" class="orange"/>
+    <rect x="1220" width="36" height="92" fill="url(#padding)" stroke="#cbd3dc"/>
+    <rect x="1256" width="432" height="92" class="purple"/>
+    <text x="22" y="35" class="label">CookedFileHeader</text><text x="22" y="66" class="body">80 B · File entry point</text>
+    <text x="322" y="35" class="label">meta / Fixed-size Records</text><text x="322" y="66" class="body">POD records and arrays · Each append starts at 8 B alignment</text>
+    <text x="882" y="35" class="label">strings / String Table</text><text x="882" y="66" class="body">Deduplicated · No NUL terminators</text>
+    <text x="1278" y="35" class="label">blob / Binary Payloads</text><text x="1278" y="66" class="body">Vertex attributes and indices · 16 B aligned</text>
+    <text x="0" y="116" class="tiny">0</text><text x="300" y="116" class="tiny">80</text>
+    <text x="860" y="116" class="tiny">80 + meta.size</text><text x="1256" y="116" class="tiny">align_up(strings.end, 16)</text>
+  </g>
+
+  <rect x="56" y="329" width="1688" height="131" rx="8" class="panel"/>
+  <text x="78" y="359" class="label">Header Fields</text>
+  <text x="280" y="359" class="small">Header BufferViews use absolute file offsets; root_offset is relative to meta.</text>
+  <g transform="translate(78 378)">
+    <rect width="112" height="58" class="gray"/><rect x="112" width="110" height="58" class="gray"/>
+    <rect x="222" width="174" height="58" class="gray"/><rect x="396" width="94" height="58" class="gray"/>
+    <rect x="490" width="246" height="58" class="blue"/><rect x="736" width="246" height="58" class="orange"/>
+    <rect x="982" width="246" height="58" class="purple"/><rect x="1228" width="228" height="58" class="blue"/>
+    <rect x="1456" width="188" height="58" class="gray"/>
+    <g text-anchor="middle">
+      <text x="56" y="24" class="code">'HTGC'</text><text x="56" y="46" class="tiny">0 · 4 B</text>
+      <text x="167" y="24" class="code">version</text><text x="167" y="46" class="tiny">4 · 4 B</text>
+      <text x="309" y="24" class="code">asset_type</text><text x="309" y="46" class="tiny">8 · 4 B</text>
+      <text x="443" y="24" class="code">flags</text><text x="443" y="46" class="tiny">12 · 4 B</text>
+      <text x="613" y="24" class="code">meta {offset, size}</text><text x="613" y="46" class="tiny">16 · 16 B</text>
+      <text x="859" y="24" class="code">strings {offset, size}</text><text x="859" y="46" class="tiny">32 · 16 B</text>
+      <text x="1105" y="24" class="code">blob {offset, size}</text><text x="1105" y="46" class="tiny">48 · 16 B</text>
+      <text x="1342" y="24" class="code">root_offset</text><text x="1342" y="46" class="tiny">64 · 8 B</text>
+      <text x="1550" y="24" class="code">reserved</text><text x="1550" y="46" class="tiny">72 · 8 B</text>
+    </g>
+  </g>
+
+  <text x="56" y="509" class="section">02   Sections and References</text>
+  <text x="1744" y="509" class="small" text-anchor="end">Scene example · Arrows show references, not physical write order</text>
+  <rect x="56" y="530" width="1064" height="624" rx="8" class="panel"/>
+  <text x="80" y="561" class="label">meta</text><text x="150" y="561" class="small">Contiguous arrays of each record type; stride = sizeof(Record)</text>
+
+  <rect x="80" y="586" width="245" height="174" rx="4" class="blue"/>
+  <text x="98" y="618" class="label">SceneRecord · 88 B</text>
+  <text x="98" y="650" class="code">name: StringRef</text>
+  <text x="98" y="679" class="body">5 ArrayRefs</text>
+  <text x="98" y="708" class="small">materials / meshes / instances</text>
+  <text x="98" y="736" class="small">cameras / lights</text>
+  <path d="M325 671H350M350 621V1061" class="line"/>
+  <path d="M350 621H382" class="arrow"/><path d="M350 731H382" class="arrow"/>
+  <path d="M350 841H382" class="arrow"/><path d="M350 951H382" class="arrow"/>
+  <path d="M350 1061H382" class="arrow"/>
+
+  <g transform="translate(384 585)">
+    <rect width="268" height="72" class="green"/><path d="M218 0V72M243 0V72" stroke="#91b69b"/>
+    <text x="14" y="28" class="code">MaterialRecord[]</text><text x="14" y="55" class="small">40 B / record</text><text x="231" y="43" class="body" text-anchor="middle">…</text>
+  </g>
+  <path d="M652 621H694" class="arrow"/>
+  <rect x="696" y="585" width="400" height="91" rx="4" class="green"/>
+  <text x="712" y="611" class="code">ParameterRecord[] · 104 B / item</text>
+  <text x="712" y="636" class="code">PassRecord[] · 112 B / item</text>
+  <text x="712" y="661" class="small">Pass → shaders / bindings; pipeline stored inline</text>
+
+  <g transform="translate(384 695)">
+    <rect width="268" height="72" class="blue"/><path d="M218 0V72M243 0V72" stroke="#8db3d3"/>
+    <text x="14" y="28" class="code">MeshRecord[]</text><text x="14" y="55" class="small">104 B / record</text><text x="231" y="43" class="body" text-anchor="middle">…</text>
+  </g>
+  <path d="M652 731H694" class="arrow"/>
+  <rect x="696" y="695" width="400" height="91" rx="4" class="blue"/>
+  <text x="712" y="721" class="code">VertexAttributeRecord[] · 24 B</text>
+  <text x="712" y="746" class="code">SubMeshRecord[] · 32 B</text>
+  <text x="712" y="771" class="small">attribute.data / indices → blob; AABB stored inline</text>
+
+  <g transform="translate(384 805)">
+    <rect width="268" height="72" class="purple"/><path d="M218 0V72M243 0V72" stroke="#b19acb"/>
+    <text x="14" y="28" class="code">MeshInstanceRecord[]</text>
+    <text x="14" y="55" class="small">80 B / record</text><text x="231" y="43" class="body" text-anchor="middle">…</text>
+  </g>
+  <path d="M652 841H694" class="arrow"/>
+  <rect x="696" y="805" width="400" height="91" rx="4" class="purple"/>
+  <text x="712" y="833" class="code">mesh_index + transform</text>
+  <text x="712" y="860" class="body">Index selects a shared Mesh in meshes[]</text>
+  <text x="712" y="884" class="small">SubMesh.material_index → materials[]</text>
+
+  <g transform="translate(384 915)">
+    <rect width="268" height="72" class="orange"/><path d="M218 0V72M243 0V72" stroke="#d6ac7a"/>
+    <text x="14" y="28" class="code">CameraRecord[]</text><text x="14" y="55" class="small">124 B / record</text><text x="231" y="43" class="body" text-anchor="middle">…</text>
+  </g>
+  <path d="M652 951H694" class="arrow"/>
+  <rect x="696" y="915" width="400" height="72" rx="4" class="orange"/>
+  <text x="712" y="944" class="code">transform + projection</text>
+  <text x="712" y="971" class="small">aspect / near / far / FOV / eye / look_dir / up</text>
+
+  <g transform="translate(384 1025)">
+    <rect width="268" height="72" class="orange"/><path d="M218 0V72M243 0V72" stroke="#d6ac7a"/>
+    <text x="14" y="28" class="code">LightRecord[]</text><text x="14" y="55" class="small">144 B / record</text><text x="231" y="43" class="body" text-anchor="middle">…</text>
+  </g>
+  <path d="M652 1061H694" class="arrow"/>
+  <rect x="696" y="1025" width="400" height="72" rx="4" class="orange"/>
+  <text x="712" y="1054" class="code">transform + light parameters</text>
+  <text x="712" y="1081" class="small">type / intensity / color / direction / cone angles</text>
+
+  <text x="80" y="803" class="label">Locate the Root</text>
+  <text x="80" y="837" class="code">file + header.meta.offset</text>
+  <text x="80" y="865" class="code">     + root_offset</text>
+  <path d="M80 889H325" stroke="#d8dfe7"/>
+  <text x="80" y="921" class="label">Standalone Material</text>
+  <text x="80" y="952" class="small">asset_type = 1</text>
+  <text x="80" y="980" class="small">Root: MaterialRecord</text>
+  <text x="80" y="1008" class="small">Same parameters / passes layout</text>
+  <text x="80" y="1036" class="small">Scene: asset_type = 2</text>
+  <text x="80" y="1131" class="small">ArrayRef = { u64 offset, u64 count } · 16 B · References a record array in meta; no process pointers.</text>
+
+  <rect x="1152" y="530" width="592" height="276" rx="8" class="panel"/>
+  <text x="1176" y="561" class="label">strings</text><text x="1290" y="561" class="small">Names, paths, enum names, shader source</text>
+  <rect x="1176" y="582" width="544" height="50" class="orange"/>
+  <path d="M1290 582V632M1440 582V632M1632 582V632" stroke="#d6ac7a"/>
+  <text x="1233" y="614" class="code" text-anchor="middle">Scene</text>
+  <text x="1365" y="614" class="code" text-anchor="middle">Position</text>
+  <text x="1536" y="614" class="code" text-anchor="middle">tex/albedo.png</text><text x="1676" y="614" class="code" text-anchor="middle">…</text>
+  <text x="1176" y="667" class="code">StringRef { u32 offset, u32 length } · 8 B</text>
+  <path d="M1178 683V699H1300" class="arrow"/><text x="1312" y="705" class="code">strings.base + offset</text>
+  <text x="1176" y="745" class="body">Read length bytes; length = 0 means an empty string.</text>
+  <text x="1176" y="777" class="small">Enums resolve by name; texture pixels are stored outside HTGC.</text>
+
+  <rect x="1152" y="830" width="592" height="324" rx="8" class="panel"/>
+  <text x="1176" y="864" class="label">blob</text><text x="1250" y="864" class="small">Separate attribute arrays · One example Mesh</text>
+  <g transform="translate(1176 885)">
+    <rect width="544" height="42" class="blue"/><path d="M148 0V42M245 0V42M342 0V42M439 0V42" stroke="#8db3d3"/>
+    <text x="14" y="28" class="code">Position</text><text x="196" y="28" class="code" text-anchor="middle">p₀</text><text x="294" y="28" class="code" text-anchor="middle">p₁</text><text x="390" y="28" class="code" text-anchor="middle">p₂</text><text x="488" y="28" class="code" text-anchor="middle">…</text>
+  </g>
+  <g transform="translate(1176 936)">
+    <rect width="544" height="42" class="green"/><path d="M148 0V42M245 0V42M342 0V42M439 0V42" stroke="#91b69b"/>
+    <text x="14" y="28" class="code">Normal</text><text x="196" y="28" class="code" text-anchor="middle">n₀</text><text x="294" y="28" class="code" text-anchor="middle">n₁</text><text x="390" y="28" class="code" text-anchor="middle">n₂</text><text x="488" y="28" class="code" text-anchor="middle">…</text>
+  </g>
+  <g transform="translate(1176 987)">
+    <rect width="544" height="42" class="purple"/><path d="M148 0V42M245 0V42M342 0V42M439 0V42" stroke="#b19acb"/>
+    <text x="14" y="28" class="code">Indices</text><text x="196" y="28" class="code" text-anchor="middle">i₀</text><text x="294" y="28" class="code" text-anchor="middle">i₁</text><text x="390" y="28" class="code" text-anchor="middle">i₂</text><text x="488" y="28" class="code" text-anchor="middle">…</text>
+  </g>
+  <text x="1176" y="1064" class="code">BufferView { u64 offset, u64 size } · 16 B</text>
+  <text x="1176" y="1097" class="code">data = blob.base + offset</text>
+  <text x="1176" y="1130" class="small">Each block is 16 B aligned; size is in bytes; other attributes may exist.</text>
+
+  <text x="56" y="1204" class="section">03   Runtime Loading</text>
+  <g transform="translate(56 1226)">
+    <rect width="354" height="120" rx="6" class="gray"/>
+    <text x="20" y="34" class="label">Read HTGC Bytes</text>
+    <text x="20" y="66" class="code">AssetManager.LoadCooked*</text>
+    <text x="20" y="96" class="small">File bytes in a CPU buffer / span</text>
+  </g>
+  <path d="M414 1286H452" class="arrow"/>
+  <g transform="translate(456 1226)">
+    <rect width="354" height="120" rx="6" class="blue"/>
+    <text x="20" y="34" class="label">Validate and Read Records</text>
+    <text x="20" y="66" class="code">CookedReader</text>
+    <text x="20" y="96" class="small">Magic / version / type / range checks</text>
+  </g>
+  <path d="M814 1286H852" class="arrow"/>
+  <g transform="translate(856 1226)">
+    <rect width="460" height="120" rx="6" class="green"/>
+    <text x="20" y="34" class="label">Build CPU Resources and Entities</text>
+    <text x="20" y="66" class="code">Scene / Mesh / Material / Camera / Light</text>
+    <text x="20" y="96" class="small">memcpy records; bulk-copy each attribute and index buffer</text>
+  </g>
+  <path d="M1320 1286H1358" class="arrow"/>
+  <g transform="translate(1362 1226)">
+    <rect width="382" height="120" rx="6" class="purple"/>
+    <text x="20" y="34" class="label">Create GPU Resources on Demand</text>
+    <text x="20" y="66" class="code">Resource::Load(context)</text>
+    <text x="20" y="96" class="small">Upload buffers; create textures and pipelines</text>
+  </g>
+  <rect x="56" y="1364" width="1688" height="58" rx="6" fill="#fff4e6" stroke="#e5c49d"/>
+  <text x="78" y="1401" class="body"><tspan font-weight="700">Textures load separately: </tspan>texture_path → AcquireTexture (shared by path) → first Load reads and decodes pixels → GPU upload</text>
+  <path d="M56 1450H1744" stroke="#d7dfe7"/>
+  <text x="56" y="1479" class="small">Sources: cooked_format.cpp · cooked_binary.cpp · editor/cook.cppm</text>
+  <text x="1744" y="1479" class="small" text-anchor="end">Re-cook on version mismatch · Record sizes locked by static_assert</text>
+</svg>
