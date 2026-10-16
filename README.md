@@ -21,7 +21,7 @@ Hitagi Engine is an experimental game engine written with C++23 modules and buil
 - **Physics**: integration of [Jolt Physics](https://github.com/jrouwe/JoltPhysics)
 - **GUI and input**: [PocketJS](https://pocketjs.dev/) with Solid/TSX components and engine HID input
 - **Platform**: Win32 on Windows, SDL3 elsewhere
-- **Editor Framework**: reusable editing workflows and extension points, including an asset browser, scene viewport, inspectors, OpenUSD import, material graphs and validation, and asset cooking; concrete shader generation is supplied by games or optional presets
+- **Asset authoring**: OpenUSD import, material source metadata, material graph validation and asset cooking; concrete shader generation is supplied by optional presets or games
 
 Platform status: Windows is the primary target and the only one covered by CI. Linux/Wayland code paths exist for Vulkan and SDL3 but are not regularly validated.
 
@@ -32,7 +32,6 @@ Platform status: Windows is the primary target and the only one covered by CI. L
 | [hitagi/](hitagi) | Engine modules (`core`, `math`, `gfx`, `render`, `asset`, `ecs`, `physics`, `gui`, `hid`, `platform`, ...) and the editor library |
 | [hitagi/interop/](hitagi/interop) | Module bridges for third-party dependencies (`interop.<library>`) |
 | [presets/](presets) | Opt-in rendering models and authoring companions; Engine and Editor Framework do not depend on them |
-| [examples/](examples) | Editor entry point and PBR demo |
 | [assets/](assets) | Shaders, fonts, materials, scenes, and cooked assets |
 | [docs/](docs) | Architecture, asset, and development documentation |
 | [tools/](tools) | Python helpers for Blender/USD authoring and asset validation |
@@ -61,17 +60,12 @@ cd HitagiEngine
 
 # Use -m release for an optimized build; --toolchain=msvc is also supported.
 xmake f -m debug --toolchain=clang-cl
-xmake -j 1 editor
+xmake build -j 1
 ```
 
-The default `editor` uses PocketJS for its hierarchy, toolbar, transform inspector and asset browser. C++ owns scene state, commands, undo/redo and isolated Play mode. A native message queue connects UI actions and scene snapshots. The GPU-rendered scene viewport is composited into the UI with matching picking coordinates.
+The repository currently provides engine libraries, rendering presets, asset authoring tools and tests. Examples and the interactive editor have been removed so that future tooling can follow the needs of a concrete game. The `editor` C++ module / `hitagi_editor` library retains only USD import, cook and material graphs. Engine GUI support remains available.
 
-The entry UI lives in `hitagi/editor/ui/hitagi-ui.tsx`. The reusable `hitagi/editor/ui/editor-shell.tsx` accepts game UI extensions; game editors choose their bundle through `EditorLaunchOptions::ui_bundle` / `ui_assets`. The local `pocketjs` package provides the native runtime, TSX tools and exported `@pocketjs/ui` rule. Application targets depend on their own incremental UI resource targets, producing JavaScript and font/style packs under `build/pocketjs/ui/`. Compiler scratch files stay under `build/pocketjs/work/`, not the shared package installation. `GuiManager::LoadApp(js, pak)` explicitly loads a UI.
-
-PocketJS's portable runtime runs QuickJS and the Rust UI core. A package-owned C ABI exports DrawList commands and resources; Hitagi rasterizes the resulting geometry on the GPU. The editor now uses DPI-aware window dimensions, density-2 font resources, resizable panels, a collapsible/scrollable hierarchy and folder/type-filtered assets. Games can retain the default 960×540 letterboxed canvas. Docking, free-form text/IME, drag gizmos and full material/camera/light inspectors are not yet ported; transform fields still use step controls. Scene saving remains unsupported as before.
-
-
-The default build includes all enabled application, library, UI and test targets. Benchmark targets join the default build when enabled with `--benchmarks=y`.
+The default build includes enabled libraries and tests. Benchmark targets join it with `--benchmarks=y`.
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -79,26 +73,16 @@ The default build includes all enabled application, library, UI and test targets
 | `--benchmarks=y` | `n` | Enable the `memory_benchmark` and `ecs_benchmark` targets |
 | `--ispc=n` | `y` | Disable ISPC acceleration in the math library |
 
-### Running
-
-```powershell
-xmake r editor               # PocketJS editor
-xmake r pbr-demo-game        # PBR demo; pbr-demo-game-editor opens it in the editor
-```
-
 ### Testing
 
 ```powershell
-xmake r editor --headless --gfx-backend Vulkan --frames 3  # short GPU integration check, no visible window
-# Add --screenshot temp/pocketjs/gpu.png to inspect the engine's GPU output.
-
 xmake build unit_tests
 xmake r unit_tests --gtest_list_tests
 xmake r unit_tests --gtest_filter="SuiteName.*"
 xmake r unit_tests --jobs=8  # run in parallel shards; add --verbose to enable engine logs
 
-xmake build editor_tests
-xmake r editor_tests
+xmake build asset_pipeline_tests
+xmake r asset_pipeline_tests
 ```
 
 ## Documentation

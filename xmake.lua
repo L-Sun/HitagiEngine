@@ -43,6 +43,3 @@ end
 
 includes("hitagi/xmake.lua")
 includes("presets/**/xmake.lua")
-includes("examples/editor/xmake.lua")
-includes("examples/pbr_demo/xmake.lua")
-includes("examples/usd_viewer/xmake.lua")

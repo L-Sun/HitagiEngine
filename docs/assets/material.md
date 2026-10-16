@@ -121,7 +121,7 @@ One material can have several passes, each with its own `bindings` and `material
 
 The legacy deferred renderer, concrete routing rules, and lighting passes are separately available through `hitagi_preset_deferred`. Engine starts with `ClearRenderer`, and application entry points opt into their renderer.
 
-Engine and Editor Framework do not depend on these presets. The framework retains generic graph validation, USD import, inspectors, and Cook. The PBR game editor owns its USD-to-PBR adapter.
+Engine and Editor Framework do not depend on these presets. The framework retains generic graph validation, USD import and Cook. Future game tools supply their own source-to-runtime material adapters.
 
 Frame, instance, and draw-resource declarations are generated using Engine's `gfx::ShaderField` API from CPU member types and offsets. Applications choose resource roles; Engine owns handle allocation, resource lifetime, and shader ABI machinery. The raw storage layout API is not a constant-buffer packing API.
 

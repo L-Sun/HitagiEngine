@@ -74,7 +74,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/packages
-          key: xmake-packages-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('xmake.lua', 'hitagi/**/xmake.lua', 'examples/**/xmake.lua', 'xmake/packages/**') }}
+          key: xmake-packages-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('xmake.lua', 'hitagi/**/xmake.lua', 'xmake/packages/**') }}
           restore-keys: |
             xmake-packages-${{ runner.os }}-${{ matrix.compiler }}-
 

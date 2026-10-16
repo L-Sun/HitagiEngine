@@ -1,5 +1,4 @@
 add_requires(
-    "nlohmann_json",
     "vulkan-memory-allocator",
     "directx-shader-compiler"
 )
@@ -90,8 +89,8 @@ target("hitagi_interop")
 target("hitagi_interop_editor")
     set_kind("static")
     add_deps("hitagi_interop", {public = true})
-    add_files("usd.cppm", "nlohmann_json.cppm", {public = true})
-    add_packages("usd", "nlohmann_json", {public = true})
+    add_files("usd.cppm", {public = true})
+    add_packages("usd", {public = true})
 
 target("hitagi_interop_test")
     set_kind("static")

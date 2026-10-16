@@ -196,4 +196,4 @@ This assembly supports asset work without an interactive engine or editor instan
 * Executor capability: [job_system.cpp](../../hitagi/core/job_system.cpp)
 * ECS update and execution: [world.cpp](../../hitagi/ecs/world.cpp), [schedule.cpp](../../hitagi/ecs/schedule.cpp)
 * Shader values and preset assembly: [types.cpp](../../hitagi/render/types.cpp), [deferred_renderer.cpp](../../presets/deferred/deferred_renderer.cpp)
-* Standalone cook composition: [PBR editor entry point](../../examples/pbr_demo/editor.cpp)
+* Standalone cook composition: [asset pipeline tests](../../hitagi/editor/test/material_pipeline_test.cpp)
