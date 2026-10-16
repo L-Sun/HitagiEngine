@@ -12,11 +12,11 @@ from mathutils import Matrix, Vector
 import numpy as np
 from pxr import Usd, UsdGeom, UsdShade
 
-sys.path.insert(0, str(Path(__file__).parent))
-import blender_hitagi
-from blender_hitagi import pipeline, authoring
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+import blender
+from blender import pipeline
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 
 
 class PipelineTest(unittest.TestCase):
@@ -26,7 +26,6 @@ class PipelineTest(unittest.TestCase):
         self.work = tempfile.TemporaryDirectory(dir=ROOT / 'temp/blender-hitagi')
         self.path = Path(self.work.name) / 'asset.usda'
         bpy.context.scene.unit_settings.scale_length = 1
-        bpy.context.scene.hitagi.head = None
         mesh = bpy.data.meshes.new('UV seam mesh')
         mesh.from_pydata([(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)], [], [(0, 1, 2), (0, 2, 3)])
         mesh.update()
@@ -41,10 +40,9 @@ class PipelineTest(unittest.TestCase):
         self.obj.select_set(True)
         bpy.context.view_layer.objects.active = self.obj
         self.materials = []
-        for name, kind in [('Face', 'FACE'), ('Body', 'SKIN')]:
+        for name in ('MaterialA', 'MaterialB'):
             mat = bpy.data.materials.new(name)
             mat.use_nodes = True
-            mat.hitagi.kind = kind
             mesh.materials.append(mat)
             self.materials.append(mat)
         mesh.polygons[1].material_index = 1
@@ -75,37 +73,26 @@ class PipelineTest(unittest.TestCase):
             a, b, c = [Vector(points[j]) for j in indices]
             self.assertGreater((b-a).cross(c-a).normalized().dot(Vector(mesh.GetNormalsAttr().Get()[0])), .99)
             mat = UsdShade.MaterialBindingAPI(mesh).ComputeBoundMaterial()[0]
-            head = mat.ComputeSurfaceSource()[0].GetInput('animeHead').Get()
-            self.assertAlmostEqual(head[1], bpy.context.scene.hitagi.head_center.z * .1, places=5)
+            self.assertTrue(mat)
+            self.assertEqual(mat.ComputeSurfaceSource()[0].GetIdAttr().Get(), 'UsdPreviewSurface')
 
-    def test_control_data_portability_and_import(self):
-        pixels = np.zeros((8, 8, 4), dtype=np.float32)
-        pixels[..., :] = (.2, .6, .8, .4)
-        image = authoring.new_image('Raw control', pixels)
-        self.materials[0].hitagi.control_image = image
+    def test_texture_portability_and_import(self):
+        image = bpy.data.images.new('Base color', width=8, height=8, alpha=True)
+        image.pixels[:] = [.2, .6, .8, 1] * 64
         self.materials[0].hitagi.base_image = image
-        self.materials[0].hitagi.base_tint = (.8, .9, 1, .7)
-        head = bpy.data.objects.new('Head reference', None)
-        bpy.context.collection.objects.link(head)
-        head.matrix_world = Matrix.Translation((0, 0, 2)) @ Matrix.Rotation(.4, 4, 'Z')
-        bpy.context.scene.hitagi.head = head
-        bpy.context.view_layer.update()
-        expected = pipeline.head_frame(bpy.context.scene)
         report = pipeline.export_asset(bpy.context, self.path)
         moved = Path(self.work.name) / 'moved'
         moved.mkdir()
         shutil.copyfile(self.path, moved / self.path.name)
         shutil.copytree(self.path.parent / 'textures', moved / 'textures')
+        # Remove the source package so resolution must use the moved textures.
+        self.path.unlink()
+        shutil.rmtree(self.path.parent / 'textures')
         imported = pipeline.import_asset(bpy.context, moved / self.path.name)
-        face = next(m for m in imported if m.hitagi.kind == 'FACE')
-        actual = np.array(face.hitagi.control_image.pixels[:]).reshape(8, 8, 4)
-        self.assertTrue(np.allclose(actual, pixels, atol=1/255))
-        self.assertEqual(face.hitagi.control_image.colorspace_settings.name, 'Non-Color')
-        self.assertTrue(np.allclose(face.hitagi.base_tint, (.8, .9, 1, .7)))
-        actual_head = pipeline.head_frame(bpy.context.scene)
-        self.assertTrue(np.allclose(expected[0], actual_head[0]))
-        self.assertTrue(np.allclose(expected[1], actual_head[1]))
-        self.assertTrue(np.allclose(expected[2], actual_head[2]))
+        images = [n.image for m in imported if m.use_nodes for n in m.node_tree.nodes
+                  if n.type == 'TEX_IMAGE' and n.image]
+        self.assertTrue(images)
+        self.assertTrue(all(Path(bpy.path.abspath(i.filepath)).is_file() for i in images))
         for path, digest in report['textures'].items():
             self.assertEqual(hashlib.sha256((moved / path).read_bytes()).hexdigest(), digest)
 
@@ -139,27 +126,13 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(report['triangles'], 12)
         self.assertTrue(any('evaluated pose' in text for text in report['warnings']))
 
-    def test_prepare_preserves_original_and_geometry(self):
-        self.obj.data.polygons[1].material_index = 0
-        self.obj.data.materials.pop(index=1)
-        before = np.array([v.co[:] for v in self.obj.data.vertices])
-        normals = np.array([n.vector[:] for n in self.obj.data.corner_normals])
-        material = self.obj.data.materials[0]
-        copies = authoring.prepare_copy(bpy.context)
-        self.assertEqual(len(copies), 1)
-        self.assertTrue(np.array_equal(before, np.array([v.co[:] for v in copies[0].data.vertices])))
-        self.assertTrue(np.array_equal(normals, np.array([n.vector[:] for n in self.obj.data.corner_normals])))
-        self.assertIsNone(material.hitagi.control_image)
-        self.assertIsNotNone(copies[0].data.materials[0].hitagi.control_image)
-
-
 if __name__ == '__main__':
     (ROOT / 'temp/blender-hitagi').mkdir(parents=True, exist_ok=True)
-    blender_hitagi.register()
+    blender.register()
     result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(PipelineTest))
-    blender_hitagi.unregister()
-    blender_hitagi.register()
-    blender_hitagi.unregister()
+    blender.unregister()
+    blender.register()
+    blender.unregister()
     (ROOT / 'temp/blender-hitagi/tests.json').write_text(json.dumps({'tests': result.testsRun, 'failures': len(result.failures), 'errors': len(result.errors), 'blender': bpy.app.version_string}))
     if not result.wasSuccessful():
         raise RuntimeError('Blender–Hitagi integration tests failed')
