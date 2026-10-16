@@ -173,8 +173,8 @@ TEST_P(BindlessTest, RawBufferRoundTrip) {
     auto             arguments     = hitagi::gfx::GPUBuffer::Create(*device, {.size = sizeof(handles), .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite}, std::as_bytes(std::span(handles)));
     auto             argument_view = hitagi::gfx::GPUBufferView::Create(*device, *bindings, {.buffer = arguments, .element_size = sizeof(handles)});
 
-    const auto shader = hitagi::gfx::Shader::Create(*device, compiler, {.type = ShaderType::Compute, .entry = "main", .source_code = R"(
-        #include "bindless.hlsl"
+    const auto shader = hitagi::gfx::Shader::Create(*device, compiler, {.type = ShaderType::Compute, .entry = "main", .program = {.modules = {{.source_code = R"(
+        import bindless;
         struct Arguments { hitagi::SimpleBuffer input; hitagi::RWSimpleBuffer output; };
         struct Data {
             float scalar; float3 vector; float2 uv; float4 color;
@@ -188,7 +188,7 @@ TEST_P(BindlessTest, RawBufferRoundTrip) {
             value.scalar += value.matrix[2][1];
             arguments.output.store<Data>(value);
         }
-    )"});
+    )"}}}});
     ASSERT_TRUE(shader);
     const auto pipeline = hitagi::gfx::ComputePipeline::Create(*device, *bindings, {}, shader);
     auto       context  = hitagi::gfx::ComputeCommandContext::Create(*device, queues, *bindings);
@@ -358,7 +358,7 @@ TEST_P(BindlessTest, StorageViewPadsOnlyBindingTailAndChecksBounds) {
                                                                                        .element_count  = 2,
                                                                                        .element_stride = 5,
                                                                                    });
-    EXPECT_THROW(unaligned_stride->GetMappedSpan<float>(), std::invalid_argument);
+    EXPECT_THROW(static_cast<void>(unaligned_stride->GetMappedSpan<float>()), std::invalid_argument);
     auto tight_buffer = hitagi::gfx::GPUBuffer::Create(*device, {
                                                                     .size   = 3,
                                                                     .usages = GPUBufferUsageFlags::StorageRead,
@@ -539,15 +539,15 @@ TEST_P(BindlessTest, RenderGraphReadsIndexedScalarRecords) {
         std::uint32_t  stride;
     };
     auto arguments = hitagi::gfx::GPUBuffer::Create(*device, {.size = 2 * sizeof(Arguments), .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite});
-    auto shader    = hitagi::gfx::Shader::Create(*device, compiler, {.type = ShaderType::Compute, .entry = "main", .source_code = R"(
-        #include "bindless.hlsl"
+    auto shader    = hitagi::gfx::Shader::Create(*device, compiler, {.type = ShaderType::Compute, .entry = "main", .program = {.modules = {{.source_code = R"(
+        import bindless;
         struct Arguments { hitagi::SimpleBuffer input; hitagi::RWSimpleBuffer output; uint stride; };
         [numthreads(1, 1, 1)]
         void main() {
             Arguments args = hitagi::load_bindless<Arguments>();
             args.output.store<float>(args.input.load<float>() + args.input.load<float>(args.stride));
         }
-    )"});
+    )"}}}});
     ASSERT_TRUE(shader);
     auto                   pipeline        = hitagi::gfx::ComputePipeline::Create(*device, *bindings, {}, shader);
     const auto             input_handle    = graph.Import(input);

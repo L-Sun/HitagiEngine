@@ -7,12 +7,13 @@ export namespace hitagi::gui {
 
 struct GuiTextureRef {
     enum class Type : std::uint8_t {
-        Font,
+        Resource,
         RenderGraph,
     };
 
-    Type              type    = Type::Font;
-    rg::TextureHandle texture = {};
+    Type              type     = Type::Resource;
+    rg::TextureHandle texture  = {};
+    std::uint64_t     resource = 0;  // Immutable CPU resource identity; zero draws vertex colors without sampling.
 };
 
 struct GuiVertex {
@@ -35,22 +36,18 @@ struct GuiDrawList {
     std::pmr::vector<GuiDrawCommand> commands;
 };
 
-struct GuiFontAtlas {
-    std::uint32_t              width      = 0;
-    std::uint32_t              height     = 0;
-    std::span<const std::byte> pixels     = {};
-    std::uint64_t              generation = 0;
-
-    constexpr auto Empty() const noexcept -> bool {
-        return width == 0 || height == 0 || pixels.empty();
-    }
+struct GuiTextureData {
+    std::uint64_t          id    = 0;
+    std::uint32_t          width = 0, height = 0;
+    bool                   linear = true;
+    std::vector<std::byte> pixels;  // Owned RGBA8; resources are immutable once published.
 };
 
 struct GuiDrawData {
-    math::vec2f                   display_pos  = {0.0f, 0.0f};
-    math::vec2f                   display_size = {0.0f, 0.0f};
-    GuiFontAtlas                  font_atlas;
-    std::pmr::vector<GuiDrawList> draw_lists;
+    math::vec2f                                             display_pos  = {0.0f, 0.0f};
+    math::vec2f                                             display_size = {0.0f, 0.0f};
+    std::pmr::vector<std::shared_ptr<const GuiTextureData>> textures;
+    std::pmr::vector<GuiDrawList>                           draw_lists;
 
     auto Empty() const noexcept -> bool {
         return draw_lists.empty();

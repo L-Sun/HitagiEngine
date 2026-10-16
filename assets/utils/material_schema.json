@@ -100,13 +100,13 @@
               "vs": {
                 "type": "string",
                 "examples": [
-                  "assets/shaders/deferred_gbuffer.hlsl"
+                  "assets/shaders/deferred_gbuffer.slang"
                 ]
               },
               "ps": {
                 "type": "string",
                 "examples": [
-                  "assets/shaders/deferred_gbuffer.hlsl"
+                  "assets/shaders/deferred_gbuffer.slang"
                 ]
               },
               "primitive": {
@@ -181,8 +181,8 @@
         {
           "contract": "GBuffer",
           "pipeline": {
-            "vs": "assets/shaders/deferred_gbuffer.hlsl",
-            "ps": "assets/shaders/deferred_gbuffer.hlsl",
+            "vs": "assets/shaders/deferred_gbuffer.slang",
+            "ps": "assets/shaders/deferred_gbuffer.slang",
             "primitive": "TriangleList"
           },
           "bindings": [

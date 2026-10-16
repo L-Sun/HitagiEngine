@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Hitagi Toon material authoring helper and Blender add-on skeleton.
+"""Legacy HitagiToonSurface schema fixture and material authoring prototype.
+
+For actual selected-mesh export and the current viewer's anime profile, install
+the blender_hitagi extension next to this file. This module remains a schema
+fixture for existing acceptance scripts; its exporter writes a sample triangle.
 
 The module is intentionally useful without Blender: CI can import/compile it and
 can ask it to write a small USDA file that exercises the fixed
@@ -408,7 +412,7 @@ if bpy is not None:
 
     class HITAGI_OT_export_toon_usda(Operator):
         bl_idname = "hitagi.export_toon_usda"
-        bl_label = "Export Hitagi Toon USDA"
+        bl_label = "Export Toon Schema Sample (Triangle)"
         filepath: StringProperty(name="File Path", subtype="FILE_PATH", default="//hitagi_toon_export.usda")
 
         def execute(self, context):

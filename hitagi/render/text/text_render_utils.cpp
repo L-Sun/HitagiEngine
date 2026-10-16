@@ -177,7 +177,7 @@ struct TextRenderUtils::Impl {
         }
 
         const std::pmr::string text_shader = R"""(
-            #include "bindless.hlsl"
+            import bindless;
 
             struct BindlessInfo {
                 hitagi::SimpleBuffer frame_constant;
@@ -224,14 +224,14 @@ struct TextRenderUtils::Impl {
                                                                .name        = "text-vs",
                                                                .type        = gfx::ShaderType::Vertex,
                                                                .entry       = "VSMain",
-                                                               .source_code = text_shader,
+                                                               .program = {.modules = {{.source_code = text_shader}}},
                                                            });
 
         ps = hitagi::gfx::Shader::Create(device, compiler, {
                                                                .name        = "text-ps",
                                                                .type        = gfx::ShaderType::Pixel,
                                                                .entry       = "PSMain",
-                                                               .source_code = text_shader,
+                                                               .program = {.modules = {{.source_code = text_shader}}},
                                                            });
 
         sampler = hitagi::gfx::Sampler::Create(device, bindings, {

@@ -9,6 +9,19 @@ module;
 export module interop.win32;
 
 namespace hitagi::interop {
+inline constexpr auto wm_ime_startcomposition = WM_IME_STARTCOMPOSITION;
+inline constexpr auto wm_ime_composition = WM_IME_COMPOSITION;
+inline constexpr auto wm_ime_endcomposition = WM_IME_ENDCOMPOSITION;
+inline constexpr auto wm_ime_setcontext = WM_IME_SETCONTEXT;
+inline constexpr auto gcs_compstr = GCS_COMPSTR;
+inline constexpr auto gcs_resultstr = GCS_RESULTSTR;
+inline constexpr auto gcs_cursorpos = GCS_CURSORPOS;
+inline constexpr auto gcs_compattr = GCS_COMPATTR;
+inline constexpr auto gcs_compclause = GCS_COMPCLAUSE;
+inline constexpr auto isc_showuicompositionwindow = ISC_SHOWUICOMPOSITIONWINDOW;
+inline constexpr auto ni_compositionstr = NI_COMPOSITIONSTR;
+inline constexpr auto cps_cancel = CPS_CANCEL;
+
 inline constexpr auto max_path            = MAX_PATH;
 inline constexpr auto cfs_candidatepos    = CFS_CANDIDATEPOS;
 inline constexpr auto cfs_force_position  = CFS_FORCE_POSITION;
@@ -70,6 +83,9 @@ inline constexpr auto wm_rbuttondblclk    = WM_RBUTTONDBLCLK;
 inline constexpr auto wm_rbuttondown      = WM_RBUTTONDOWN;
 inline constexpr auto wm_rbuttonup        = WM_RBUTTONUP;
 inline constexpr auto wm_size             = WM_SIZE;
+inline constexpr auto wm_entersizemove    = WM_ENTERSIZEMOVE;
+inline constexpr auto wm_exitsizemove     = WM_EXITSIZEMOVE;
+inline constexpr auto wm_timer            = WM_TIMER;
 inline constexpr auto wm_syskeydown       = WM_SYSKEYDOWN;
 inline constexpr auto wm_syskeyup         = WM_SYSKEYUP;
 inline constexpr auto wm_xbuttondblclk    = WM_XBUTTONDBLCLK;
@@ -151,6 +167,9 @@ export inline void  zero_memory(void* pointer, SIZE_T size) { ZeroMemory(pointer
 #undef WM_RBUTTONDOWN
 #undef WM_RBUTTONUP
 #undef WM_SIZE
+#undef WM_ENTERSIZEMOVE
+#undef WM_EXITSIZEMOVE
+#undef WM_TIMER
 #undef WM_SYSKEYDOWN
 #undef WM_SYSKEYUP
 #undef WM_XBUTTONDBLCLK
@@ -166,9 +185,36 @@ export inline void  zero_memory(void* pointer, SIZE_T size) { ZeroMemory(pointer
 #undef DRIVE_FIXED
 #undef DRIVE_REMOTE
 
+#undef WM_IME_STARTCOMPOSITION
+#undef WM_IME_COMPOSITION
+#undef WM_IME_ENDCOMPOSITION
+#undef WM_IME_SETCONTEXT
+#undef GCS_COMPSTR
+#undef GCS_RESULTSTR
+#undef GCS_CURSORPOS
+#undef GCS_COMPATTR
+#undef GCS_COMPCLAUSE
+#undef ISC_SHOWUICOMPOSITIONWINDOW
+#undef NI_COMPOSITIONSTR
+#undef CPS_CANCEL
+
 #undef MAX_PATH
 
 export {
+    inline constexpr auto WM_IME_STARTCOMPOSITION = hitagi::interop::wm_ime_startcomposition;
+    inline constexpr auto WM_IME_COMPOSITION = hitagi::interop::wm_ime_composition;
+    inline constexpr auto WM_IME_ENDCOMPOSITION = hitagi::interop::wm_ime_endcomposition;
+    inline constexpr auto WM_IME_SETCONTEXT = hitagi::interop::wm_ime_setcontext;
+    inline constexpr auto GCS_COMPSTR = hitagi::interop::gcs_compstr;
+    inline constexpr auto GCS_RESULTSTR = hitagi::interop::gcs_resultstr;
+    inline constexpr auto GCS_CURSORPOS = hitagi::interop::gcs_cursorpos;
+    inline constexpr auto GCS_COMPATTR = hitagi::interop::gcs_compattr;
+    inline constexpr auto GCS_COMPCLAUSE = hitagi::interop::gcs_compclause;
+    inline constexpr auto ISC_SHOWUICOMPOSITIONWINDOW = hitagi::interop::isc_showuicompositionwindow;
+    inline constexpr auto NI_COMPOSITIONSTR = hitagi::interop::ni_compositionstr;
+    inline constexpr auto CPS_CANCEL = hitagi::interop::cps_cancel;
+    using ::ImmGetCompositionStringW;
+    using ::ImmNotifyIME;
     inline constexpr auto MAX_PATH = hitagi::interop::max_path;
     using ::AdjustWindowRect;
     using ::BOOL;
@@ -234,6 +280,9 @@ export {
     using ::SetCursorPos;
     using ::SetLastError;
     using ::SetProcessDPIAware;
+    using ::SetTimer;
+    using ::KillTimer;
+    using ::SendMessageW;
     using ::SetWindowLongPtrW;
     using ::SetWindowPos;
     using ::SetWindowTextW;
@@ -307,6 +356,9 @@ export {
     inline constexpr auto WM_RBUTTONDOWN      = hitagi::interop::wm_rbuttondown;
     inline constexpr auto WM_RBUTTONUP        = hitagi::interop::wm_rbuttonup;
     inline constexpr auto WM_SIZE             = hitagi::interop::wm_size;
+    inline constexpr auto WM_ENTERSIZEMOVE    = hitagi::interop::wm_entersizemove;
+    inline constexpr auto WM_EXITSIZEMOVE     = hitagi::interop::wm_exitsizemove;
+    inline constexpr auto WM_TIMER            = hitagi::interop::wm_timer;
     inline constexpr auto WM_SYSKEYDOWN       = hitagi::interop::wm_syskeydown;
     inline constexpr auto WM_SYSKEYUP         = hitagi::interop::wm_syskeyup;
     inline constexpr auto WM_XBUTTONDBLCLK    = hitagi::interop::wm_xbuttondblclk;

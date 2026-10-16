@@ -389,7 +389,7 @@ TEST_P(DeviceTest, CreateShader) {
         cbuffer cb : register(b0, space0) {
             matrix mvp;
         };
-        cbuffer cb : register(b0, space1) {
+        cbuffer lighting : register(b0, space1) {
             matrix mvp2;
         };
         Texture2D<float4> materialTextures[4] : register(t0);
@@ -418,7 +418,7 @@ TEST_P(DeviceTest, CreateShader) {
                                                                             .name        = "vertex_test_shader",
                                                                             .type        = ShaderType::Vertex,
                                                                             .entry       = "VSMain",
-                                                                            .source_code = shader_code,
+                                                                            .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
         switch (device->device_type) {
             case Device::Type::DX12:
@@ -436,7 +436,7 @@ TEST_P(DeviceTest, CreateShader) {
                                                                             .name        = "pixel_test_shader",
                                                                             .type        = ShaderType::Pixel,
                                                                             .entry       = "PSMain",
-                                                                            .source_code = shader_code,
+                                                                            .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
         switch (device->device_type) {
             case Device::Type::DX12:
@@ -476,7 +476,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
                                                                             .name        = std::pmr::string(test_name),
                                                                             .type        = ShaderType::Vertex,
                                                                             .entry       = "VSMain",
-                                                                            .source_code = shader_code,
+                                                                            .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
         ASSERT_TRUE(vs_shader);
 
@@ -484,7 +484,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
                                                                             .name        = std::pmr::string(test_name),
                                                                             .type        = ShaderType::Pixel,
                                                                             .entry       = "PSMain",
-                                                                            .source_code = shader_code,
+                                                                            .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
         ASSERT_TRUE(ps_shader);
 
@@ -502,7 +502,7 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
 
 TEST_P(DeviceTest, CreateComputePipeline) {
     const std::pmr::string cs_code = R"""(
-        #include "bindless.hlsl"
+        import bindless;
 
         [numthreads(1, 1, 1)]
         void main(uint3 thread_id : SV_DispatchThreadID) {
@@ -514,7 +514,7 @@ TEST_P(DeviceTest, CreateComputePipeline) {
                                                                         .name        = std::pmr::string(test_name),
                                                                         .type        = ShaderType::Compute,
                                                                         .entry       = "main",
-                                                                        .source_code = cs_code,
+                                                                        .program = {.modules = {{.source_code = cs_code}}},
                                                                     });
     ASSERT_TRUE(cs_shader);
 
@@ -658,7 +658,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
     BindlessHandle bindless_info_handle                       = bindless_info_view->GetBindlessHandle();
 
     const std::pmr::string shader_code = R"""(
-            #include "bindless.hlsl"
+            import bindless;
 
             struct Bindless {
                 hitagi::SimpleBuffer frame_constant;
@@ -690,7 +690,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
                                                                         .name        = std::pmr::string(std::format("{}-vs", test_name)),
                                                                         .type        = ShaderType::Vertex,
                                                                         .entry       = "VSMain",
-                                                                        .source_code = shader_code,
+                                                                        .program = {.modules = {{.source_code = shader_code}}},
                                                                     });
     ASSERT_TRUE(vs_shader);
 
@@ -698,7 +698,7 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
                                                                         .name        = std::pmr::string(std::format("{}-ps", test_name)),
                                                                         .type        = ShaderType::Pixel,
                                                                         .entry       = "PSMain",
-                                                                        .source_code = shader_code,
+                                                                        .program = {.modules = {{.source_code = shader_code}}},
                                                                     });
     ASSERT_TRUE(ps_shader);
 
@@ -814,7 +814,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
     auto bindless_info_handle = bindless_info_view->GetBindlessHandle();
 
     const std::pmr::string cs_shader_code = R"""(
-            #include "bindless.hlsl"
+            import bindless;
             struct Bindless {
                 hitagi::SimpleBuffer cb;
             };
@@ -834,7 +834,7 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
                                                                         .name        = std::pmr::string(std::format("{}-cs", test_name)),
                                                                         .type        = ShaderType::Compute,
                                                                         .entry       = "main",
-                                                                        .source_code = cs_shader_code,
+                                                                        .program = {.modules = {{.source_code = cs_shader_code}}},
                                                                     });
     ASSERT_TRUE(cs_shader);
 
@@ -1081,7 +1081,7 @@ TEST_P(DeviceTest, DrawTriangle) {
                                                      });
 
     const std::pmr::string shader_code = R"""(
-            #include "bindless.hlsl"
+            import bindless;
 
             struct Bindless {
                 hitagi::SimpleBuffer constant;
@@ -1126,7 +1126,7 @@ TEST_P(DeviceTest, DrawTriangle) {
                                                                             .name        = std::pmr::string(std::format("VS-{}", test_name)),
                                                                             .type        = ShaderType::Vertex,
                                                                             .entry       = "VSMain",
-                                                                            .source_code = shader_code,
+                                                                            .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
     ASSERT_TRUE(vertex_shader);
 
@@ -1134,7 +1134,7 @@ TEST_P(DeviceTest, DrawTriangle) {
                                                                            .name        = std::pmr::string(std::format("PS-{}", test_name)),
                                                                            .type        = ShaderType::Pixel,
                                                                            .entry       = "PSMain",
-                                                                           .source_code = shader_code,
+                                                                           .program = {.modules = {{.source_code = shader_code}}},
                                                                        });
     ASSERT_TRUE(pixel_shader);
 

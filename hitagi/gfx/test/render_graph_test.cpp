@@ -188,7 +188,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                                                                                   .name        = std::pmr::string(std::format("VS-{}", test_name)),
                                                                                   .type        = ShaderType::Vertex,
                                                                                   .entry       = "vs_main",
-                                                                                  .source_code = R"""(
+                                                                                  .program = {.modules = {{.source_code = R"""(
             struct VSInput{
                 float3 position : POSITION;
                 float3 color    : COLOR;
@@ -205,7 +205,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                 output.color    = float4(input.color,    1.0);
                 return output;
             }
-        )""",
+        )"""}}},
                                                                               });
     ASSERT_TRUE(vertex_shader);
 
@@ -213,7 +213,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                                                                                  .name        = std::pmr::string(std::format("PS-{}", test_name)),
                                                                                  .type        = ShaderType::Pixel,
                                                                                  .entry       = "ps_main",
-                                                                                 .source_code = R"""(
+                                                                                 .program = {.modules = {{.source_code = R"""(
             struct PSInput{
                 float4 position : SV_POSITION;
                 float4 color    : COLOR;
@@ -222,11 +222,11 @@ TEST_F(RenderGraphTest, AddRenderPass) {
             float4 ps_main(PSInput input) : SV_TARGET {
                 return input.color;
             }
-        )""",
+        )"""}}},
                                                                              });
     ASSERT_TRUE(pixel_shader);
 
-    const auto vertex_input_layout = compiler.ExtractVertexLayout(vertex_shader->GetDesc());
+    const auto& vertex_input_layout = vertex_shader->GetVertexLayout();
     const auto pipeline            = hitagi::gfx::RenderPipeline::Create(*device, *bindings,
                                                                          {
                                                                              .name                = std::pmr::string(std::format("Pipeline-{}", test_name)),
@@ -739,6 +739,169 @@ TEST(RenderGraphAccessTest, MergesReadStagesPerResource) {
     ASSERT_TRUE(graph.Compile());
     graph.Execute();
     EXPECT_TRUE(executed);
+}
+
+TEST(RenderGraphAccessTest, ReusesIdenticalAccessesAndKeepsDifferentRangesSeparate) {
+    auto device = create_device(Device::Type::Mock, "GraphAccessReuse");
+    CommandQueues queues(*device);
+    auto bindings = BindlessUtils::Create(*device);
+    RenderGraph graph(*device, queues, *bindings);
+    const auto buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
+    const auto texture = graph.Create(TextureDesc{
+        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM, .mip_levels = 2, .usages = TextureUsageFlags::SRV});
+    const auto target = graph.Create(TextureDesc{
+        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM, .usages = TextureUsageFlags::RenderTarget});
+    RenderPassBuilder builder(graph);
+    builder.AllowPassCulling(false);
+    builder.SetRenderTarget(target);
+    const auto first = builder.Read(buffer, {.element_size = 4, .element_count = 4}, PipelineStage::VertexShader);
+    const auto repeated = builder.Read(buffer, {.element_size = 4, .element_count = 4}, PipelineStage::PixelShader);
+    const auto offset = builder.Read(buffer, {.offset = 16, .element_size = 4, .element_count = 4}, PipelineStage::VertexShader);
+    const auto mip0 = builder.Read(texture, {.mip_levels = 1}, PipelineStage::VertexShader);
+    const auto repeated_mip = builder.Read(texture, {.mip_levels = 1}, PipelineStage::PixelShader);
+    const auto mip1 = builder.Read(texture, {.base_mip_level = 1, .mip_levels = 1}, PipelineStage::VertexShader);
+    EXPECT_EQ(first, repeated);
+    EXPECT_NE(first, offset);
+    EXPECT_EQ(mip0, repeated_mip);
+    EXPECT_NE(mip0, mip1);
+    bool executed = false;
+    builder.SetExecutor([&](const RenderGraph&, const RenderPassNode& pass) {
+        executed = true;
+        EXPECT_EQ(&pass.Resolve(first), &pass.Resolve(repeated));
+        EXPECT_NE(&pass.Resolve(first), &pass.Resolve(offset));
+        EXPECT_EQ(pass.Resolve(offset).GetDesc().offset, 16u);
+        EXPECT_EQ(&pass.Resolve(mip0), &pass.Resolve(repeated_mip));
+        EXPECT_NE(&pass.Resolve(mip0), &pass.Resolve(mip1));
+        EXPECT_EQ(pass.Resolve(mip1).GetDesc().base_mip_level, 1u);
+        const auto stages = PipelineStage::VertexShader | PipelineStage::PixelShader;
+        const auto barrier = pass.Resolve(buffer).Transition(BarrierAccess::ShaderRead, stages);
+        EXPECT_EQ(barrier.src_stage, stages);
+        pass.GetCmd().ResourceBarrier({}, std::array{barrier});
+    });
+    ASSERT_TRUE(graph.IsValid(builder.Finish()));
+    ASSERT_TRUE(graph.Compile());
+    graph.Execute();
+    EXPECT_TRUE(executed);
+}
+
+TEST(RenderGraphAccessTest, ExternalViewsKeepProducerMergeStagesAndPreserveIdentity) {
+    auto device = create_device(Device::Type::Mock, "GraphTextureDependencies");
+    CommandQueues queues(*device);
+    auto bindings = BindlessUtils::Create(*device);
+    RenderGraph graph(*device, queues, *bindings);
+    const TextureDesc desc{
+        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
+    };
+    auto texture = Texture::Create(*device, queues, *bindings, desc);
+    auto view = TextureView::Create(*device, *bindings, {.texture = texture});
+    auto other_view = TextureView::Create(*device, *bindings, {.texture = texture});
+    const auto source = graph.Import(texture);
+    const auto target = graph.Create(desc);
+    bool produced = false, consumed = false;
+    RenderPassBuilder producer(graph);
+    producer.SetRenderTarget(source);
+    producer.SetExecutor([&](const RenderGraph&, const RenderPassNode&) { produced = true; });
+    ASSERT_TRUE(graph.IsValid(producer.Finish()));
+
+    RenderPassBuilder consumer(graph);
+    consumer.AllowPassCulling(false);
+    consumer.SetRenderTarget(target);
+    const auto access = consumer.Read(view, PipelineStage::VertexShader);
+    const auto repeated = consumer.Read(view, PipelineStage::PixelShader);
+    const auto other = consumer.Read(other_view, PipelineStage::PixelShader);
+    const auto generated = consumer.Read(source, {}, PipelineStage::PixelShader);
+    EXPECT_EQ(access, repeated);
+    EXPECT_NE(access, other);
+    EXPECT_NE(access, generated);
+    consumer.SetExecutor([&](const RenderGraph&, const RenderPassNode& pass) {
+        EXPECT_TRUE(produced);
+        consumed = true;
+        EXPECT_EQ(&pass.Resolve(access), view.get());
+        EXPECT_EQ(&pass.Resolve(other), other_view.get());
+        EXPECT_NE(&pass.Resolve(generated), view.get());
+        EXPECT_EQ(pass.Resolve(access).GetBindlessHandle(), view->GetBindlessHandle());
+        const auto stages = PipelineStage::VertexShader | PipelineStage::PixelShader;
+        const auto barrier = pass.Resolve(source).Transition(BarrierAccess::ShaderRead, TextureLayout::ShaderRead, stages);
+        EXPECT_EQ(barrier.src_access, BarrierAccess::ShaderRead);
+        EXPECT_EQ(barrier.src_stage, stages);
+        EXPECT_EQ(barrier.src_layout, TextureLayout::ShaderRead);
+        pass.GetCmd().ResourceBarrier({}, {}, std::array{barrier});
+    });
+    ASSERT_TRUE(graph.IsValid(consumer.Finish()));
+    EXPECT_FALSE(consumer.Read(view));
+    ASSERT_TRUE(graph.Compile());
+    graph.Execute();
+    EXPECT_TRUE(consumed);
+}
+
+TEST(RenderGraphAccessTest, ExternalViewsImportAndRetainViewAndTexture) {
+    auto device = create_device(Device::Type::Mock, "GraphDependencyLifetime");
+    CommandQueues queues(*device);
+    auto bindings = BindlessUtils::Create(*device);
+    RenderGraph graph(*device, queues, *bindings);
+    auto source = Texture::Create(*device, queues, *bindings, {
+        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
+    });
+    auto view = TextureView::Create(*device, *bindings, {.texture = source});
+    std::weak_ptr<TextureView> retained_view = view;
+    std::weak_ptr<Texture> retained = source;
+    source.reset();
+    {
+        RenderPassBuilder consumer(graph);
+        consumer.AllowPassCulling(false);
+        consumer.SetRenderTarget(graph.Create(TextureDesc{
+            .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
+            .usages = TextureUsageFlags::RenderTarget,
+        }));
+        const auto access = consumer.Read(view);
+        ASSERT_TRUE(access);
+        const auto imported = graph.Import(retained.lock());
+        view.reset();
+        consumer.SetExecutor([&, access, imported](const RenderGraph&, const RenderPassNode& pass) {
+            EXPECT_FALSE(retained.expired());
+            EXPECT_FALSE(retained_view.expired());
+            EXPECT_EQ(&pass.Resolve(imported), retained.lock().get());
+            EXPECT_EQ(&pass.Resolve(access), retained_view.lock().get());
+        });
+        ASSERT_TRUE(graph.IsValid(consumer.Finish()));
+    }
+    // With callers and builders gone, the graph alone keeps the View alive.
+    EXPECT_FALSE(retained_view.expired());
+    ASSERT_TRUE(graph.Compile());
+    graph.Execute();
+    EXPECT_TRUE(retained_view.expired());
+    EXPECT_FALSE(retained.expired());
+    graph.ClearImportedResources();
+    EXPECT_TRUE(retained.expired());
+}
+
+TEST(RenderGraphAccessTest, ExternalViewReadsRejectNullWrongTypesAndConflicts) {
+    auto device = create_device(Device::Type::Mock, "GraphInvalidExternalViews");
+    CommandQueues queues(*device);
+    auto bindings = BindlessUtils::Create(*device);
+    RenderGraph graph(*device, queues, *bindings);
+    {
+        RenderPassBuilder builder(graph);
+        EXPECT_FALSE(builder.Read(std::shared_ptr<TextureView>{}));
+        EXPECT_FALSE(graph.IsValid(builder.Finish()));
+    }
+    auto texture = Texture::Create(*device, queues, *bindings, {
+        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
+        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
+    });
+    auto view = TextureView::Create(*device, *bindings, {
+        .texture = texture, .type = TextureViewType::RenderTarget,
+    });
+    RenderPassBuilder builder(graph);
+    EXPECT_FALSE(builder.Read(view));
+    EXPECT_FALSE(graph.IsValid(builder.Finish()));
+    RenderPassBuilder conflict(graph);
+    auto read_view = TextureView::Create(*device, *bindings, {.texture = texture});
+    ASSERT_TRUE(conflict.Read(read_view));
+    EXPECT_FALSE(conflict.SetRenderTarget(graph.Import(texture)));
+    EXPECT_FALSE(graph.IsValid(conflict.Finish()));
 }
 
 class TransientResourcePoolTest : public Test {

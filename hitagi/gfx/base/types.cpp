@@ -339,6 +339,7 @@ struct VertexAttribute {
     std::uint64_t    offset       = 0;
     std::uint64_t    stride       = 0;
     bool             per_instance = false;
+    std::uint32_t    location = std::numeric_limits<std::uint32_t>::max();
 };
 using VertexLayout = std::pmr::vector<VertexAttribute>;
 

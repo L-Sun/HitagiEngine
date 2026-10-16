@@ -10,6 +10,21 @@ import :types;
 
 export namespace hitagi::hid {
 
+// UTF-16 offsets match Windows IME and JavaScript string indices. Events are
+// ordered and consumed once, independently of the fixed GUI timestep.
+struct TextInputEvent {
+    enum class Kind { Start, Update, Commit, End, Key, Blur };
+    Kind kind = Kind::Commit;
+    std::uint64_t session = 0;
+    std::u16string text;
+    std::uint32_t caret = 0;
+    std::vector<std::uint8_t> attributes;
+    std::vector<std::uint32_t> clauses;
+    std::uint32_t key = 0;
+    bool shift = false;
+    bool control = false;
+};
+
 class InputManager : public core::RuntimeModule {
 public:
     InputManager();
@@ -29,9 +44,18 @@ public:
         m_TextInputDirty = true;
     }
     void ResetInputState() noexcept;
+    void SetTextInputSession(std::uint64_t session) { m_TextSession = session; }
+    auto GetTextInputSession() const noexcept { return m_TextSession; }
+    void PushTextInput(TextInputEvent event) {
+        if (!m_TextSession) return;
+        event.session = m_TextSession;
+        m_TextEvents.push_back(std::move(event));
+    }
+    auto DrainTextInput() -> std::vector<TextInputEvent> { return std::exchange(m_TextEvents, {}); }
 
     bool  GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const;
     bool  GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) const;
+    bool  GetBoolReleased(VirtualKeyCode key) const;
     float GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) const;
     float GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event) const;
 
@@ -42,6 +66,8 @@ private:
     MouseState                                                          m_MouseState{};
     std::u32string                                                      m_TextInput;
     bool                                                                m_TextInputDirty = false;
+    std::uint64_t m_TextSession = 0;
+    std::vector<TextInputEvent> m_TextEvents;
 };
 
 }  // namespace hitagi::hid
@@ -132,6 +158,11 @@ bool InputManager::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) co
             },
         },
         event);
+}
+
+bool InputManager::GetBoolReleased(VirtualKeyCode key) const {
+    const auto& state = m_KeyState[static_cast<std::size_t>(key)];
+    return !state.current && state.previous;
 }
 
 float InputManager::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) const {

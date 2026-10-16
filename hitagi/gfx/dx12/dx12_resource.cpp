@@ -65,16 +65,15 @@ struct DX12Sampler : public Sampler {
 };
 
 struct DX12Shader : public Shader {
-    DX12Shader(const ShaderCompiler& compiler, const std::shared_ptr<spdlog::logger>& logger, ShaderDesc desc);
+    DX12Shader(const std::shared_ptr<spdlog::logger>& logger, ShaderDesc desc, CompiledShader compiled);
 
     inline auto GetDXILData() const noexcept -> std::span<const std::byte> final {
-        return binary_program.Span<const std::byte>();
+        return m_Compiled.bytecode.Span<const std::byte>();
     }
     inline auto GetShaderByteCode() const noexcept -> D3D12_SHADER_BYTECODE {
-        return {.pShaderBytecode = binary_program.GetData(), .BytecodeLength = binary_program.GetDataSize()};
+        return {.pShaderBytecode = m_Compiled.bytecode.GetData(), .BytecodeLength = m_Compiled.bytecode.GetDataSize()};
     }
 
-    core::Buffer binary_program;
 };
 
 struct DX12RenderPipeline : public RenderPipeline {
@@ -463,11 +462,10 @@ DX12Sampler::DX12Sampler(DX12BindlessUtils& bindings, const std::shared_ptr<spdl
     if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<DX12BindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(m_Desc);
 }
 
-DX12Shader::DX12Shader(const ShaderCompiler& compiler, const std::shared_ptr<spdlog::logger>& logger, ShaderDesc desc) : Shader(std::move(desc)) {
+DX12Shader::DX12Shader(const std::shared_ptr<spdlog::logger>& logger, ShaderDesc desc, CompiledShader compiled) : Shader(std::move(desc), std::move(compiled)) {
     logger->trace("Create shader ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
-    binary_program = compiler.CompileToDXIL(m_Desc);
-    if (binary_program.Empty()) {
+    if (m_Compiled.bytecode.Empty()) {
         auto error_message = fmt::format(
             "Failed to compile shader({})",
             fmt::styled(GetName(), fmt::fg(fmt::color::green)));
@@ -620,7 +618,7 @@ DX12SwapChain::DX12SwapChain(const ComPtr<IDXGIFactory2>& factory, ID3D12Command
         },
         .BufferUsage = interop::dxgi_usage_render_target_output,
         .BufferCount = 2,
-        .Scaling     = DXGI_SCALING_STRETCH,
+        .Scaling     = DXGI_SCALING_NONE,  // Do not distort the last frame between resize/present.
         .SwapEffect  = DXGI_SWAP_EFFECT_FLIP_DISCARD,
         .AlphaMode   = DXGI_ALPHA_MODE_UNSPECIFIED,
         .Flags       = flags,

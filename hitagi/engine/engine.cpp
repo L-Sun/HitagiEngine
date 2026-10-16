@@ -57,13 +57,13 @@ Engine::Engine(AppConfig config)
     m_App = add_inner_module(Application::CreateApp(std::move(config)));  // input manager is created here
 
     // update state
-    m_Device       = add_inner_module(gfx::create_device(magic_enum::enum_cast<gfx::Device::Type>(m_App->GetConfig().gfx_backend).value()));
+    m_Device                = add_inner_module(gfx::create_device(magic_enum::enum_cast<gfx::Device::Type>(m_App->GetConfig().gfx_backend).value()));
     auto* graphics_services = add_inner_module(std::make_unique<GraphicsServices>(*m_Device));
     m_Queues                = &graphics_services->queues;
     m_Bindings              = graphics_services->bindings.get();
     m_ShaderCompiler        = &graphics_services->compiler;
-    m_AssetManager = add_inner_module(std::make_unique<asset::AssetManager>(*m_FileIO, *m_JobSystem, m_App->GetConfig().asset_root_path));
-    m_PhysicsWorld = add_inner_module(std::make_unique<physics::PhysicsWorld>(*m_JobSystem));
+    m_AssetManager          = add_inner_module(std::make_unique<asset::AssetManager>(*m_FileIO, *m_JobSystem, m_App->GetConfig().asset_root_path));
+    m_PhysicsWorld          = add_inner_module(std::make_unique<physics::PhysicsWorld>(*m_JobSystem));
 
     // Game or editor logic here
     m_OutLogicArea = add_inner_module(std::make_unique<OutLogicArea>());
@@ -75,15 +75,35 @@ Engine::Engine(AppConfig config)
     m_RenderRuntime = static_cast<render::RenderRuntime*>(add_inner_module(std::make_unique<render::RenderRuntime>(*m_Device, *m_Queues, *m_Bindings, *m_ShaderCompiler, *m_App)));
 
     m_Clock.Start();
+    m_App->SetModalFrameCallback([this] { TickFrame(); });
 }
 
 Engine::~Engine() {
+    m_App->SetModalFrameCallback({});
     UnloadAllSubModules();
 }
 
 void Engine::Tick() {
+    m_App->Tick();
+    TickFrame();
+}
+
+void Engine::TickFrame() {
     ZoneScopedN("Engine");
-    core::RuntimeModule::Tick();
+    if (m_InFrame) return;
+    m_InFrame = true;
+    struct FrameGuard {
+        bool& active;
+        ~FrameGuard() { active = false; }
+    } guard{m_InFrame};
+    // The application is already pumping events, possibly inside the Windows
+    // modal sizing loop. Never re-enter that pump or an in-progress render graph.
+    for (const auto& module : m_SubModules) {
+        if (module.get() == m_App) continue;
+        ZoneScoped;
+        ZoneName(module->GetName().data(), module->GetName().size());
+        module->Tick();
+    }
     m_Clock.Tick();
 
     static bool tracy_plot_configured = false;

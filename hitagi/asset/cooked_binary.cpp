@@ -150,14 +150,19 @@ auto ParameterValueFromRecord(const CookedReader& reader, const ParameterRecord&
 }
 
 auto ShaderDescFromRecord(const CookedReader& reader, const ShaderRecord& record, const std::filesystem::path& asset_root_path) -> gfx::ShaderDesc {
-    const auto path = ResolveCookedPath(reader.GetString(record.path), asset_root_path);
-    return {
-        .name        = std::pmr::string(record.name.length != 0 ? std::string(reader.GetString(record.name)) : path.string()),
+    gfx::ShaderDesc desc{
+        .name        = std::pmr::string(reader.GetString(record.name)),
         .type        = magic_enum::enum_cast<gfx::ShaderType>(reader.GetString(record.type)).value_or(gfx::ShaderType::Pixel),
         .entry       = std::pmr::string(record.entry.length != 0 ? reader.GetString(record.entry) : "main"),
-        .source_code = std::pmr::string(reader.GetString(record.source)),
-        .path        = path,
     };
+    for (const auto& module : reader.ReadArray<ShaderModuleRecord>(record.modules)) desc.program.modules.push_back({
+        .name = std::pmr::string(reader.GetString(module.name)),
+        .source_code = std::pmr::string(reader.GetString(module.source)),
+        .path = ResolveCookedPath(reader.GetString(module.path), asset_root_path),
+    });
+    for (const auto& type : reader.ReadArray<StringRef>(record.specialization_types))
+        desc.specialization_types.emplace_back(reader.GetString(type));
+    return desc;
 }
 
 auto PipelineDescFromRecord(const CookedReader& reader, const PipelineRecord& record, std::string_view fallback_name) -> gfx::RenderPipelineDesc {

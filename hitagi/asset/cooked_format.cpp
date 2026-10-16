@@ -18,7 +18,7 @@ import math;
 export namespace hitagi::asset {
 
 inline constexpr std::array<char, 4> kCookedMagic{'H', 'T', 'G', 'C'};
-inline constexpr std::uint32_t       kCookedVersion         = 2;
+inline constexpr std::uint32_t       kCookedVersion         = 3;
 inline constexpr std::uint32_t       kCookedInvalidIndex    = 0xFFFF'FFFFu;
 inline constexpr std::size_t         kCookedBlobAlignment   = 16;
 inline constexpr std::size_t         kCookedRecordAlignment = 8;
@@ -79,12 +79,18 @@ struct ParameterRecord {
     std::array<std::byte, kCookedParameterPayloadSize>    payload{};
 };
 
+struct ShaderModuleRecord {
+    StringRef name{};
+    StringRef path{};
+    StringRef source{};
+};
+
 struct ShaderRecord {
     StringRef name{};
     StringRef type{};  // gfx::ShaderType name
     StringRef entry{};
-    StringRef path{};
-    StringRef source{};
+    ArrayRef modules{}; // ShaderModuleRecord[], in dependency order
+    ArrayRef specialization_types{}; // StringRef[]
 };
 
 // Enums are stored as strings (restored via magic_enum) so that reordering the
@@ -212,7 +218,8 @@ static_assert(sizeof(ArrayRef) == 16);
 static_assert(sizeof(StringRef) == 8);
 static_assert(sizeof(CookedFileHeader) == 80);
 static_assert(sizeof(ParameterRecord) == 104);
-static_assert(sizeof(ShaderRecord) == 40);
+static_assert(sizeof(ShaderModuleRecord) == 24);
+static_assert(sizeof(ShaderRecord) == 56);
 static_assert(sizeof(PipelineRecord) == 64);
 static_assert(sizeof(PassRecord) == 112);
 static_assert(sizeof(MaterialRecord) == 40);

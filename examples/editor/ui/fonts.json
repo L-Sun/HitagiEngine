@@ -1,0 +1,4 @@
+{
+  "fallback": ["../../../assets/fonts/NotoSansSC-Regular.otf", "../../../assets/fonts/NotoSansJP-Regular.otf"],
+  "ranges": ["U+3000-30FF", "U+4E00-9FFF", "U+FF00-FFEF"]
+}

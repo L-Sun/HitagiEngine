@@ -35,7 +35,7 @@ public:
 
 private:
     auto GetStorageBufferViewRequirements() const noexcept -> StorageViewRequirements final {
-        return {.offset_alignment = std::max(std::uint64_t{4}, m_PhysicalDevice->getProperties().limits.minStorageBufferOffsetAlignment), .size_alignment = 4};
+        return m_StorageViewRequirements;
     }
 
     void Profile() const;
@@ -53,6 +53,7 @@ private:
 
     std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
     std::unique_ptr<vk::raii::Device>         m_Device;
+    StorageViewRequirements m_StorageViewRequirements;
 
     VmaAllocator  m_VmaAllocator;
     std::uint32_t m_QueueFamilyIndex;
@@ -133,9 +134,14 @@ VulkanDevice::VulkanDevice(std::string_view name)
             throw std::runtime_error("No Vulkan device supports the required Descriptor Heap features and queues");
         }
         m_PhysicalDevice = std::make_unique<vk::raii::PhysicalDevice>(std::move(physical_devices.front()));
+        const auto properties = m_PhysicalDevice->getProperties();
+        m_StorageViewRequirements = {
+            .offset_alignment = std::max(std::uint64_t{4}, properties.limits.minStorageBufferOffsetAlignment),
+            .size_alignment = 4,
+        };
         m_Logger->trace(
             "Pick physical device: {}",
-            fmt::styled(m_PhysicalDevice->getProperties().deviceName.data(), fmt::fg(fmt::color::green)));
+            fmt::styled(properties.deviceName.data(), fmt::fg(fmt::color::green)));
     }
 
     m_Logger->trace("Create logical device...");

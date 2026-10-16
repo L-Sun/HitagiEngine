@@ -437,6 +437,7 @@ void PassNode::PrepareResourceBarriers() {
 }
 
 void PassNode::PrepareResourceViews() {
+    ZoneScopedN("RenderGraph Prepare Views");
     auto& device = m_RenderGraph->GetDevice();
     for (auto& edge : m_GPUBufferEdges) {
         if (!edge.create_view || edge.view) continue;
@@ -533,16 +534,21 @@ auto PassBuilder::AddGPUBufferEdge(GPUBufferHandle handle, GPUBufferEdge edge) n
         Invalidate("buffer usage does not support the declared access");
         return {};
     }
-    for (const auto& existing : pass_base->m_GPUBufferEdges) {
+    if (edge.write && node->GetWriter() != nullptr) {
+        Invalidate("buffer already has a writer");
+        return {};
+    }
+    for (std::size_t index = 0; index < pass_base->m_GPUBufferEdges.size(); ++index) {
+        auto& existing = pass_base->m_GPUBufferEdges[index];
         if (existing.resource != node) continue;
         if (existing.write != edge.write) {
             Invalidate("Incompatible accesses to the same buffer in one pass");
             return {};
         }
-    }
-    if (edge.write && node->GetWriter() != nullptr) {
-        Invalidate("buffer already has a writer");
-        return {};
+        if (existing.access == edge.access && existing.create_view == edge.create_view && existing.view_desc == edge.view_desc) {
+            existing.stage |= edge.stage;
+            return {.owner = pass_base->m_AccessOwner, .index = index};
+        }
     }
     edge.resource = node;
     const GPUBufferEdgeHandle result{.owner = pass_base->m_AccessOwner, .index = pass_base->m_GPUBufferEdges.size()};
@@ -572,16 +578,21 @@ auto PassBuilder::AddTextureEdge(TextureHandle handle, TextureEdge edge) noexcep
         Invalidate("texture usage does not support the declared access");
         return {};
     }
-    for (const auto& existing : pass_base->m_TextureEdges) {
+    if (edge.write && node->GetWriter() != nullptr) {
+        Invalidate("texture already has a writer");
+        return {};
+    }
+    for (std::size_t index = 0; index < pass_base->m_TextureEdges.size(); ++index) {
+        auto& existing = pass_base->m_TextureEdges[index];
         if (existing.resource != node) continue;
         if (existing.write != edge.write || existing.layout != edge.layout) {
             Invalidate("Incompatible accesses to the same texture in one pass");
             return {};
         }
-    }
-    if (edge.write && node->GetWriter() != nullptr) {
-        Invalidate("texture already has a writer");
-        return {};
+        if (existing.access == edge.access && existing.create_view == edge.create_view && existing.view_desc == edge.view_desc && existing.view == edge.view) {
+            existing.stage |= edge.stage;
+            return {.owner = pass_base->m_AccessOwner, .index = index};
+        }
     }
     edge.resource = node;
     const TextureEdgeHandle result{.owner = pass_base->m_AccessOwner, .index = pass_base->m_TextureEdges.size()};
@@ -616,6 +627,25 @@ void RenderPassBuilder::SetName(std::string_view name) noexcept {
     }
 
     pass->m_Name = name;
+}
+
+auto RenderPassBuilder::Read(std::shared_ptr<gfx::TextureView> view, gfx::PipelineStage stage) noexcept -> TextureEdgeHandle {
+    if (m_Invalid || m_Finished) return {};
+    if (!view || !view->GetDesc().texture || view->GetDesc().type != gfx::TextureViewType::ShaderRead) {
+        Invalidate("Read requires a non-null shader-read texture View");
+        return {};
+    }
+    const auto texture = m_RenderGraph.Import(view->GetDesc().texture);
+    auto desc = view->GetDesc();
+    desc.texture.reset();
+    return AddTextureEdge(texture, {
+        .access      = gfx::BarrierAccess::ShaderRead,
+        .stage       = stage,
+        .layout      = gfx::TextureLayout::ShaderRead,
+        .view_desc   = std::move(desc),
+        .create_view = false,
+        .view        = std::move(view),
+    });
 }
 
 auto RenderPassBuilder::Finish() noexcept -> RenderPassHandle {
@@ -1074,7 +1104,7 @@ bool RenderGraph::Compile() {
         // we need keep all output resource node in essential pass node to avoid execution failure
         auto write_resource_nodes = essential_nodes                                                                    //
                                     | std::ranges::views::filter([](const auto& node) { return node->IsPassNode(); })  //
-                                    | std::ranges::views::transform([](auto node) { return node->m_OutputNodes; })     //
+                                    | std::ranges::views::transform([](auto node) -> const auto& { return node->m_OutputNodes; })  //
                                     | std::ranges::views::join                                                         //
                                     | std::ranges::to<std::pmr::unordered_set<RenderGraphNode*>>();
         essential_nodes.merge(write_resource_nodes);
@@ -1240,12 +1270,15 @@ auto RenderGraph::Execute() -> std::uint64_t {
         layer_profile.submit_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - submit_start).count();
     }
 
-    magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType type) {
-        const auto& fence_value = m_Fences[type];
-        if (fence_value.last_value != 0) {
-            fence_value.fence->Wait(fence_value.last_value);
-        }
-    });
+    {
+        ZoneScopedN("RenderGraph GPU Wait");
+        magic_enum::enum_for_each<gfx::CommandType>([&](gfx::CommandType type) {
+            const auto& fence_value = m_Fences[type];
+            if (fence_value.last_value != 0) {
+                fence_value.fence->Wait(fence_value.last_value);
+            }
+        });
+    }
 
     RetireNodes();
     Profile();
@@ -1254,6 +1287,7 @@ auto RenderGraph::Execute() -> std::uint64_t {
 }
 
 void RenderGraph::ClearImportedResources() noexcept {
+    ZoneScopedN("RenderGraph Clear Imports");
     for (const auto& [resource, handle] : m_ImportedResources) {
         if (!IsValid(gfx_resource_type_to_node_type(resource->GetType()), handle)) continue;
 
@@ -1269,6 +1303,7 @@ void RenderGraph::ClearImportedResources() noexcept {
 }
 
 void RenderGraph::Reset() noexcept {
+    ZoneScopedN("RenderGraph Reset");
     m_Compiled        = false;
     m_PresentPassNode = nullptr;
     m_ExtractionIndex = 0;
@@ -1343,6 +1378,7 @@ void RenderGraph::RetireNodesFromPassNode(PassNode* pass_node, const FenceValue&
 }
 
 void RenderGraph::RetireNodes() noexcept {
+    ZoneScopedN("RenderGraph Retire Nodes");
     const auto latest_fence_values = m_Fences  //
                                      | std::ranges::views::transform([](const auto& fence_value) {
                                            return std::make_pair(fence_value.fence, fence_value.fence->GetCurrentValue());

@@ -26,10 +26,10 @@
     }()}
 #define TracyPlot(name, value) ::tracy::Profiler::PlotData(name, value)
 #define TracyPlotConfig(name, type, step, fill, color) ::tracy::Profiler::ConfigurePlot(name, type, step, fill, color)
-#define TracyAllocN(pointer, size, name) ::tracy::Profiler::MemAllocCallstackNamed(pointer, size, ::hitagi::interop::profiling_callstack_depth, false, name)
-#define TracyFreeN(pointer, name) ::tracy::Profiler::MemFreeCallstackNamed(pointer, ::hitagi::interop::profiling_callstack_depth, false, name)
-#define TracyMessageCS(text, size, color, depth) ::tracy::Profiler::MessageColor(text, size, color, depth)
-#define TracyMessageLCS(text, color, depth) ::tracy::Profiler::MessageColor(text, color, depth)
+#define TracyAllocN(pointer, size, name) ::tracy::Profiler::MemAllocCallstackNamed(pointer, size, ::hitagi::interop::profiling_callstack_depth, name)
+#define TracyFreeN(pointer, name) ::tracy::Profiler::MemFreeCallstackNamed(pointer, ::hitagi::interop::profiling_callstack_depth, name)
+#define TracyMessageCS(text, size, color, depth) ::tracy::Profiler::LogString(::tracy::MessageSourceType::User, ::tracy::MessageSeverity::Info, color, depth, size, text)
+#define TracyMessageLCS(text, color, depth) ::tracy::Profiler::LogString(::tracy::MessageSourceType::User, ::tracy::MessageSeverity::Info, color, depth, text)
 
 #define TracyVkContext(physical_device, device, queue, command_buffer) ::hitagi::interop::create_tracy_context(physical_device, device, queue, command_buffer)
 #define TracyVkDestroy(context) ::hitagi::interop::destroy_tracy_context(context)
@@ -38,7 +38,7 @@
 #define TracyD3D12Context(device, queue) ::hitagi::interop::create_tracy_context(device, queue)
 #define TracyD3D12Destroy(context) ::hitagi::interop::destroy_tracy_context(context)
 #define TracyD3D12ContextName(context, name, size) (context)->Name(name, size)
-#define TracyD3D12NewFrame(context) (context)->NewFrame()
+#define TracyD3D12NewFrame(context) ((void)(context))
 #define TracyD3D12Collect(context) (context)->Collect()
 
 #else

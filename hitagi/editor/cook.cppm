@@ -263,13 +263,21 @@ auto BuildParameterRecord(StringTableBuilder& strings, const asset::MaterialPara
     return record;
 }
 
-auto BuildShaderRecord(StringTableBuilder& strings, const gfx::ShaderDesc& shader, const EditorCookOptions& options) -> asset::ShaderRecord {
+auto BuildShaderRecord(SectionBuilder& meta, StringTableBuilder& strings, const gfx::ShaderDesc& shader, const EditorCookOptions& options) -> asset::ShaderRecord {
+    std::vector<asset::ShaderModuleRecord> modules;
+    for (const auto& module : shader.program.modules) modules.push_back({
+        .name = strings.Add(module.name),
+        .path = strings.Add(CookedPath(module.path, options.asset_root_path)),
+        .source = strings.Add(module.source_code),
+    });
+    std::vector<asset::StringRef> types;
+    for (const auto& type : shader.specialization_types) types.push_back(strings.Add(type));
     return {
         .name   = strings.Add(shader.name),
         .type   = strings.Add(magic_enum::enum_name(shader.type)),
         .entry  = strings.Add(shader.entry),
-        .path   = strings.Add(CookedPath(shader.path, options.asset_root_path)),
-        .source = strings.Add(shader.source_code),
+        .modules = meta.AppendArray(std::span<const asset::ShaderModuleRecord>{modules}),
+        .specialization_types = meta.AppendArray(std::span<const asset::StringRef>{types}),
     };
 }
 
@@ -291,7 +299,7 @@ auto BuildPassRecord(SectionBuilder& meta, StringTableBuilder& strings, const as
     std::pmr::vector<asset::ShaderRecord> shaders;
     if (pass.pipeline) {
         for (const auto& shader : pass.pipeline->GetShaders()) {
-            if (shader) shaders.emplace_back(BuildShaderRecord(strings, shader->GetDesc(), options));
+            if (shader) shaders.emplace_back(BuildShaderRecord(meta, strings, shader->GetDesc(), options));
         }
     }
 

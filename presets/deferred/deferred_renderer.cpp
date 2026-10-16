@@ -121,9 +121,9 @@ DeferredRenderer::DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queu
                                                                                     .min_filter    = gfx::FilterMode::Linear,
                                                                                     .mipmap_filter = gfx::FilterMode::Linear,
                                                                                 })),
-      m_GBufferPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_gbuffer.hlsl")),
-      m_DeferredLightingPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_lighting.hlsl")),
-      m_GBufferDebugViewPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_debug.hlsl")) {}
+      m_GBufferPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_gbuffer.slang")),
+      m_DeferredLightingPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_lighting.slang")),
+      m_GBufferDebugViewPass(m_GfxDevice, bindings, compiler, LoadShaderSource(file_io, m_App.GetConfig().asset_root_path / "shaders" / "deferred_debug.slang")) {}
 
 auto DeferredRenderer::RenderFrame(RenderContext& context, const RenderRequest& request) -> RenderResult {
     ZoneScoped;

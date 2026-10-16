@@ -44,6 +44,8 @@ public:
     inline auto GetDeltaTime() const noexcept { return m_Clock.DeltaTime(); }
 
 private:
+    void TickFrame();
+    bool m_InFrame = false;
     // Infrastructure services are members rather than sub-modules: they never
     // tick, and member order states their lifetime. ~Engine() unloads the module
     // tree first, so every sub-module is gone before these are destroyed.

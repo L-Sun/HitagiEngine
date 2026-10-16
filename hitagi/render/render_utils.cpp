@@ -21,12 +21,11 @@ protected:
     struct GuiRenderData {
         std::shared_ptr<gfx::Shader>         vs, ps;
         std::shared_ptr<gfx::RenderPipeline> pipeline;
-        std::shared_ptr<gfx::Texture>        font_texture;
-        std::shared_ptr<gfx::Sampler>        sampler;
+        std::shared_ptr<gfx::Texture>        white_texture;
+        std::shared_ptr<gfx::Sampler>        sampler, nearest_sampler;
     } m_GfxData;
 
-    rg::TextureHandle m_FontTexture;
-    std::uint64_t     m_FontTextureGeneration = 0;
+    std::unordered_map<std::uint64_t, std::shared_ptr<gfx::Texture>> m_Textures;
 };
 
 namespace passes {
@@ -46,6 +45,7 @@ struct GuiBindlessInfo {
     gfx::BindlessHandle frame_constant;
     gfx::BindlessHandle texture;
     gfx::BindlessHandle sampler;
+    std::uint32_t textured;
 };
 
 auto CountDrawCalls(const gui::GuiDrawData& draw_data) noexcept -> std::size_t {
@@ -94,11 +94,12 @@ auto CollectTextures(const gui::GuiDrawData& draw_data) -> std::pmr::vector<rg::
 
 GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler) {
     const std::pmr::string gui_shader = R"""(
-        #include "bindless.hlsl"
+        import bindless;
         struct BindlessInfo {
             hitagi::SimpleBuffer frame_constant;
             hitagi::Texture      texture;
             hitagi::Sampler      sampler;
+            uint textured;
         };
         struct FrameConstant {
             matrix projection;
@@ -130,7 +131,9 @@ GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bind
         float4 PSMain(PS_INPUT input) : SV_TARGET {
             BindlessInfo bindless_info = hitagi::load_bindless<BindlessInfo>();
             SamplerState sampler       = bindless_info.sampler.load();
-            float4       out_col       = input.col * bindless_info.texture.sample<float4>(sampler, input.uv);
+            float4       out_col       = input.col;
+            if (bindless_info.textured != 0)
+                out_col *= bindless_info.texture.sample<float4>(sampler, input.uv);
             return out_col;
         }
 )""";
@@ -139,14 +142,14 @@ GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bind
                                                                          .name        = "gui-vs",
                                                                          .type        = gfx::ShaderType::Vertex,
                                                                          .entry       = "VSMain",
-                                                                         .source_code = gui_shader,
+                                                                         .program = {.modules = {{.source_code = gui_shader}}},
                                                                      });
 
     m_GfxData.ps = hitagi::gfx::Shader::Create(gfx_device, compiler, {
                                                                          .name        = "gui-ps",
                                                                          .type        = gfx::ShaderType::Pixel,
                                                                          .entry       = "PSMain",
-                                                                         .source_code = gui_shader,
+                                                                         .program = {.modules = {{.source_code = gui_shader}}},
                                                                      });
 
     m_GfxData.sampler = hitagi::gfx::Sampler::Create(gfx_device, bindings, {
@@ -162,6 +165,14 @@ GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bind
                                                                                .max_anisotropy = 1,
                                                                                .compare_op     = gfx::CompareOp::Always,
                                                                            });
+
+    m_GfxData.nearest_sampler = gfx::Sampler::Create(gfx_device, bindings, {
+        .name = "gui-nearest", .address_u = gfx::AddressMode::Clamp,
+        .address_v = gfx::AddressMode::Clamp, .address_w = gfx::AddressMode::Clamp,
+        .mag_filter = gfx::FilterMode::Point, .min_filter = gfx::FilterMode::Point,
+        .mipmap_filter = gfx::FilterMode::Point, .min_lod = 0, .max_lod = 0,
+        .max_anisotropy = 1, .compare_op = gfx::CompareOp::Always,
+    });
 
     m_GfxData.pipeline = hitagi::gfx::RenderPipeline::Create(gfx_device, bindings,
                                                              {
@@ -193,25 +204,33 @@ GuiRenderUtils::GuiRenderUtils(gfx::Device& gfx_device, gfx::BindlessUtils& bind
 }
 
 void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle target, const gui::GuiDrawData& draw_data, bool clear_target) {
-    if (draw_data.Empty() || draw_data.font_atlas.Empty()) return;
+    if (draw_data.Empty()) return;
 
     const auto total_vertices = CountVertices(draw_data);
     const auto total_indices  = CountIndices(draw_data);
     const auto total_draws    = CountDrawCalls(draw_data);
     if (total_vertices == 0 || total_indices == 0 || total_draws == 0) return;
 
-    if (m_GfxData.font_texture == nullptr || m_FontTextureGeneration != draw_data.font_atlas.generation) {
-        m_GfxData.font_texture  = hitagi::gfx::Texture::Create(render_graph.GetDevice(), render_graph.GetQueues(), render_graph.GetBindings(),
-                                                               {
-                                                                   .name   = "gui-font",
-                                                                   .width  = draw_data.font_atlas.width,
-                                                                   .height = draw_data.font_atlas.height,
-                                                                   .format = gfx::Format::R8G8B8A8_UNORM,
-                                                                   .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
-                                                               },
-                                                               draw_data.font_atlas.pixels);
-        m_FontTextureGeneration = draw_data.font_atlas.generation;
+    if (!m_GfxData.white_texture) {
+        const std::array<std::byte, 4> white{std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
+        m_GfxData.white_texture = gfx::Texture::Create(render_graph.GetDevice(), render_graph.GetQueues(), render_graph.GetBindings(),
+            {.name = "gui-white", .width = 1, .height = 1, .format = gfx::Format::R8G8B8A8_UNORM,
+             .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst}, white);
     }
+    std::unordered_set<std::uint64_t> live;
+    std::unordered_map<std::uint64_t, rg::TextureHandle> resources;
+    std::unordered_set<std::uint64_t> nearest;
+    resources.emplace(0, render_graph.Import(m_GfxData.white_texture, "gui-white"));
+    for (const auto& source : draw_data.textures) {
+        live.insert(source->id);
+        auto& texture = m_Textures[source->id];
+        if (!texture) texture = gfx::Texture::Create(render_graph.GetDevice(), render_graph.GetQueues(), render_graph.GetBindings(),
+            {.name = std::pmr::string(std::format("gui-resource-{}", source->id)), .width = source->width, .height = source->height,
+             .format = gfx::Format::R8G8B8A8_UNORM, .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst}, source->pixels);
+        resources.emplace(source->id, render_graph.Import(texture, std::format("gui-resource-{}", source->id)));
+        if (!source->linear) nearest.insert(source->id);
+    }
+    std::erase_if(m_Textures, [&](const auto& entry) { return !live.contains(entry.first); });
 
     const auto bindless_info_handle = render_graph.Create(
         {
@@ -243,7 +262,7 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
         },
         "gui_indices");
 
-    const auto font_texture_handle = render_graph.Import(m_GfxData.font_texture, std::format("gui_font_{}", m_FontTextureGeneration));
+    const auto nearest_sampler_handle = render_graph.Import(m_GfxData.nearest_sampler, "gui_nearest_sampler");
     const auto sampler_handle      = render_graph.Import(m_GfxData.sampler, "gui_sampler");
     const auto pipeline            = m_GfxData.pipeline;
     if (!pipeline) return;
@@ -255,11 +274,12 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
     const auto frame_constant_access = builder.Read(frame_constant_handle, {.offset = 0, .element_size = sizeof(GuiFrameConstant), .element_count = 1});
     const auto vertex_buffer_access  = builder.ReadAsVertices(vertex_buffer_handle, {.element_size = sizeof(gui::GuiVertex), .element_count = 0});
     const auto index_buffer_access   = builder.ReadAsIndices(index_buffer_handle, {.element_size = sizeof(std::uint32_t), .element_count = 0});
-    const auto font_texture_access   = builder.Read(font_texture_handle, {}, gfx::PipelineStage::PixelShader);
     builder.AddSampler(sampler_handle);
+    builder.AddSampler(nearest_sampler_handle);
     builder.SetRenderTarget(target, clear_target);
 
     std::unordered_map<rg::TextureHandle, rg::TextureEdgeHandle> texture_accesses;
+    for (const auto& [_, texture] : resources) AddUniqueTexture(read_textures, texture);
     for (const auto texture : read_textures) {
         texture_accesses[texture] = builder.Read(texture, {}, gfx::PipelineStage::PixelShader);
     }
@@ -285,6 +305,7 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                 -1.0f);
         }
         const auto sampler_bindless = pass.Resolve(sampler_handle).GetBindlessHandle();
+        const auto nearest_bindless = pass.Resolve(nearest_sampler_handle).GetBindlessHandle();
 
         std::size_t vertex_offset = 0;
         std::size_t index_offset  = 0;
@@ -322,7 +343,7 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                     continue;
                 }
 
-                // ImGui clip rectangles are in display space. Clamp them to the active framebuffer
+                // GUI clip rectangles are in display space. Clamp them to the active framebuffer
                 // before converting to integer scissors, otherwise negative/minimized rectangles can
                 // underflow Vulkan/DX12 unsigned scissor coordinates.
                 cmd.SetScissorRect({
@@ -333,10 +354,11 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
                 });
 
                 bindless_infos[draw_call_index].frame_constant = frame_constant_bindless;
-                bindless_infos[draw_call_index].sampler        = sampler_bindless;
-                bindless_infos[draw_call_index].texture        = draw_command.texture.type == gui::GuiTextureRef::Type::Font
-                                                                     ? pass.Resolve(font_texture_access).GetBindlessHandle()
-                                                                     : pass.Resolve(texture_accesses.at(draw_command.texture.texture)).GetBindlessHandle();
+                const bool resource = draw_command.texture.type == gui::GuiTextureRef::Type::Resource;
+                bindless_infos[draw_call_index].textured = !resource || draw_command.texture.resource != 0;
+                const auto texture = resource ? resources.at(draw_command.texture.resource) : draw_command.texture.texture;
+                bindless_infos[draw_call_index].sampler = resource && nearest.contains(draw_command.texture.resource) ? nearest_bindless : sampler_bindless;
+                bindless_infos[draw_call_index].texture = pass.Resolve(texture_accesses.at(texture)).GetBindlessHandle();
 
                 cmd.PushBindlessMetaInfo(gfx::BindlessMetaInfo{
                     .handle        = pass.Resolve(bindless_info_access).GetBindlessHandle(),

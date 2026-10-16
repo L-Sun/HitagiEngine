@@ -245,6 +245,7 @@ public:
 
     void SetScene(const std::shared_ptr<asset::Scene>& scene) noexcept;
     void FocusSelectedEntity();
+    void SetRect(math::vec4f rect) noexcept { m_Rect = rect; }
 
     inline auto GetScene() const noexcept { return m_State.GetCurrentScene(); };
 
@@ -252,19 +253,14 @@ private:
     void MoveCamera() const;
     void RenderScene() const;
     void HandlePicking(math::vec2f image_min, math::vec2f image_size) const;
-    void DrawTransformGizmo(math::vec2f image_min, math::vec2f image_size);
-    void CommitTransformEdit(ecs::Entity entity, asset::Transform& transform);
-    void DrawViewportOverlays(math::vec2f image_min, math::vec2f image_size) const;
 
     const Engine&                   m_Engine;
     EditorState&                    m_State;
     EditorCommandStack&             m_CommandStack;
     std::shared_ptr<EditorDeferredSelectionExtension> m_SelectionExtension;
     std::unique_ptr<EditorViewportGridPass> m_GridPass;
-    bool                            m_Open = true;
+    math::vec4f m_Rect = {};
     ecs::Entity                     m_Camera;
-    std::optional<asset::Transform> m_GizmoEditStart;
     mutable EditorViewportNavigationState m_CameraNavigation;
-    bool                            m_DefaultLayoutDone = false;
 };
 }  // namespace hitagi

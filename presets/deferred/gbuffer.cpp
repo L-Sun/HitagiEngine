@@ -322,39 +322,34 @@ void passes::GBuffer::EnsureResources() {
                                                                                .name        = "deferred-gbuffer-vs",
                                                                                .type        = gfx::ShaderType::Vertex,
                                                                                .entry       = "VSMain",
-                                                                               .source_code = m_Shader.code,
-                                                                               .path        = m_Shader.path,
+                                                                               .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                            });
     m_AlbedoPS   = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                                .name        = "deferred-gbuffer-albedo-ps",
                                                                                .type        = gfx::ShaderType::Pixel,
                                                                                .entry       = "PSAlbedoMain",
-                                                                               .source_code = m_Shader.code,
-                                                                               .path        = m_Shader.path,
+                                                                               .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                            });
     m_NormalPS   = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                                .name        = "deferred-gbuffer-normal-ps",
                                                                                .type        = gfx::ShaderType::Pixel,
                                                                                .entry       = "PSNormalMain",
-                                                                               .source_code = m_Shader.code,
-                                                                               .path        = m_Shader.path,
+                                                                               .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                            });
     m_MaterialPS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                                .name        = "deferred-gbuffer-material-ps",
                                                                                .type        = gfx::ShaderType::Pixel,
                                                                                .entry       = "PSMaterialMain",
-                                                                               .source_code = m_Shader.code,
-                                                                               .path        = m_Shader.path,
+                                                                               .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                            });
     m_EmissivePS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                                .name        = "deferred-gbuffer-emissive-ps",
                                                                                .type        = gfx::ShaderType::Pixel,
                                                                                .entry       = "PSEmissiveMain",
-                                                                               .source_code = m_Shader.code,
-                                                                               .path        = m_Shader.path,
+                                                                               .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                            });
 
-    const auto vertex_layout = m_ShaderCompiler.ExtractVertexLayout(m_VS->GetDesc());
+    const auto& vertex_layout = m_VS->GetVertexLayout();
 
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& pixel_shader, gfx::Format format, bool depth_write) {
         return hitagi::gfx::RenderPipeline::Create(m_Device, m_Bindings,

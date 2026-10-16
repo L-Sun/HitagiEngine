@@ -144,9 +144,46 @@ TEST_F(EditorMaterialCookTest, ContractTextureDefaultsRoundTripThroughRegistry) 
     core::Buffer old_version(cooked.GetDataSize(), cooked.GetData());
     CookedFileHeader header;
     std::memcpy(&header, old_version.GetData(), sizeof(header));
-    header.version = 1;
+    header.version = kCookedVersion - 1;
     std::memcpy(old_version.GetData(), &header, sizeof(header));
     EXPECT_THROW(manager.LoadCookedMaterial(old_version, "assets"), std::runtime_error);
+}
+
+TEST_F(EditorMaterialCookTest, CookPreservesSlangModulesAndSpecializationTypes) {
+    const gfx::ShaderDesc shader_desc{
+        .name = "SpecializedMaterial",
+        .type = gfx::ShaderType::Pixel,
+        .entry = "shade",
+        .program = {.modules = {
+            {.name = "material_types", .source_code = "public struct Material {}", .path = "assets/shaders/material_types.slang"},
+            {.name = "material_pass", .source_code = "import material_types;", .path = "assets/shaders/material_pass.slang"},
+        }},
+        .specialization_types = {"Material"},
+    };
+    auto pipeline = std::make_shared<asset::RenderPipeline>(
+        gfx::RenderPipelineDesc{.name = "SpecializedPipeline"},
+        std::pmr::vector<std::shared_ptr<asset::Shader>>{std::make_shared<asset::Shader>(shader_desc)});
+    const auto material = std::make_shared<Material>(MaterialParameters{},
+        std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .pipeline = pipeline}});
+    const auto cooked = CookEditorMaterial(EditorMaterial{.material = material}, {.asset_root_path = "assets"});
+    AssetManager manager(file_io, job_system, "assets");
+    const auto loaded = manager.LoadCookedMaterial(cooked, "assets");
+    ASSERT_TRUE(loaded);
+    const auto* pass = loaded->FindPass("Forward");
+    ASSERT_NE(pass, nullptr);
+    ASSERT_TRUE(pass->pipeline);
+    ASSERT_EQ(pass->pipeline->GetShaders().size(), 1);
+    const auto& restored = pass->pipeline->GetShaders()[0]->GetDesc();
+    EXPECT_EQ(restored.name, shader_desc.name);
+    EXPECT_EQ(restored.type, shader_desc.type);
+    EXPECT_EQ(restored.entry, shader_desc.entry);
+    EXPECT_EQ(restored.specialization_types, shader_desc.specialization_types);
+    ASSERT_EQ(restored.program.modules.size(), shader_desc.program.modules.size());
+    for (std::size_t i = 0; i < restored.program.modules.size(); ++i) {
+        EXPECT_EQ(restored.program.modules[i].name, shader_desc.program.modules[i].name);
+        EXPECT_EQ(restored.program.modules[i].source_code, shader_desc.program.modules[i].source_code);
+        EXPECT_EQ(restored.program.modules[i].path, shader_desc.program.modules[i].path);
+    }
 }
 
 TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) {
@@ -387,7 +424,7 @@ TEST(PbrMaterialCompilerTest, GeneratesReadablePixelShaderAndPassBindingSnapshot
     EXPECT_EQ(result.shader.name, "SnapshotMaterial");
     EXPECT_EQ(result.shader.type, gfx::ShaderType::Pixel);
     EXPECT_EQ(result.shader.entry, "main");
-    EXPECT_EQ(result.shader.source_code, result.hlsl);
+    EXPECT_EQ(result.shader.program.modules.back().source_code, result.slang);
     ASSERT_TRUE(result.pass.pipeline);
     const auto shaders = result.pass.pipeline->GetShaders();
     ASSERT_EQ(shaders.size(), 2);
@@ -399,20 +436,20 @@ TEST(PbrMaterialCompilerTest, GeneratesReadablePixelShaderAndPassBindingSnapshot
     EXPECT_EQ(result.pass.bindings[0].name, "base_color_texture");
     EXPECT_EQ(result.pass.bindings[1].name, "metallic");
 
-    EXPECT_NE(result.hlsl.find("#include \"bindless.hlsl\""), std::pmr::string::npos);
-    EXPECT_EQ(result.hlsl.find("textures[7]"), std::pmr::string::npos);
-    EXPECT_NE(result.hlsl.find("struct MaterialData"), std::pmr::string::npos);
-    EXPECT_EQ(result.hlsl.find("float4 color : COLOR"), std::pmr::string::npos);
-    EXPECT_NE(result.hlsl.find("hitagi::Texture base_color_texture;"), std::pmr::string::npos);
-    EXPECT_NE(result.hlsl.find("float metallic;"), std::pmr::string::npos);
-    EXPECT_NE(result.hlsl.find("if (hitagi::valid(material_data.base_color_texture)) sample_base_color_rgba = material_data.base_color_texture.sample<float4>(sampler, input.uv);"), std::pmr::string::npos);
-    EXPECT_NE(result.hlsl.find("surface.base_color = sample_base_color_rgba;"), std::pmr::string::npos);
-    EXPECT_NE(result.hlsl.find("surface.metallic = material_data.metallic;"), std::pmr::string::npos);
-    EXPECT_NE(result.hlsl.find("surface.roughness = 0.0f;"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("import bindless;"), std::pmr::string::npos);
+    EXPECT_EQ(result.slang.find("textures[7]"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("struct MaterialData"), std::pmr::string::npos);
+    EXPECT_EQ(result.slang.find("float4 color : COLOR"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("hitagi::Texture base_color_texture;"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("float metallic;"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("if (hitagi::valid(material_data.base_color_texture.handle)) sample_base_color_rgba = material_data.base_color_texture.sample<float4>(sampler, input.uv);"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("surface.base_color = sample_base_color_rgba;"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("surface.metallic = material_data.metallic;"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("surface.roughness = 0.0f;"), std::pmr::string::npos);
     gfx::ShaderCompiler compiler("PbrTextureContract");
     for (const auto& shader : result.pass.pipeline->GetShaders()) {
-        EXPECT_FALSE(compiler.CompileToDXIL(shader->GetDesc()).Empty());
-        EXPECT_FALSE(compiler.CompileToSPIRV(shader->GetDesc()).Empty());
+        EXPECT_FALSE(compiler.LoadProgram(shader->GetDesc().program, gfx::ShaderTarget::DXIL)->Compile(shader->GetDesc().entry, shader->GetDesc().type, shader->GetDesc().specialization_types).bytecode.Empty());
+        EXPECT_FALSE(compiler.LoadProgram(shader->GetDesc().program, gfx::ShaderTarget::SPIRV)->Compile(shader->GetDesc().entry, shader->GetDesc().type, shader->GetDesc().specialization_types).bytecode.Empty());
     }
 }
 
@@ -426,12 +463,12 @@ TEST(PbrMaterialCompilerTest, GeneratedIndexedRecordShadersCompileForBothBackend
     const auto result = PbrMaterialCompiler{}.Compile(graph, PbrMaterialDefaults(), {.shader_name = "CompilableMaterial"});
     ASSERT_TRUE(result);
 
-    EXPECT_NE(result.hlsl.find("uint instance_index;"), std::string::npos);
-    EXPECT_NE(result.hlsl.find("resource.instance_index * resource.instance_stride"), std::string::npos);
+    EXPECT_NE(result.slang.find("uint instance_index;"), std::string::npos);
+    EXPECT_NE(result.slang.find("resource.instance_index * resource.instance_stride"), std::string::npos);
     gfx::ShaderCompiler compiler("PbrMaterialCompilerTest.GeneratedIndexedRecordShaders");
     for (const auto& shader : result.pass.pipeline->GetShaders()) {
-        EXPECT_FALSE(compiler.CompileToDXIL(shader->GetDesc()).Empty());
-        EXPECT_FALSE(compiler.CompileToSPIRV(shader->GetDesc()).Empty());
+        EXPECT_FALSE(compiler.LoadProgram(shader->GetDesc().program, gfx::ShaderTarget::DXIL)->Compile(shader->GetDesc().entry, shader->GetDesc().type, shader->GetDesc().specialization_types).bytecode.Empty());
+        EXPECT_FALSE(compiler.LoadProgram(shader->GetDesc().program, gfx::ShaderTarget::SPIRV)->Compile(shader->GetDesc().entry, shader->GetDesc().type, shader->GetDesc().specialization_types).bytecode.Empty());
     }
 }
 
@@ -467,8 +504,8 @@ TEST(PbrMaterialCompilerTest, SupportsBaseNodeKinds) {
     defaults.push_back({.name = "tint", .value = Color::White()});
     const auto first = PbrMaterialCompiler{}.Compile(graph, defaults, {.shader_name = "BaseNodeMaterial"});
     ASSERT_TRUE(first);
-    EXPECT_NE(first.hlsl.find("float4 color : COLOR"), std::pmr::string::npos);
-    EXPECT_NE(first.hlsl.find("input.color"), std::pmr::string::npos);
-    EXPECT_NE(first.hlsl.find("lerp(input.color, material_data.tint, 0.5f)"), std::pmr::string::npos);
-    EXPECT_NE(first.hlsl.find("normal_from_sample_normal"), std::pmr::string::npos);
+    EXPECT_NE(first.slang.find("float4 color : COLOR"), std::pmr::string::npos);
+    EXPECT_NE(first.slang.find("input.color"), std::pmr::string::npos);
+    EXPECT_NE(first.slang.find("lerp(input.color, material_data.tint, 0.5f)"), std::pmr::string::npos);
+    EXPECT_NE(first.slang.find("normal_from_sample_normal"), std::pmr::string::npos);
 }

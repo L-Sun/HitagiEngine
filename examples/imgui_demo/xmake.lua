@@ -1,5 +1,0 @@
-target("imgui-demo")
-    set_default(has_config("examples"))
-    add_files("main.cpp")
-    add_deps("engine")
-    set_rundir("$(projectdir)")

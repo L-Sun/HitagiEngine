@@ -351,7 +351,7 @@ TEST(RendererPassBuilderTest, CreatesDepthShadowGBufferAndIdResources) {
         });
 
     const auto      id_buffer = passes::ObjectMaterialIdPass::CreateTarget(context, {.width = 64, .height = 32});
-    passes::GBuffer gbuffer_pass(*mock_device, *bindings, compiler, {.path = "unused.hlsl"});
+    passes::GBuffer gbuffer_pass(*mock_device, *bindings, compiler, {.path = "unused.slang"});
     const auto      gbuffer = gbuffer_pass.CreateTargets(context, {.width = 64, .height = 32});
 
     EXPECT_TRUE(graph.IsValid(depth));

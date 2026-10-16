@@ -23,3 +23,13 @@ Diagnostics:
         performance-enum-size,
       ]
   UnusedIncludes: Strict
+
+---
+If:
+  PathMatch: xmake/packages/.*
+Index:
+  Background: Skip
+Diagnostics:
+  Suppress: '*'
+  ClangTidy:
+    Remove: '*'

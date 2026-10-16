@@ -60,10 +60,10 @@ constexpr std::array shader_descs = {
 
 static auto ToShaderDesc(ShaderTestDesc desc) -> ShaderDesc {
     return {
-        .name        = std::pmr::string(desc.name),
-        .type        = desc.type,
-        .entry       = "main",
-        .source_code = std::pmr::string(desc.source_code),
+        .name    = std::pmr::string(desc.name),
+        .type    = desc.type,
+        .entry   = "main",
+        .program = {.modules = {{.source_code = std::pmr::string(desc.source_code)}}},
     };
 }
 
@@ -86,32 +86,37 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 TEST_P(ShaderCompilerTest, CompileToDXIL) {
-    auto result = compiler.CompileToDXIL(ToShaderDesc(GetParam()));
-    EXPECT_FALSE(result.Empty());
+    const auto desc   = ToShaderDesc(GetParam());
+    auto       result = compiler.LoadProgram(desc.program, ShaderTarget::DXIL)->Compile(desc.entry, desc.type);
+    EXPECT_FALSE(result.bytecode.Empty());
 }
 
 TEST_P(ShaderCompilerTest, CompileToSPIRV) {
-    auto result = compiler.CompileToSPIRV(ToShaderDesc(GetParam()));
-    EXPECT_FALSE(result.Empty());
+    const auto desc   = ToShaderDesc(GetParam());
+    auto       result = compiler.LoadProgram(desc.program, ShaderTarget::SPIRV)->Compile(desc.entry, desc.type);
+    EXPECT_FALSE(result.bytecode.Empty());
 }
 
 TEST_P(ShaderCompilerTest, GetShaderVertexLayout) {
-    auto vertex_layout = compiler.ExtractVertexLayout({
-        .name        = "vs_shader",
-        .entry       = "vs_main",
-        .source_code = R"""(
+    const ShaderDesc desc{
+        .name    = "vs_shader",
+        .type    = ShaderType::Vertex,
+        .entry   = "vs_main",
+        .program = {.modules = {{.source_code = R"""(
             struct Vertex {
                 float3 position : POSITION;
                 float3 normal   : NORMAL;
                 float2 uv       : TEXCOORD;
+                uint vertex_id  : SV_VertexID;
             };
 
             float4 vs_main(Vertex v) : SV_POSITION {
                 return float4(v.position, 1.0);
             }   
-        )""",
-    });
-    EXPECT_EQ(vertex_layout.size(), 3);
+        )"""}}},
+    };
+    auto vertex_layout = compiler.LoadProgram(desc.program, ShaderTarget::SPIRV)->Compile(desc.entry, desc.type).vertex_layout;
+    ASSERT_EQ(vertex_layout.size(), 3);
 
     EXPECT_STREQ(vertex_layout[0].semantic.c_str(), "POSITION0");
     EXPECT_EQ(vertex_layout[0].binding, 0);
@@ -130,4 +135,52 @@ TEST_P(ShaderCompilerTest, GetShaderVertexLayout) {
     EXPECT_EQ(vertex_layout[2].format, Format::R32G32_FLOAT);
     EXPECT_EQ(vertex_layout[2].offset, 0);
     EXPECT_EQ(vertex_layout[2].stride, get_format_byte_size(Format::R32G32_FLOAT));
+    EXPECT_EQ(vertex_layout[0].location, 0);
+    EXPECT_EQ(vertex_layout[1].location, 1);
+    EXPECT_EQ(vertex_layout[2].location, 2);
+}
+
+TEST(ShaderProgramTest, ComposesModulesAndSpecializesEntryPointsForBothTargets) {
+    const ShaderProgramDesc desc{.modules = {
+                                     {.name = "material_contract", .source_code = R"(
+            public interface IMaterial { float4 evaluate(); }
+            public struct Red : IMaterial { public float4 evaluate() { return float4(1, 0, 0, 1); } }
+            public struct Green : IMaterial { public float4 evaluate() { return float4(0, 1, 0, 1); } }
+        )"},
+                                     {.name = "material_pass", .source_code = R"(
+            import material_contract;
+            float4 shade<T : IMaterial>() : SV_Target { T material; return material.evaluate(); }
+            float4 vertex(float3 position : POSITION) : SV_Position { return float4(position, 1); }
+        )"},
+                                 }};
+    for (auto target : {ShaderTarget::DXIL, ShaderTarget::SPIRV}) {
+        std::shared_ptr<ShaderProgram> program;
+        {
+            ShaderCompiler compiler("ModuleSpecialization");
+            program = compiler.LoadProgram(desc, target);
+        }
+        // Programs retain their global session even after the compiler owner goes away.
+        for (const auto* type : {"Red", "Green"}) {
+            const std::array<std::pmr::string, 1> types{type};
+            EXPECT_FALSE(program->Compile("shade", ShaderType::Pixel, types).bytecode.Empty());
+        }
+        EXPECT_EQ(program->Compile("vertex", ShaderType::Vertex).vertex_layout.size(), 1);
+        const std::array<std::pmr::string, 1> missing{"MissingMaterial"};
+        EXPECT_THROW(program->Compile("shade", ShaderType::Pixel, missing), std::invalid_argument);
+        EXPECT_THROW(program->Compile("missing_entry", ShaderType::Pixel), std::runtime_error);
+    }
+}
+
+TEST(ShaderProgramTest, RejectsInvalidProgramsWithoutPoisoningTheCompiler) {
+    ShaderCompiler compiler("InvalidPrograms");
+    EXPECT_THROW(compiler.LoadProgram({}, ShaderTarget::SPIRV), std::invalid_argument);
+    const ShaderProgramDesc invalid{.modules = {{.name = "broken", .source_code = "this is not a shader;"}}};
+    EXPECT_THROW(compiler.LoadProgram(invalid, ShaderTarget::SPIRV), std::runtime_error);
+    const ShaderProgramDesc duplicate{.modules = {
+                                          {.name = "same", .source_code = "float value() { return 1; }"},
+                                          {.name = "same", .source_code = "float value() { return 2; }"},
+                                      }};
+    EXPECT_THROW(compiler.LoadProgram(duplicate, ShaderTarget::SPIRV), std::invalid_argument);
+    const auto desc = ToShaderDesc(shader_descs[1]);
+    EXPECT_FALSE(compiler.LoadProgram(desc.program, ShaderTarget::SPIRV)->Compile(desc.entry, desc.type).bytecode.Empty());
 }

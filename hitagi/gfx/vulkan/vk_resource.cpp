@@ -1,5 +1,6 @@
 module;
 #include <cassert>
+#include "interop/tracy_macros.hpp"
 
 export module gfx.vulkan:resource;
 #ifdef _WIN32
@@ -10,6 +11,7 @@ import interop.fmt;
 import interop.spdlog;
 import interop.vma;
 import interop.vulkan;
+import interop.tracy;
 import std;
 import core;
 import utils;
@@ -124,11 +126,10 @@ private:
 };
 
 struct VulkanShader final : public Shader {
-    VulkanShader(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const ShaderCompiler& compiler, ShaderDesc desc);
+    VulkanShader(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, ShaderDesc desc, CompiledShader compiled);
 
     auto GetSPIRVData() const noexcept -> std::span<const std::byte> final;
 
-    core::Buffer           binary_program;
     vk::raii::ShaderModule shader;
 };
 
@@ -525,6 +526,7 @@ VulkanSwapChain::VulkanSwapChain(const vk::raii::Device& device, const vk::Alloc
 }
 
 auto VulkanSwapChain::AcquireTextureForRendering() -> utils::optional_ref<Texture> {
+    ZoneScopedN("Vulkan Acquire Swapchain");
     if (m_SwapChain == nullptr) return {};
 
     if (m_CurrentIndex != -1) {
@@ -554,6 +556,7 @@ auto VulkanSwapChain::AcquireTextureForRendering() -> utils::optional_ref<Textur
 }
 
 void VulkanSwapChain::Present() {
+    ZoneScopedN("Vulkan Present");
     if (!m_SwapChain || m_CurrentIndex == -1) return;
 
     const auto& queue = m_Queue;
@@ -685,14 +688,13 @@ void VulkanSwapChain::CreateImageViews() {
     }
 }
 
-VulkanShader::VulkanShader(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const ShaderCompiler& compiler, ShaderDesc desc)
-    : Shader(std::move(desc)),
-      binary_program(compiler.CompileToSPIRV(m_Desc)),
+VulkanShader::VulkanShader(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, ShaderDesc desc, CompiledShader compiled)
+    : Shader(std::move(desc), std::move(compiled)),
       shader(
           device,
           {
-              .codeSize = binary_program.GetDataSize(),
-              .pCode    = reinterpret_cast<const std::uint32_t*>(binary_program.GetData()),
+              .codeSize = m_Compiled.bytecode.GetDataSize(),
+              .pCode    = reinterpret_cast<const std::uint32_t*>(m_Compiled.bytecode.GetData()),
           },
           callbacks)
 
@@ -701,7 +703,7 @@ VulkanShader::VulkanShader(const vk::raii::Device& device, const vk::AllocationC
 }
 
 auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
-    return binary_program.Span<const std::byte>();
+    return m_Compiled.bytecode.Span<const std::byte>();
 }
 
 VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(std::move(desc)) {
@@ -771,7 +773,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const
                 .pNext  = &mapping_info,
                 .stage  = to_vk_shader_stage(shader->GetDesc().type),
                 .module = *std::static_pointer_cast<VulkanShader>(shader)->shader,
-                .pName  = shader->GetDesc().entry.data(),
+                .pName  = shader->GetEntryPointName().c_str(),
             };
         });
 
@@ -782,7 +784,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const
                                                std::ranges::views::transform([](const auto& pair) {
                                                    const auto& [location, attribute] = pair;
                                                    return vk::VertexInputAttributeDescription{
-                                                       .location = static_cast<std::uint32_t>(location),
+                                                       .location = attribute.location == std::numeric_limits<std::uint32_t>::max() ? static_cast<std::uint32_t>(location) : attribute.location,
                                                        .binding  = attribute.binding,
                                                        .format   = to_vk_format(attribute.format),
                                                        .offset   = static_cast<std::uint32_t>(attribute.offset),
@@ -908,7 +910,7 @@ VulkanComputePipeline::VulkanComputePipeline(const vk::raii::Device& device, con
         .pNext  = &mapping_info,
         .stage  = vk::ShaderStageFlagBits::eCompute,
         .module = *compute_shader->shader,
-        .pName  = compute_shader->GetDesc().entry.data(),
+        .pName  = compute_shader->GetEntryPointName().c_str(),
     };
 
     logger->trace("Create compute pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));

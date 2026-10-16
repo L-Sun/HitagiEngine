@@ -281,7 +281,7 @@ auto GeneratedMaterialPreviewToJson(
                 {"name", std::string(shader.name)},
                 {"type", std::string(magic_enum::enum_name(shader.type))},
                 {"entry", std::string(shader.entry)},
-                {"path", shader.path.generic_string()},
+                {"path", shader.program.modules.back().path.generic_string()},
             });
         }
     }
@@ -300,9 +300,9 @@ auto GeneratedMaterialPreviewToJson(
 void WriteGeneratedMaterialArtifacts(
     const hitagi::EditorMaterial&             material,
     const hitagi::preset::pbr::MaterialGraphCompileResult& result) {
-    WriteTextArtifact(result.shader.path, result.hlsl);
+    WriteTextArtifact(result.shader.program.modules.back().path, result.slang);
 
-    auto preview_path = result.shader.path;
+    auto preview_path = result.shader.program.modules.back().path;
     preview_path.replace_extension(".material.json");
     WriteTextArtifact(preview_path, GeneratedMaterialPreviewToJson(material, result).dump(2));
 }
@@ -560,6 +560,9 @@ auto main(int argc, char** argv) -> int {
     config.title = "Hitagi PBR Demo Editor";
 
     auto options = hitagi::ParseEditorLaunchOptions(argc, argv);
+    config.headless = config.headless || options.headless;
+    if (options.gfx_backend) config.gfx_backend = *options.gfx_backend;
+    const auto automated = options.headless || options.frames.has_value();
     if (!options.open_scene) {
         options.open_scene = game::pbr_demo::FindDefaultSourceScenePath();
     }
@@ -573,6 +576,6 @@ auto main(int argc, char** argv) -> int {
         engine.Tick();
     }
 
-    hitagi::SaveEditorAppConfig(engine.App().GetConfig());
+    if (!automated) hitagi::SaveEditorAppConfig(engine.App().GetConfig());
     return 0;
 }

@@ -8,6 +8,8 @@ using ::tracy::Color;
 using ::tracy::SetThreadName;
 #ifdef TRACY_ENABLE
 using ::tracy::Lockable;
+using ::tracy::MessageSeverity;
+using ::tracy::MessageSourceType;
 using ::tracy::PlotFormatType;
 using ::tracy::Profiler;
 using ::tracy::ScopedZone;

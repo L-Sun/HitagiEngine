@@ -7,8 +7,10 @@ public:
     ImageViewer(const Engine& engine);
     void SetTexture(const std::shared_ptr<asset::Texture>& texture = nullptr);
     void Tick() final;
+    void SetRect(math::vec4f rect) noexcept { m_Rect = rect; }
 
 private:
+    math::vec4f m_Rect = {};
     bool                          m_IsOpen = false;
     rg::RenderGraph&              m_RenderGraph;
     gui::GuiManager&              m_GuiManager;

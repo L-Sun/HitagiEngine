@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+id = "blender_hitagi"
+version = "0.1.0"
+name = "Blender–Hitagi"
+tagline = "Prepare anime characters and export portable Hitagi USD assets"
+maintainer = "HitagiEngine contributors"
+type = "add-on"
+tags = ["Import-Export", "Material"]
+blender_version_min = "4.5.0"
+license = ["SPDX:MIT"]
+
+[permissions]
+files = "Export USD assets and textures and reload a local Hitagi viewer"

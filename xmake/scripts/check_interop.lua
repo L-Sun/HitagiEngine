@@ -26,7 +26,7 @@ function main()
         ["test_macros.hpp"] = true,
         ["ispc_math.hpp"] = true,
         ["vector.ispc.h"] = true, -- generated ISPC ABI, not a third-party API
-        ["bindless.hlsl"] = true -- embedded shader source, not a C++ include
+        ["bindless.slang"] = true -- embedded shader source, not a C++ include
     }
     local checked, bridges, failures = 0, 0, {}
     for _, root in ipairs({"hitagi", "examples"}) do

@@ -44,8 +44,14 @@ public:
     static auto CreateApp(AppConfig config = {}) -> std::unique_ptr<Application>;
 
     void Tick() override;
+    // A native modal move/resize loop may request a frame on the same thread.
+    // The callback must advance simulation/rendering without polling native events.
+    void SetModalFrameCallback(std::function<void()> callback) { m_ModalFrame = std::move(callback); }
 
     virtual void SetInputScreenPosition(const math::vec2u& position)     = 0;
+    // Zero ends the focused text-edit session. Platform implementations cancel
+    // any outstanding composition before changing its owner.
+    virtual void SetTextInputSession(std::uint64_t session) { m_InputManager->SetTextInputSession(session); }
     virtual void SetWindowTitle(std::string_view name)                   = 0;
     virtual void SetCursor(Cursor cursor)                                = 0;
     virtual void SetMousePosition(const math::vec2u& position)           = 0;
@@ -69,9 +75,15 @@ public:
     inline auto& GetInputManager() const noexcept { return *m_InputManager; }
 
 protected:
+    bool               TickModalFrame() noexcept;
     core::Clock        m_Clock;
     AppConfig          m_Config;
     hid::InputManager* m_InputManager;
+
+private:
+    std::function<void()> m_ModalFrame;
+    std::exception_ptr    m_ModalFrameError;
+    bool                  m_InModalFrame = false;
 };
 }  // namespace hitagi
 
@@ -86,6 +98,7 @@ Application::Application(AppConfig config)
 }
 
 void Application::Tick() {
+    if (m_ModalFrameError) std::rethrow_exception(std::exchange(m_ModalFrameError, {}));
     m_Clock.Tick();
     m_Config.maximized = WindowMaximized();
     if (WindowSizeChanged() && !WindowsMinimized() && !m_Config.maximized) {
@@ -93,6 +106,20 @@ void Application::Tick() {
         m_Config.height = GetWindowHeight();
     }
     core::RuntimeModule::Tick();
+}
+
+bool Application::TickModalFrame() noexcept {
+    if (!m_ModalFrame || m_InModalFrame || m_ModalFrameError || IsQuit()) return false;
+    m_InModalFrame = true;
+    try {
+        Application::Tick();
+        m_ModalFrame();
+    } catch (...) {
+        // Never unwind a C++ exception through the native window procedure.
+        m_ModalFrameError = std::current_exception();
+    }
+    m_InModalFrame = false;
+    return true;
 }
 
 auto Application::GetWindowWidth() const -> std::uint32_t {

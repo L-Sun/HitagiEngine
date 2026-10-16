@@ -3,33 +3,17 @@ module;
 #include "interop/tracy_macros.hpp"
 
 module editor;
-import interop.imgui;
 import interop.tracy;
 import interop.magic_enum;
 
 using namespace hitagi;
 using namespace hitagi::math;
 using namespace hitagi::asset;
+namespace hitagi::viewport_detail {}
+using namespace hitagi::viewport_detail;
 
-namespace {
+namespace hitagi::viewport_detail {
 constexpr auto kEmptyEntityPickExtents = vec3f{0.35f, 0.35f, 0.35f};
-constexpr auto kEditorGizmoYellow      = interop::imgui_color(255, 201, 64, 235);
-constexpr auto kEditorAxisX            = interop::imgui_color(238, 82, 82, 235);
-constexpr auto kEditorAxisY            = interop::imgui_color(97, 210, 122, 235);
-constexpr auto kEditorAxisZ            = interop::imgui_color(82, 150, 255, 235);
-
-struct ViewportProjection {
-    mat4f view_projection;
-    vec2f image_min;
-    vec2f image_size;
-    vec3f camera_eye;
-    vec3f camera_forward;
-    vec3f camera_right;
-    vec3f camera_up;
-    float horizontal_fov;
-    float aspect;
-};
-
 struct ViewportRenderSize {
     vec2u logical;
     vec2u physical;
@@ -100,41 +84,6 @@ void VisitEntityTree(ecs::Entity entity, const std::function<void(ecs::Entity)>&
     }
 }
 
-auto SnapValue(float value, float step) noexcept -> float {
-    if (step <= 0.0f) return value;
-    return std::round(value / step) * step;
-}
-
-auto SnapVector(vec3f value, float step) noexcept -> vec3f {
-    return {
-        SnapValue(value.x, step),
-        SnapValue(value.y, step),
-        SnapValue(value.z, step),
-    };
-}
-
-auto BuildViewportProjection(const asset::Camera& camera, const mat4f& camera_transform, vec2f image_min, vec2f image_size) noexcept -> ViewportProjection {
-    const vec3f global_eye      = (camera_transform * vec4f(camera.parameters.eye, 1.0f)).xyz;
-    const vec3f global_look_dir = (camera_transform * vec4f(camera.parameters.look_dir, 0.0f)).xyz;
-    const vec3f global_up       = (camera_transform * vec4f(camera.parameters.up, 0.0f)).xyz;
-    const vec3f camera_forward  = normalize(global_look_dir);
-    const vec3f camera_right    = normalize(cross(camera_forward, normalize(global_up)));
-    const vec3f camera_up       = normalize(cross(camera_right, camera_forward));
-    const auto  view            = look_at(global_eye, global_look_dir, global_up);
-    const auto  projection      = perspective(camera.parameters.horizontal_fov, camera.parameters.aspect, camera.parameters.near_clip, camera.parameters.far_clip);
-    return {
-        .view_projection = projection * view,
-        .image_min       = image_min,
-        .image_size      = image_size,
-        .camera_eye      = global_eye,
-        .camera_forward  = camera_forward,
-        .camera_right    = camera_right,
-        .camera_up       = camera_up,
-        .horizontal_fov  = camera.parameters.horizontal_fov,
-        .aspect          = camera.parameters.aspect,
-    };
-}
-
 auto EditorEntityObjectId(ecs::Entity entity) noexcept -> std::uint32_t {
     return entity ? static_cast<std::uint32_t>(entity.GetId() + 1u) : 0u;
 }
@@ -182,104 +131,6 @@ void CollectSceneRenderFrameData(
     }
 }
 
-auto ClipToScreen(const ViewportProjection& projection, vec4f clip) noexcept -> ImVec2 {
-    clip /= clip.w;
-    return ImVec2{
-        projection.image_min.x + (clip.x * 0.5f + 0.5f) * projection.image_size.x,
-        projection.image_min.y + (0.5f - clip.y * 0.5f) * projection.image_size.y,
-    };
-}
-
-auto ProjectWorldPoint(const ViewportProjection& projection, vec3f world) noexcept -> std::optional<ImVec2> {
-    const auto clip = projection.view_projection * vec4f{world, 1.0f};
-    if (clip.w <= 1e-5f) return std::nullopt;
-    return ClipToScreen(projection, clip);
-}
-
-auto ProjectWorldLine(const ViewportProjection& projection, vec3f from, vec3f to) noexcept -> std::optional<std::pair<ImVec2, ImVec2>> {
-    auto a = projection.view_projection * vec4f{from, 1.0f};
-    auto b = projection.view_projection * vec4f{to, 1.0f};
-
-    constexpr auto min_w = 1e-4f;
-    if (a.w <= min_w && b.w <= min_w) return std::nullopt;
-    if (a.w <= min_w || b.w <= min_w) {
-        const auto t = (min_w - a.w) / (b.w - a.w);
-        if (a.w <= min_w) {
-            a = a + (b - a) * t;
-        } else {
-            b = a + (b - a) * t;
-        }
-    }
-
-    return std::pair{ClipToScreen(projection, a), ClipToScreen(projection, b)};
-}
-
-void DrawProjectedLine(ImDrawList* draw_list, const ViewportProjection& projection, vec3f from, vec3f to, ImU32 color, float thickness = 1.0f) {
-    const auto line = ProjectWorldLine(projection, from, to);
-    if (!line) return;
-    draw_list->AddLine(line->first, line->second, color, thickness);
-}
-
-void DrawProjectedCircle(
-    ImDrawList*               draw_list,
-    const ViewportProjection& projection,
-    vec3f                     center,
-    vec3f                     axis_a,
-    vec3f                     axis_b,
-    float                     radius,
-    ImU32                     color) {
-    constexpr auto        segment_count = 72;
-    std::optional<ImVec2> previous;
-
-    for (int i = 0; i <= segment_count; ++i) {
-        const auto t      = static_cast<float>(i) / static_cast<float>(segment_count) * std::numbers::pi_v<float> * 2.0f;
-        const auto point  = center + axis_a * (std::cos(t) * radius) + axis_b * (std::sin(t) * radius);
-        const auto screen = ProjectWorldPoint(projection, point);
-        if (previous && screen) draw_list->AddLine(*previous, *screen, color, 1.5f);
-        previous = screen;
-    }
-}
-
-void DrawSelectedAxis(ImDrawList* draw_list, const ViewportProjection& projection, const Transform& transform, const AABBf& bounds) {
-    const auto center = bounds.Valid() ? bounds.Center() : get_translation(transform.world_matrix);
-    const auto length = std::max(bounds.Valid() ? bounds.Extents().norm() * 1.35f : 1.0f, 0.75f);
-
-    DrawProjectedLine(draw_list, projection, center, center + get_right(transform.world_matrix) * length, kEditorAxisX, 2.5f);
-    DrawProjectedLine(draw_list, projection, center, center + get_up(transform.world_matrix) * length, kEditorAxisY, 2.5f);
-    DrawProjectedLine(draw_list, projection, center, center + get_forward(transform.world_matrix) * length, kEditorAxisZ, 2.5f);
-
-    if (const auto c = ProjectWorldPoint(projection, center)) {
-        draw_list->AddCircleFilled(*c, 4.0f, kEditorGizmoYellow);
-    }
-}
-
-void DrawSelectedRotationOrbit(ImDrawList* draw_list, const ViewportProjection& projection, const Transform& transform, const AABBf& bounds) {
-    const auto center = bounds.Valid() ? bounds.Center() : get_translation(transform.world_matrix);
-    const auto radius = std::max(bounds.Valid() ? bounds.Extents().norm() * 1.6f : 1.0f, 0.9f);
-    const auto x      = get_right(transform.world_matrix);
-    const auto y      = get_up(transform.world_matrix);
-    const auto z      = get_forward(transform.world_matrix);
-
-    DrawProjectedCircle(draw_list, projection, center, y, z, radius, kEditorAxisX);
-    DrawProjectedCircle(draw_list, projection, center, x, z, radius, kEditorAxisY);
-    DrawProjectedCircle(draw_list, projection, center, x, y, radius, kEditorAxisZ);
-}
-
-void DrawViewportOrientationGizmo(ImDrawList* draw_list, vec2f image_min, vec2f image_size) {
-    const auto origin = ImVec2{image_min.x + 42.0f, image_min.y + image_size.y - 38.0f};
-    const auto x      = ImVec2{origin.x + 28.0f, origin.y};
-    const auto y      = ImVec2{origin.x + 20.0f, origin.y - 16.0f};
-    const auto z      = ImVec2{origin.x, origin.y - 30.0f};
-
-    draw_list->AddCircleFilled(origin, 3.5f, interop::imgui_color(230, 235, 242, 210));
-    draw_list->AddLine(origin, x, kEditorAxisX, 2.5f);
-    draw_list->AddLine(origin, y, kEditorAxisY, 2.5f);
-    draw_list->AddLine(origin, z, kEditorAxisZ, 2.5f);
-    draw_list->AddText(ImVec2{x.x + 4.0f, x.y - 7.0f}, kEditorAxisX, "X");
-    draw_list->AddText(ImVec2{y.x + 4.0f, y.y - 12.0f}, kEditorAxisY, "Y");
-    draw_list->AddText(ImVec2{z.x - 4.0f, z.y - 18.0f}, kEditorAxisZ, "Z");
-}
-
 auto NiceGridStep(float raw_step) noexcept -> float {
     if (raw_step <= 0.0f) return 1.0f;
 
@@ -321,15 +172,13 @@ EditorViewportGridPass::EditorViewportGridPass(gfx::Device& device, gfx::Bindles
                                                                    .name        = "viewport-grid-vs",
                                                                    .type        = gfx::ShaderType::Vertex,
                                                                    .entry       = "VSMain",
-                                                                   .source_code = shader.code,
-                                                                   .path        = shader.path,
+                                                                   .program = {.modules = {{.source_code = shader.code, .path = shader.path}}},
                                                                });
     m_PS       = hitagi::gfx::Shader::Create(device, compiler, {
                                                                    .name        = "viewport-grid-ps",
                                                                    .type        = gfx::ShaderType::Pixel,
                                                                    .entry       = "PSMain",
-                                                                   .source_code = shader.code,
-                                                                   .path        = shader.path,
+                                                                   .program = {.modules = {{.source_code = shader.code, .path = shader.path}}},
                                                                });
     m_Pipeline = hitagi::gfx::RenderPipeline::Create(device, bindings,
                                                      {
@@ -444,32 +293,28 @@ void EditorSelectionMetadataPass::EnsureResources() {
                                                                              .name        = "editor-selection-mask-vs",
                                                                              .type        = gfx::ShaderType::Vertex,
                                                                              .entry       = "VSSelectionMaskMain",
-                                                                             .source_code = m_Shader.code,
-                                                                             .path        = m_Shader.path,
+                                                                             .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                          });
     m_IdPS     = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                              .name        = "editor-selection-id-ps",
                                                                              .type        = gfx::ShaderType::Pixel,
                                                                              .entry       = "PSSelectionIdMain",
-                                                                             .source_code = m_Shader.code,
-                                                                             .path        = m_Shader.path,
+                                                                             .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                          });
     m_VisualPS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                              .name        = "editor-selection-visual-ps",
                                                                              .type        = gfx::ShaderType::Pixel,
                                                                              .entry       = "PSSelectionVisualMain",
-                                                                             .source_code = m_Shader.code,
-                                                                             .path        = m_Shader.path,
+                                                                             .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                          });
     m_DepthPS  = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                              .name        = "editor-selection-depth-ps",
                                                                              .type        = gfx::ShaderType::Pixel,
                                                                              .entry       = "PSSelectionDepthMain",
-                                                                             .source_code = m_Shader.code,
-                                                                             .path        = m_Shader.path,
+                                                                             .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                          });
 
-    const auto vertex_layout = m_ShaderCompiler.ExtractVertexLayout(m_VS->GetDesc());
+    const auto& vertex_layout = m_VS->GetVertexLayout();
 
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& ps, gfx::Format format, bool depth_write) {
         return hitagi::gfx::RenderPipeline::Create(m_Device, m_Bindings,
@@ -720,15 +565,13 @@ void EditorSelectionOutlinePass::EnsureResources(gfx::Format target_format) {
                                                                            .name        = "selection-outline-vs",
                                                                            .type        = gfx::ShaderType::Vertex,
                                                                            .entry       = "VSFullscreenMain",
-                                                                           .source_code = m_Shader.code,
-                                                                           .path        = m_Shader.path,
+                                                                           .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                        });
         m_PS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                            .name        = "selection-outline-ps",
                                                                            .type        = gfx::ShaderType::Pixel,
                                                                            .entry       = "PSSelectionOutlineMain",
-                                                                           .source_code = m_Shader.code,
-                                                                           .path        = m_Shader.path,
+                                                                           .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                        });
     }
 
@@ -914,7 +757,7 @@ auto hitagi::BuildEditorViewportRay(
     };
 }
 
-namespace {
+namespace hitagi::viewport_detail {
 auto IntersectEditorTriangle(const EditorViewportRay& ray, vec3f a, vec3f b, vec3f c) noexcept -> std::optional<float> {
     constexpr auto epsilon = 1e-6f;
 
@@ -1024,10 +867,10 @@ SceneViewPort::SceneViewPort(const Engine& engine, EditorState& state, EditorCom
       m_CommandStack(command_stack),
       m_SelectionExtension(std::make_shared<EditorDeferredSelectionExtension>(
           engine.Device(), engine.Bindings(), engine.ShaderCompiler(),
-          render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/editor_selection_outline.hlsl"))),
+          render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/editor_selection_outline.slang"))),
       m_GridPass(std::make_unique<EditorViewportGridPass>(
           engine.Device(), engine.Bindings(), engine.ShaderCompiler(),
-          render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/viewport_grid.hlsl"))) {
+          render::LoadShaderSource(engine.FileIO(), "hitagi/editor/shaders/viewport_grid.slang"))) {
     if (auto* deferred_renderer = dynamic_cast<render::IDeferredRenderer*>(&m_Engine.Renderer())) {
         deferred_renderer->AddExtension(m_SelectionExtension);
     }
@@ -1082,29 +925,11 @@ void hitagi::ApplyEditorViewportNavigation(
 }
 
 void SceneViewPort::Tick() {
-    ZoneScopedN("SceneViewPort::Tick");
-
-    m_Engine.GuiManager().DrawGuiEarly([&]() {
-        ZoneScopedN("SceneViewPort UI");
-        m_Open = m_State.IsPanelVisible(EditorPanel::SceneViewer);
-        if (m_Open) {
-            constexpr auto window_flags = ImGuiWindowFlags_NoCollapse;
-            if (ImGui::Begin("Viewport", &m_Open, window_flags)) {
-                {
-                    ZoneScopedN("SceneViewPort Move Camera");
-                    MoveCamera();
-                }
-                {
-                    ZoneScopedN("SceneViewPort Render Scene");
-                    RenderScene();
-                }
-            }
-            ImGui::End();
-            m_DefaultLayoutDone = true;
-            m_State.SetPanelVisible(EditorPanel::SceneViewer, m_Open);
-        }
-    });
-
+    if (m_State.IsPanelVisible(EditorPanel::SceneViewer) && !m_Engine.App().WindowsMinimized() && m_Rect.z > 0 && m_Rect.w > 0) {
+        if (m_State.GetCurrentScene() && !m_Camera) SetScene(m_State.GetCurrentScene());
+        MoveCamera();
+        RenderScene();
+    }
     core::RuntimeModule::Tick();
 }
 
@@ -1125,7 +950,7 @@ void SceneViewPort::MoveCamera() const {
                 .delta_time       = static_cast<float>(m_Engine.GetDeltaTime().count()),
                 .mouse_delta      = {input_manager.GetFloatDelta(hid::MouseEvent::MOVE_X), input_manager.GetFloatDelta(hid::MouseEvent::MOVE_Y)},
                 .scroll_delta     = {input_manager.GetFloatDelta(hid::MouseEvent::SCROLL_X), input_manager.GetFloatDelta(hid::MouseEvent::SCROLL_Y)},
-                .viewport_hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows),
+                .viewport_hovered = m_Engine.GuiManager().PointerIn(m_Rect),
                 .middle_down      = input_manager.GetBool(hid::VirtualKeyCode::MOUSE_M_BUTTON),
             });
     }
@@ -1136,11 +961,9 @@ void SceneViewPort::RenderScene() const {
 
     auto scene = m_State.GetCurrentScene();
     if (scene) {
-        const auto v_min         = ImGui::GetWindowContentRegionMin();
-        const auto v_max         = ImGui::GetWindowContentRegionMax();
+        const auto display = m_Engine.GuiManager().DisplayRect(m_Rect);
         const auto viewport_size = ComputeViewportRenderSize(math::vec2u{
-            static_cast<std::uint32_t>(v_max.x - v_min.x),
-            static_cast<std::uint32_t>(v_max.y - v_min.y)});
+            static_cast<std::uint32_t>(display.z), static_cast<std::uint32_t>(display.w)});
         const auto logical_size  = viewport_size.logical;
         const auto physical_size = viewport_size.physical;
 
@@ -1159,7 +982,9 @@ void SceneViewPort::RenderScene() const {
         auto camera           = m_Camera.Get<asset::CameraComponent>().camera;
         auto camera_transform = m_Camera.Get<asset::Transform>().world_matrix;
 
-        camera->parameters.aspect = static_cast<float>(physical_size.x) / static_cast<float>(physical_size.y);
+        // Render targets are block-aligned/downsampled. Projection follows the
+        // displayed rectangle, otherwise rounding changes object proportions.
+        camera->parameters.aspect = display.z / display.w;
 
         if (logical_size.x != 0 && logical_size.y != 0 && physical_size.x != 0 && physical_size.y != 0) {
             {
@@ -1199,32 +1024,15 @@ void SceneViewPort::RenderScene() const {
                                            .color;
                 scene_render_texture = m_GridPass->Build(context, *camera, camera_transform, scene_render_texture);
             }
-            {
-                ZoneScopedN("SceneViewPort Image");
-                ImGui::Image(m_Engine.GuiManager().ReadTexture(scene_render_texture), ImVec2(logical_size.x, logical_size.y));
-            }
-            const auto image_min = ImGui::GetItemRectMin();
-            {
-                ZoneScopedN("SceneViewPort Overlays");
-                DrawViewportOverlays({image_min.x, image_min.y}, {static_cast<float>(logical_size.x), static_cast<float>(logical_size.y)});
-            }
-            {
-                ZoneScopedN("SceneViewPort Picking");
-                HandlePicking({image_min.x, image_min.y}, {static_cast<float>(logical_size.x), static_cast<float>(logical_size.y)});
-            }
-            {
-                ZoneScopedN("SceneViewPort Transform Gizmo");
-                const_cast<SceneViewPort*>(this)->DrawTransformGizmo(
-                    {image_min.x, image_min.y},
-                    {static_cast<float>(logical_size.x), static_cast<float>(logical_size.y)});
-            }
+            m_Engine.GuiManager().DrawTexture(scene_render_texture, m_Rect);
+            HandlePicking({display.x, display.y}, {display.z, display.w});
         }
     }
 }
 
 void SceneViewPort::HandlePicking(math::vec2f image_min, math::vec2f image_size) const {
-    if (m_State.GetMode() != EditorMode::Edit || m_State.GetActiveTool() != EditorTool::Select) return;
-    if (!ImGui::IsItemClicked(ImGuiMouseButton_Left) || !m_Camera || !m_Camera.Has<CameraComponent>()) return;
+    if (m_State.GetMode() != EditorMode::Edit) return;
+    if ((!m_Engine.GuiManager().PointerIn(m_Rect) || !m_Engine.App().GetInputManager().GetBoolNew(hid::VirtualKeyCode::MOUSE_L_BUTTON)) || !m_Camera || !m_Camera.Has<CameraComponent>()) return;
     const auto& input_manager = m_Engine.App().GetInputManager();
     if (input_manager.GetBool(hid::VirtualKeyCode::KEY_ALT) ||
         input_manager.GetBool(hid::VirtualKeyCode::KEY_L_ALT) ||
@@ -1237,7 +1045,7 @@ void SceneViewPort::HandlePicking(math::vec2f image_min, math::vec2f image_size)
     auto scene = m_State.GetCurrentScene();
     if (!scene) return;
 
-    const auto mouse_position    = ImGui::GetMousePos();
+    const auto mouse_position = vec2f{input_manager.GetFloat(hid::MouseEvent::MOVE_X), input_manager.GetFloat(hid::MouseEvent::MOVE_Y)};
     const auto viewport_position = vec2f{
         mouse_position.x - image_min.x,
         mouse_position.y - image_min.y,
@@ -1253,105 +1061,6 @@ void SceneViewPort::HandlePicking(math::vec2f image_min, math::vec2f image_size)
     } else {
         m_State.ClearSelection();
     }
-}
-
-void SceneViewPort::DrawTransformGizmo(math::vec2f image_min, math::vec2f image_size) {
-    if (m_State.GetMode() != EditorMode::Edit) return;
-    if (m_State.GetActiveTool() == EditorTool::Select) return;
-
-    auto entity = m_State.GetSelectedEntity();
-    if (!entity || !entity.Has<Transform>()) return;
-
-    auto& transform = entity.Get<Transform>();
-    auto  draw_list = ImGui::GetWindowDrawList();
-    draw_list->AddRect(
-        ImVec2(image_min.x, image_min.y),
-        ImVec2(image_min.x + image_size.x, image_min.y + image_size.y),
-        interop::imgui_color(255, 201, 64, 180));
-
-    ImGui::SetCursorScreenPos(ImVec2(image_min.x + 10.0f, image_min.y + 10.0f));
-    ImGui::BeginGroup();
-    ImGui::PushID("ViewportTransformGizmo");
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.09f, 0.10f, 0.82f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.09f, 0.10f, 0.82f));
-    ImGui::TextUnformatted(m_State.GetCoordinateSpace() == EditorCoordinateSpace::Local ? "Local" : "World");
-
-    if (m_State.GetActiveTool() == EditorTool::Translate) {
-        auto before = transform;
-        ImGui::SetNextItemWidth(220.0f);
-        if (ImGui::DragFloat3("Move", transform.position, 0.1f) && m_State.IsSnapEnabled()) {
-            transform.position = SnapVector(transform.position, m_State.GetTranslateSnap());
-        }
-        if (ImGui::IsItemActivated()) m_GizmoEditStart = before;
-        CommitTransformEdit(entity, transform);
-    } else if (m_State.GetActiveTool() == EditorTool::Rotate) {
-        auto before = transform;
-        auto euler  = quaternion_to_euler(transform.rotation);
-        ImGui::SetNextItemWidth(220.0f);
-        if (ImGui::DragFloat3("Rotate", euler, 0.01f)) {
-            if (m_State.IsSnapEnabled()) euler = SnapVector(euler, m_State.GetRotateSnap());
-            transform.rotation = euler_to_quaternion(euler);
-        }
-        if (ImGui::IsItemActivated()) m_GizmoEditStart = before;
-        CommitTransformEdit(entity, transform);
-    } else if (m_State.GetActiveTool() == EditorTool::Scale) {
-        auto before = transform;
-        ImGui::SetNextItemWidth(220.0f);
-        if (ImGui::DragFloat3("Scale", transform.scaling, 0.05f, 0.001f) && m_State.IsSnapEnabled()) {
-            transform.scaling = SnapVector(transform.scaling, m_State.GetScaleSnap());
-        }
-        if (ImGui::IsItemActivated()) m_GizmoEditStart = before;
-        CommitTransformEdit(entity, transform);
-    }
-
-    ImGui::PopStyleColor(2);
-    ImGui::PopID();
-    ImGui::EndGroup();
-}
-
-void SceneViewPort::CommitTransformEdit(ecs::Entity entity, asset::Transform& transform) {
-    if (ImGui::IsItemDeactivatedAfterEdit() && m_GizmoEditStart) {
-        m_CommandStack.Execute(std::make_unique<TransformChangeCommand>(entity, *m_GizmoEditStart, transform));
-        m_State.MarkDirty();
-        m_GizmoEditStart.reset();
-    }
-}
-
-void SceneViewPort::DrawViewportOverlays(math::vec2f image_min, math::vec2f image_size) const {
-    auto draw_list = ImGui::GetWindowDrawList();
-
-    auto scene = m_State.GetCurrentScene();
-    if (!scene || !m_Camera || !m_Camera.Has<CameraComponent>() || !m_Camera.Has<Transform>()) {
-        DrawViewportOrientationGizmo(draw_list, image_min, image_size);
-        return;
-    }
-
-    const auto camera = m_Camera.Get<CameraComponent>().camera;
-    if (!camera) {
-        DrawViewportOrientationGizmo(draw_list, image_min, image_size);
-        return;
-    }
-
-    const auto projection = BuildViewportProjection(*camera, m_Camera.Get<Transform>().world_matrix, image_min, image_size);
-    const auto root       = scene->GetRootEntity();
-    const auto selected   = m_State.GetSelectedEntity();
-
-    if (selected && selected != m_Camera && selected.Has<Transform>()) {
-        const auto bounds = EntityPickBounds(selected);
-        DrawSelectedAxis(draw_list, projection, selected.Get<Transform>(), bounds);
-        if (m_State.GetActiveTool() == EditorTool::Rotate) {
-            DrawSelectedRotationOrbit(draw_list, projection, selected.Get<Transform>(), bounds);
-        }
-        draw_list->AddRect(
-            ImVec2(image_min.x + 1.0f, image_min.y + 1.0f),
-            ImVec2(image_min.x + image_size.x - 1.0f, image_min.y + image_size.y - 1.0f),
-            interop::imgui_color(255, 201, 64, 160),
-            0.0f,
-            0,
-            2.0f);
-    }
-
-    DrawViewportOrientationGizmo(draw_list, image_min, image_size);
 }
 
 void SceneViewPort::FocusSelectedEntity() {

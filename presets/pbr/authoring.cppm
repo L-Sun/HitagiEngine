@@ -12,12 +12,12 @@ struct MaterialGraphCompileOptions {
 
 struct MaterialGraphCompileResult {
     MaterialGraphValidationResult validation;
-    std::pmr::string              hlsl;
+    std::pmr::string              slang;
     asset::MaterialPass           pass;
     gfx::ShaderDesc               shader;
     gfx::RenderPipelineDesc       pipeline_desc;
 
-    bool     Valid() const noexcept { return validation.Valid() && !hlsl.empty(); }
+    bool     Valid() const noexcept { return validation.Valid() && !slang.empty(); }
     explicit operator bool() const noexcept { return Valid(); }
 };
 
@@ -29,7 +29,7 @@ public:
 }  // namespace hitagi::preset::pbr
 
 namespace hitagi::preset::pbr {
-auto shader_value_hlsl_type(ShaderValueType type) noexcept -> std::string_view {
+auto shader_value_slang_type(ShaderValueType type) noexcept -> std::string_view {
     switch (type) {
         case ShaderValueType::Float:
             return "float";
@@ -91,7 +91,7 @@ auto default_literal(ShaderValueType type) noexcept -> std::string_view {
     return "0.0f";
 }
 
-auto sanitize_hlsl_identifier(std::string_view value) -> std::pmr::string {
+auto sanitize_shader_identifier(std::string_view value) -> std::pmr::string {
     std::pmr::string result;
     result.reserve(value.size() + 1);
     for (const auto ch : value) {
@@ -129,8 +129,8 @@ void add_material_data_field(asset::MaterialPass& pass, std::string_view name,
 }
 
 auto generated_shader_path(std::string_view shader_name) -> std::filesystem::path {
-    auto file_name = sanitize_hlsl_identifier(shader_name);
-    file_name += ".generated.hlsl";
+    auto file_name = sanitize_shader_identifier(shader_name);
+    file_name += ".generated.slang";
     return std::filesystem::path{"assets/generated"} / file_name;
 }
 
@@ -178,7 +178,7 @@ auto PbrMaterialCompiler::Compile(const MaterialGraph& graph, std::span<const as
                     break;
             }
         }
-        if (sanitize_hlsl_identifier(node->name) != node->name) matches = false;
+        if (sanitize_shader_identifier(node->name) != node->name) matches = false;
         if (!matches) {
             result.validation.errors.push_back({MaterialGraphValidationErrorCode::TypeMismatch,
                                                 std::pmr::string(std::format("Parameter '{}' requires a matching typed contract default", node->name))});
@@ -197,7 +197,7 @@ auto PbrMaterialCompiler::Compile(const MaterialGraph& graph, std::span<const as
         if (!node || node->outputs.empty()) continue;
 
         const auto output_type = node->outputs.front().type;
-        const auto name        = sanitize_hlsl_identifier(node->name);
+        const auto name        = sanitize_shader_identifier(node->name);
         const auto kind        = std::string_view(node->kind);
 
         if (kind == "parameter") {
@@ -245,7 +245,7 @@ auto PbrMaterialCompiler::Compile(const MaterialGraph& graph, std::span<const as
             if (uv_expr.empty()) uv_expr = "input.uv";
 
             const auto var_name    = std::pmr::string(std::format("{}_{}", name, node->outputs.front().name));
-            const auto sample_expr = std::pmr::string(std::format("{}.sample<{}>(sampler, {})", texture_expr, shader_value_hlsl_type(output_type), uv_expr));
+            const auto sample_expr = std::pmr::string(std::format("{}.sample<{}>(sampler, {})", texture_expr, shader_value_slang_type(output_type), uv_expr));
             // Null is an explicit "no texture" preset default, never a descriptor to sample.
             std::pmr::string fallback(default_literal(output_type));
             if (output_type == ShaderValueType::Color || output_type == ShaderValueType::Float4) {
@@ -256,8 +256,8 @@ auto PbrMaterialCompiler::Compile(const MaterialGraph& graph, std::span<const as
                 else if (texture_expr == "material_data.emissive_texture")
                     fallback = "float4(0.0f, 0.0f, 0.0f, 1.0f)";
             }
-            body += std::format("    {} {} = {};\n    if (hitagi::valid({})) {} = {};\n",
-                                shader_value_hlsl_type(output_type), var_name, fallback, texture_expr, var_name, sample_expr);
+            body += std::format("    {} {} = {};\n    if (hitagi::valid({}.handle)) {} = {};\n",
+                                shader_value_slang_type(output_type), var_name, fallback, texture_expr, var_name, sample_expr);
             expressions.emplace(socket_key(node->id, node->outputs.front().name), var_name);
             continue;
         }
@@ -285,7 +285,7 @@ auto PbrMaterialCompiler::Compile(const MaterialGraph& graph, std::span<const as
         }
     }
 
-    declarations += "#include \"bindless.hlsl\"\n\n";
+    declarations += "import bindless;\n\n";
     declarations += PbrBindlessInfoShaderDeclaration();
     declarations += PbrFrameConstantShaderDeclaration();
     declarations += PbrInstanceConstantShaderDeclaration();
@@ -401,7 +401,7 @@ auto PbrMaterialCompiler::Compile(const MaterialGraph& graph, std::span<const as
         }
     }
 
-    result.hlsl = std::format(
+    result.slang = std::format(
         "{}float4 {}(PSInput input) : SV_TARGET {{\n"
         "    const BindlessInfo resource = hitagi::load_bindless<BindlessInfo>();\n"
         "    const FrameConstant frame_constant = resource.frame_constant.load<FrameConstant>();\n"
@@ -439,7 +439,7 @@ auto PbrMaterialCompiler::Compile(const MaterialGraph& graph, std::span<const as
         "    return float4(saturate(color), alpha);\n"
         "}}\n",
         declarations,
-        sanitize_hlsl_identifier(options.entry_point),
+        sanitize_shader_identifier(options.entry_point),
         body,
         surface_body);
 
@@ -448,15 +448,13 @@ auto PbrMaterialCompiler::Compile(const MaterialGraph& graph, std::span<const as
         .name        = std::pmr::string(std::format("{}VS", options.shader_name)),
         .type        = gfx::ShaderType::Vertex,
         .entry       = "VSMain",
-        .source_code = result.hlsl,
-        .path        = shader_path,
+        .program = {.modules = {{.source_code = result.slang, .path = shader_path}}},
     };
     result.shader = gfx::ShaderDesc{
         .name        = options.shader_name,
         .type        = gfx::ShaderType::Pixel,
         .entry       = options.entry_point,
-        .source_code = result.hlsl,
-        .path        = shader_path,
+        .program = {.modules = {{.source_code = result.slang, .path = shader_path}}},
     };
     result.pipeline_desc = gfx::RenderPipelineDesc{
         .name                = std::pmr::string(std::format("{}Pipeline", options.shader_name)),

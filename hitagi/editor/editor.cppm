@@ -1,6 +1,4 @@
 export module editor;
-import interop.imfilebrowser;
-import interop.imgui;
 import std;
 export import :state;
 export import :command;
@@ -14,13 +12,17 @@ import engine;
 
 export namespace hitagi {
 struct EditorLaunchOptions {
+    std::filesystem::path ui_bundle = "build/pocketjs/ui/hitagi-ui.js";
+    std::filesystem::path ui_assets = "build/pocketjs/ui/hitagi-ui.pak";
     std::optional<std::filesystem::path> open_scene;
+    std::optional<std::string>           gfx_backend;
     std::optional<std::uint64_t>         frames;
     std::optional<std::filesystem::path> screenshot;
     std::optional<std::filesystem::path> hid_script;
     std::optional<std::filesystem::path> hid_control;
     UsdSceneImporter::MaterialProcessor  material_processor;
     bool                                 exit_after_load = false;
+    bool                                 headless = false;
 };
 
 enum struct EditorSyntheticHidEventKind : std::uint8_t {
@@ -63,36 +65,35 @@ struct EditorRenderGraphDebugSnapshot {
 
 auto BuildEditorRenderGraphDebugSnapshot(std::string_view dot) -> EditorRenderGraphDebugSnapshot;
 
-enum struct EditorFileDialogMode : std::uint8_t {
-    None,
-    OpenScene,
-    ImportScene,
+
+// Owned by Editor; the game-editor supplies the implementation. No game types
+// enter the generic editor. Render returns a handle for this frame only.
+class IEditorGamePreview {
+public:
+    virtual ~IEditorGamePreview() = default;
+    virtual void Reset(bool running) = 0;
+    virtual void Pause(bool paused) = 0;
+    virtual void Step() = 0;
+    virtual void Update(double elapsed, bool accept_input) = 0;
+    virtual auto Render(math::vec2u size) -> rg::TextureHandle = 0;
+    virtual void PublishState(gui::GuiManager& gui, bool focused) = 0;
+    virtual void Configure(std::string_view field, int delta) = 0;
 };
 
 class Editor : public core::RuntimeModule {
 public:
     Editor(Engine& engine);
-    Editor(Engine& engine, EditorLaunchOptions options);
+    Editor(Engine& engine, EditorLaunchOptions options, std::unique_ptr<IEditorGamePreview> game = {});
+    ~Editor() override;
     void Tick() final;
 
 private:
     void HandleShortcuts();
-    void ApplyEditorStyle();
-    auto DrawDockSpace() -> ImGuiID;
-    void PrepareDefaultLayout(ImGuiID dockspace_id);
-    auto HasSavedDockLayout() const -> bool;
-    void MenuBar();
-    void Toolbar();
-    void FileImporter();
-    void SceneGraphViewer();
-    void SceneNodeModifier();
-    void AssetExplorer();
-    void AssetPreview();
-    void DebugProfilingPanel();
+    void HandleUiCommands();
+    void PublishUiState();
     void RefreshAssetBrowser();
     void ImportAssetFromBrowser(const EditorAssetBrowserEntry& entry);
     void PreviewAssetFromBrowser(const EditorAssetBrowserEntry& entry);
-    void DrawAssetPreview();
     void NewScene();
     void OpenScene(const std::filesystem::path& path);
     void RequestOpenScene();
@@ -121,6 +122,9 @@ private:
     Engine&                       m_Engine;
     Application&                  m_App;
     EditorLaunchOptions           m_LaunchOptions;
+    std::unique_ptr<IEditorGamePreview> m_Game;
+    math::vec4f m_GameRect{};
+    bool m_GameFocused = false;
     EditorState                   m_State;
     EditorCookContext             m_CookContext;
     EditorCommandStack            m_CommandStack;
@@ -131,8 +135,7 @@ private:
     core::Clock          m_Clock;
     SceneViewPort*       m_SceneViewPort = nullptr;
     ImageViewer*         m_ImageViewer   = nullptr;
-    ImGui::FileBrowser   m_FileDialog;
-    EditorFileDialogMode m_FileDialogMode = EditorFileDialogMode::None;
+    std::string m_LastUiState;
 
     std::uint64_t                             m_FrameIndex = 0;
     std::pmr::vector<EditorSyntheticHidEvent> m_SyntheticHidEvents;
@@ -143,11 +146,7 @@ private:
     std::uint32_t                             m_ScreenshotWidth       = 0;
     std::uint32_t                             m_ScreenshotHeight      = 0;
 
-    std::array<char, 128>              m_AssetSearchBuffer{};
     EditorAssetBrowserModel            m_AssetBrowserModel;
-    std::pmr::vector<std::size_t>      m_FilteredAssetIndices;
-    std::pmr::string                   m_AssetFilterCache;
-    std::uint64_t                      m_AssetFilterRevision = std::numeric_limits<std::uint64_t>::max();
     std::filesystem::path              m_CurrentScenePath;
     std::filesystem::path              m_EditScenePathBeforePlay;
     std::filesystem::path              m_LastImportedAssetPath;
@@ -159,8 +158,6 @@ private:
     std::pmr::string                   m_AssetPreviewStatus;
     std::shared_ptr<asset::Texture>    m_SelectedTexturePreview;
     std::pmr::vector<std::pmr::string> m_EditorNotifications;
-    bool                               m_StyleApplied      = false;
-    bool                               m_DefaultLayoutDone = false;
 };
 
 }  // namespace hitagi

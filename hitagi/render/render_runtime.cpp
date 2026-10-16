@@ -88,7 +88,11 @@ RenderRuntime::RenderRuntime(gfx::Device& device, gfx::CommandQueues& queues, gf
 void RenderRuntime::Tick() {
     ZoneScopedN("RenderRuntimeFrame");
 
-    if (m_App.WindowSizeChanged()) {
+    // A programmatic resize can happen before event polling clears the flag.
+    // Reconcile actual dimensions as well, before acquiring a swapchain image.
+    if (m_App.WindowSizeChanged() ||
+        (!m_App.WindowsMinimized() &&
+         (m_SwapChain->GetWidth() != m_App.GetWindowWidth() || m_SwapChain->GetHeight() != m_App.GetWindowHeight()))) {
         m_SwapChain->Resize();
     }
 
@@ -98,6 +102,10 @@ void RenderRuntime::Tick() {
 
     if (m_RenderGraph.Compile()) {
         m_RenderGraph.Execute();
+        // Execute has waited for GPU completion and reset pass/access nodes.
+        // Imports are frame-local here; caches own live resources and reimport
+        // them next frame. Retaining imports would pin replaced UI textures.
+        m_RenderGraph.ClearImportedResources();
     }
 
     m_SwapChain->Present();

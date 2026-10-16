@@ -476,16 +476,22 @@ auto Sampler::Create(Device& device, BindlessUtils& bindings, SamplerDesc desc) 
 }
 
 auto Shader::Create(Device& device, const ShaderCompiler& compiler, ShaderDesc desc) -> std::shared_ptr<Shader> {
+    CompiledShader compiled;
+    if (device.device_type != Device::Type::Mock) {
+        const auto target = device.device_type == Device::Type::DX12 ? ShaderTarget::DXIL : ShaderTarget::SPIRV;
+        const auto program = compiler.LoadProgram(desc.program, target);
+        compiled = program->Compile(desc.entry, desc.type, desc.specialization_types);
+    }
     switch (device.device_type) {
 #ifdef _WIN32
         case Device::Type::DX12: {
             auto& backend = dynamic_cast<DX12Device&>(device);
-            return std::make_shared<DX12Shader>(compiler, backend.GetLogger(), std::move(desc));
+            return std::make_shared<DX12Shader>(backend.GetLogger(), std::move(desc), std::move(compiled));
         }
 #endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
-            return std::make_shared<VulkanShader>(backend.GetDevice(), backend.GetCustomAllocator(), compiler, std::move(desc));
+            return std::make_shared<VulkanShader>(backend.GetDevice(), backend.GetCustomAllocator(), std::move(desc), std::move(compiled));
         }
         case Device::Type::Mock: {
             auto& backend = dynamic_cast<MockDevice&>(device);

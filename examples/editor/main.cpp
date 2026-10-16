@@ -17,6 +17,9 @@ auto main(int argc, char** argv) -> int {
     auto config_path = hitagi::GetEditorConfigPath();
     auto app_config  = hitagi::LoadEditorAppConfig(config_path);
 
+    app_config.headless = app_config.headless || options.headless;
+    if (options.gfx_backend) app_config.gfx_backend = *options.gfx_backend;
+    const auto automated = options.headless || options.frames.has_value();
     hitagi::Engine engine(std::move(app_config));
     engine.SetRenderer(std::make_unique<hitagi::render::DeferredRenderer>(
         engine.Device(), engine.Queues(), engine.Bindings(), engine.ShaderCompiler(), engine.FileIO(), engine.App()));
@@ -27,7 +30,7 @@ auto main(int argc, char** argv) -> int {
         engine.Tick();
     }
 
-    hitagi::SaveEditorAppConfig(engine.App().GetConfig(), config_path);
+    if (!automated) hitagi::SaveEditorAppConfig(engine.App().GetConfig(), config_path);
 
     return 0;
 }

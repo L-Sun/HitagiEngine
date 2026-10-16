@@ -50,6 +50,9 @@ TEST_F(EditorTest, ParsesLaunchOptions) {
         "--hid-control",
         "temp/editor-control.jsonl",
         "--exit-after-load",
+        "--headless",
+        "--gfx-backend",
+        "Vulkan",
     };
 
     auto options = ParseEditorLaunchOptions(static_cast<int>(argv.size()), const_cast<char**>(argv.data()));
@@ -65,6 +68,9 @@ TEST_F(EditorTest, ParsesLaunchOptions) {
     ASSERT_TRUE(options.hid_control);
     EXPECT_EQ(*options.hid_control, std::filesystem::path("temp/editor-control.jsonl"));
     EXPECT_TRUE(options.exit_after_load);
+    EXPECT_TRUE(options.headless);
+    ASSERT_TRUE(options.gfx_backend);
+    EXPECT_EQ(*options.gfx_backend, "Vulkan");
 }
 
 TEST_F(EditorTest, CreatesFixtureScene) {
@@ -125,7 +131,7 @@ TEST_F(EditorTest, ClassifiesEditorAssetsAndTracksSelection) {
     EXPECT_EQ(ClassifyEditorAssetPath("scene.hscene"), EditorAssetKind::Unknown);
     EXPECT_EQ(ClassifyEditorAssetPath("texture.PNG"), EditorAssetKind::Texture);
     EXPECT_EQ(ClassifyEditorAssetPath("material.json"), EditorAssetKind::Material);
-    EXPECT_EQ(ClassifyEditorAssetPath("shaders/material.hlsl"), EditorAssetKind::Shader);
+    EXPECT_EQ(ClassifyEditorAssetPath("shaders/material.slang"), EditorAssetKind::Shader);
     EXPECT_EQ(ClassifyEditorAssetPath("notes.txt"), EditorAssetKind::Unknown);
 
     EditorState state;

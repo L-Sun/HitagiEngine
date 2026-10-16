@@ -53,6 +53,8 @@ public:
 
     auto Read(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept -> GPUBufferEdgeHandle;
     auto Read(TextureHandle texture, gfx::TextureViewDesc desc = {}, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept -> TextureEdgeHandle;
+    // Import the external texture and retain its existing shader-read View.
+    auto Read(std::shared_ptr<gfx::TextureView> view, gfx::PipelineStage stage = gfx::PipelineStage::All) noexcept -> TextureEdgeHandle;
     auto ReadAsVertices(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}) noexcept -> GPUBufferEdgeHandle;
     auto ReadAsIndices(GPUBufferHandle buffer, gfx::GPUBufferViewDesc desc = {.element_count = 0}) noexcept -> GPUBufferEdgeHandle;
 

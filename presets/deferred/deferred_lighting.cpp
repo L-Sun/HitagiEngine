@@ -64,15 +64,13 @@ void passes::DeferredLighting::EnsureResources(gfx::Format target_format) {
                                                                            .name        = "deferred-lighting-vs",
                                                                            .type        = gfx::ShaderType::Vertex,
                                                                            .entry       = "VSMain",
-                                                                           .source_code = m_Shader.code,
-                                                                           .path        = m_Shader.path,
+                                                                           .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                        });
         m_PS = hitagi::gfx::Shader::Create(m_Device, m_ShaderCompiler, {
                                                                            .name        = "deferred-lighting-ps",
                                                                            .type        = gfx::ShaderType::Pixel,
                                                                            .entry       = "PSMain",
-                                                                           .source_code = m_Shader.code,
-                                                                           .path        = m_Shader.path,
+                                                                           .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                        });
     }
 

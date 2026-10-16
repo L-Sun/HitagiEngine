@@ -32,8 +32,8 @@ boundaries; there is no target per package.
 
 | Target | Consumers | Modules |
 | --- | --- | --- |
-| `hitagi_interop` | Runtime engine and games | `fmt`, `spdlog`, `taskflow`, `imgui`, `sdl`, `jolt`, `freetype`, `png`, `jpeg`, `dxc`, `vulkan`, `vma`, `magic_enum`, `tracy`, `tracy.vulkan`; Windows: `win32`, `dx12`, `d3d12ma`, `tracy.dx12` |
-| `hitagi_interop_editor` | Editor and game editors | `usd`, `nlohmann_json`, `imfilebrowser` |
+| `hitagi_interop` | Runtime engine and games | `fmt`, `spdlog`, `taskflow`, `pocketjs`, `sdl`, `jolt`, `freetype`, `png`, `jpeg`, `slang`, `vulkan`, `vma`, `magic_enum`, `tracy`, `tracy.vulkan`; Windows: `win32`, `dx12`, `d3d12ma`, `tracy.dx12` |
+| `hitagi_interop_editor` | Editor and game editors | `usd`, `nlohmann_json` |
 | `hitagi_interop_test` | Unit/editor tests and benchmark test helpers | `gtest` |
 | `hitagi_interop_benchmark` | Opt-in benchmarks (`--benchmarks=y`) | `benchmark` |
 
@@ -57,8 +57,7 @@ partitions use that extension. Ordinary implementation units stay private to
 their static library; marking them public makes XMake propagate them to consumers
 without the module references they require.
 
-The default build includes the editor. `--examples=y` adds game/GUI examples to
-that build; their targets remain available explicitly when the option is off.
+The default build includes all enabled application, library, UI and test targets.
 Benchmark dependencies and targets are only loaded with `--benchmarks=y`:
 
 ```powershell
@@ -67,7 +66,7 @@ xmake build memory_benchmark ecs_benchmark
 xmake r memory_benchmark --benchmark_list_tests=true
 ```
 
-Benchmark executables are never part of the default build or the unit-test runner.
+Enabled benchmark executables are part of the default build, but remain separate from the unit-test runner.
 
 The explicit export lists cover the APIs used by this repository, not every
 possible upstream API. Extend the owning bridge when using another symbol;
@@ -86,9 +85,8 @@ of their upstream libraries; the engine does not consume their APIs directly.
 - `tracy_macros.hpp` retains lexical scope, source location, and disabled
   argument elision. Test registration/assertion macros and COM type deduction
   also stay in thin headers without vendor includes.
-  DXC's non-Windows adapter follows upstream
-  [WinAdapter.h](https://github.com/microsoft/DirectXShaderCompiler/blob/main/include/dxc/WinAdapter.h)
-  for UUID deduction and single evaluation of the output pointer.
+  Slang uses its native COM pointer helper through `interop.slang`; no DXC COM
+  macro adapter remains. DXC is retained only for Slang's downstream DXIL compiler.
 - `jolt_macros.hpp` matches upstream's `JPH_NO_DEBUG`, `NDEBUG`, `JPH_DEBUG` and
   `JPH_ENABLE_ASSERTS` conditions. Jolt build definitions remain public.
 - libpng's adapter returns the upstream jump buffer; **setjmp still executes

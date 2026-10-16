@@ -73,6 +73,8 @@ VulkanBindlessUtils::VulkanBindlessUtils(const vk::raii::Device& device, const v
     const std::array              counts     = {max_storage_descriptors, max_sampled_image_descriptors, max_storage_image_descriptors, max_sampler_descriptors};
     const std::array              alignments = {limits.bufferDescriptorAlignment, limits.imageDescriptorAlignment, limits.imageDescriptorAlignment, limits.samplerDescriptorAlignment};
     std::array<vk::DeviceSize, 2> sizes{};
+    // Slang DefaultVkBindlessBindings (BindlessDescriptorOptions.None).
+    constexpr std::array<std::uint32_t, 4> bindings{7, 2, 3, 0};
     for (std::uint32_t kind = 0; kind < counts.size(); ++kind) {
         auto& size              = sizes[kind == 3 ? 1 : 0];
         size                    = utils::align(size, alignments[kind]);
@@ -80,8 +82,8 @@ VulkanBindlessUtils::VulkanBindlessUtils(const vk::raii::Device& device, const v
         m_DescriptorSizes[kind] = utils::align(m_DescriptorSizes[kind], alignments[kind]);
         size += static_cast<vk::DeviceSize>(m_DescriptorSizes[kind]) * counts[kind];
         m_Mappings[kind] = {
-            .descriptorSet = kind,
-            .firstBinding  = 0,
+            .descriptorSet = 0,
+            .firstBinding  = bindings[kind],
             .bindingCount  = 1,
             .resourceMask  = vk::SpirvResourceTypeFlagBitsEXT::eAll,
             .source        = vk::DescriptorMappingSourceEXT::eHeapWithConstantOffset,

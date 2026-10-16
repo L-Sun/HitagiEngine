@@ -262,12 +262,32 @@ protected:
     using ResourceWithDesc::ResourceWithDesc;
 };
 
+struct ShaderModuleDesc {
+    std::pmr::string name;
+    std::pmr::string source_code;
+    std::filesystem::path path;
+};
+
+// Modules are loaded in dependency order. Imports resolve shared shader code;
+// additional modules can supply link-time implementations.
+struct ShaderProgramDesc {
+    std::pmr::vector<ShaderModuleDesc> modules;
+};
+
+enum class ShaderTarget { DXIL, SPIRV };
+
+struct CompiledShader {
+    core::Buffer bytecode;
+    VertexLayout vertex_layout;
+    std::pmr::string entry;
+};
+
 struct ShaderDesc {
     std::pmr::string      name;
     ShaderType            type;
     std::pmr::string      entry = "main";
-    std::pmr::string      source_code;
-    std::filesystem::path path;
+    ShaderProgramDesc program;
+    std::pmr::vector<std::pmr::string> specialization_types;
 };
 
 class Shader : public ResourceWithDesc<ShaderDesc> {
@@ -276,9 +296,13 @@ public:
 
     virtual auto GetDXILData() const noexcept -> std::span<const std::byte> { return {}; }
     virtual auto GetSPIRVData() const noexcept -> std::span<const std::byte> { return {}; }
+    auto GetVertexLayout() const noexcept -> const VertexLayout& { return m_Compiled.vertex_layout; }
+    auto GetEntryPointName() const noexcept -> const std::pmr::string& { return m_Compiled.entry; }
 
 protected:
-    using ResourceWithDesc::ResourceWithDesc;
+    Shader(ShaderDesc desc, CompiledShader compiled = {})
+        : ResourceWithDesc(std::move(desc)), m_Compiled(std::move(compiled)) {}
+    CompiledShader m_Compiled;
 };
 
 struct RenderPipelineDesc {

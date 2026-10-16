@@ -29,15 +29,12 @@ option("profile")
     set_description("Enable tracy profiling.")
 option_end()
 
-option("examples")
-    set_default(false)
-    set_description("Include game and GUI examples in the default build.")
-option_end()
-
 option("benchmarks")
     set_default(false)
     set_description("Enable benchmark dependencies and targets.")
 option_end()
+
+includes("hitagi/gui/pocketjs/xmake.lua")
 
 if has_config("profile") then
     add_defines("TRACY_ENABLE")
@@ -48,4 +45,6 @@ end
 
 includes("hitagi/xmake.lua")
 includes("presets/**/xmake.lua")
-includes("examples/**/xmake.lua")
+includes("examples/editor/xmake.lua")
+includes("examples/pbr_demo/xmake.lua")
+includes("examples/usd_viewer/xmake.lua")

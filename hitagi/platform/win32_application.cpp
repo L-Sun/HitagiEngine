@@ -27,6 +27,7 @@ public:
     void Tick() final;
 
     void SetInputScreenPosition(const math::vec2u& position) final;
+    void SetTextInputSession(std::uint64_t session) final;
     void SetWindowTitle(std::string_view name) final;
     void SetCursor(Cursor cursor) final;
     void SetMousePosition(const math::vec2u& position) final;
@@ -57,6 +58,10 @@ private:
     bool m_SizeChanged = false;
     bool m_Minimized   = false;
     bool m_Quit        = false;
+    bool m_InSizeMove  = false;
+    bool m_Composing = false;
+    std::array<bool, 256> m_ImeKeys{};
+    char16_t m_HighSurrogate = 0;
 
     Rect m_Rect;
 
@@ -141,6 +146,19 @@ void Win32Application::InitializeWindows() {
 
     UpdateRect();
     MapCursor();
+}
+
+void Win32Application::SetTextInputSession(std::uint64_t session) {
+    if (session == m_InputManager->GetTextInputSession()) return;
+    if (m_Composing) {
+        if (const auto context = ImmGetContext(m_Window)) {
+            ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+            ImmReleaseContext(m_Window, context);
+        }
+        m_Composing = false;
+    }
+    m_HighSurrogate = 0;
+    Application::SetTextInputSession(session);
 }
 
 void Win32Application::SetInputScreenPosition(const math::vec2u& position) {
@@ -338,6 +356,22 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         p_this = reinterpret_cast<Win32Application*>(GetWindowLongPtrW(h_wnd, GWLP_USERDATA));
     }
     switch (message) {
+        case WM_ENTERSIZEMOVE:
+            p_this->m_InSizeMove = true;
+            p_this->m_InputManager->ResetInputState();
+            SetTimer(h_wnd, 1, 16, nullptr);
+            return 0;
+        case WM_EXITSIZEMOVE:
+            p_this->m_InSizeMove = false;
+            KillTimer(h_wnd, 1);
+            p_this->UpdateRect();
+            return 0;
+        case WM_TIMER:
+            if (p_this && p_this->m_InSizeMove && w_param == 1) {
+                if (p_this->TickModalFrame()) p_this->m_SizeChanged = false;
+                return 0;
+            }
+            break;
         case WM_NCHITTEST: {
             const LRESULT hit_test = DefWindowProcW(h_wnd, message, w_param, l_param);
             if (hit_test != HTCLIENT || p_this == nullptr) return hit_test;
@@ -350,6 +384,9 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
             ClipCursor(nullptr);
             return 0;
         case WM_KILLFOCUS:
+            p_this->m_InputManager->PushTextInput({.kind = hid::TextInputEvent::Kind::Blur});
+            p_this->SetTextInputSession(0);
+            p_this->m_ImeKeys.fill(false);
             p_this->m_InputManager->ResetInputState();
             ClipCursor(nullptr);
             ReleaseCapture();
@@ -398,6 +435,21 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP: {
             bool down = (message == WM_KEYDOWN || message == WM_SYSKEYDOWN);
+            if (w_param < 256) {
+                if (down && p_this->m_Composing) p_this->m_ImeKeys[w_param] = true;
+                const bool consumed = p_this->m_Composing || p_this->m_ImeKeys[w_param];
+                if (!down) p_this->m_ImeKeys[w_param] = false;
+                if (down && !consumed && p_this->m_InputManager->GetTextInputSession()) {
+                    // Editing keys are events (including OS repeat), not sampled
+                    // button state. Printable text only comes from WM_CHAR/IME.
+                    if (w_param == 8 || w_param == 9 || w_param == 13 || w_param == 27 ||
+                        (w_param >= 35 && w_param <= 40) || w_param == 46 || w_param == 65 || w_param == 89 || w_param == 90)
+                        p_this->m_InputManager->PushTextInput({.kind = hid::TextInputEvent::Kind::Key,
+                            .key = static_cast<std::uint32_t>(w_param),
+                            .shift = (GetKeyState(VK_LSHIFT) | GetKeyState(VK_RSHIFT)) < 0,
+                            .control = (GetKeyState(VK_LCONTROL) | GetKeyState(VK_RCONTROL)) < 0});
+                }
+            }
             if (w_param < static_cast<int>(hid::VirtualKeyCode::NUM))
                 p_this->m_InputManager->UpdateKeyState(static_cast<hid::VirtualKeyCode>(w_param), down);
 
@@ -418,12 +470,78 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND h_wnd, UINT message, WPARAM w
         case WM_MOUSEHWHEEL:
             p_this->m_InputManager->UpdateWheelState(static_cast<float>(interop::get_wheel_delta_wparam(w_param)) / static_cast<float>(WHEEL_DELTA), 0.0f);
             return 0;
+        case WM_IME_SETCONTEXT:
+            if (p_this->m_InputManager->GetTextInputSession()) l_param &= ~static_cast<LPARAM>(ISC_SHOWUICOMPOSITIONWINDOW);
+            return DefWindowProcW(h_wnd, message, w_param, l_param);
+        case WM_IME_STARTCOMPOSITION:
+            if (!p_this->m_InputManager->GetTextInputSession()) break;
+            p_this->m_Composing = true;
+            p_this->m_InputManager->PushTextInput({.kind = hid::TextInputEvent::Kind::Start});
+            return 0;
+        case WM_IME_COMPOSITION: {
+            if (!p_this->m_InputManager->GetTextInputSession()) break;
+            const auto context = ImmGetContext(h_wnd);
+            if (!context) return 0;
+            const auto read_text = [&](DWORD index) {
+                const auto size = ImmGetCompositionStringW(context, index, nullptr, 0);
+                std::u16string text;
+                if (size > 0 && size <= 65536 && size % 2 == 0) {
+                    text.resize(static_cast<std::size_t>(size) / 2);
+                    if (ImmGetCompositionStringW(context, index, text.data(), size) != size) text.clear();
+                }
+                return text;
+            };
+            if (l_param & GCS_RESULTSTR)
+                p_this->m_InputManager->PushTextInput({.kind = hid::TextInputEvent::Kind::Commit, .text = read_text(GCS_RESULTSTR)});
+            if (l_param & (GCS_COMPSTR | GCS_CURSORPOS | GCS_COMPATTR | GCS_COMPCLAUSE)) {
+                hid::TextInputEvent event{.kind = hid::TextInputEvent::Kind::Update, .text = read_text(GCS_COMPSTR)};
+                const auto caret = ImmGetCompositionStringW(context, GCS_CURSORPOS, nullptr, 0);
+                event.caret = static_cast<std::uint32_t>(std::clamp<long>(caret, 0, static_cast<long>(event.text.size())));
+                const auto attrs = ImmGetCompositionStringW(context, GCS_COMPATTR, nullptr, 0);
+                if (attrs > 0 && attrs <= 65536) {
+                    event.attributes.resize(attrs);
+                    if (ImmGetCompositionStringW(context, GCS_COMPATTR, event.attributes.data(), attrs) != attrs) event.attributes.clear();
+                }
+                const auto clauses = ImmGetCompositionStringW(context, GCS_COMPCLAUSE, nullptr, 0);
+                if (clauses > 0 && clauses <= 65536 && clauses % sizeof(DWORD) == 0) {
+                    event.clauses.resize(clauses / sizeof(DWORD));
+                    if (ImmGetCompositionStringW(context, GCS_COMPCLAUSE, event.clauses.data(), clauses) != clauses) event.clauses.clear();
+                }
+                p_this->m_InputManager->PushTextInput(std::move(event));
+            } else if (l_param == 0)
+                p_this->m_InputManager->PushTextInput({.kind = hid::TextInputEvent::Kind::Update});
+            ImmReleaseContext(h_wnd, context);
+            // We consumed the result; default processing would emit it again.
+            return 0;
+        }
+        case WM_IME_ENDCOMPOSITION:
+            if (!p_this->m_InputManager->GetTextInputSession()) break;
+            p_this->m_Composing = false;
+            p_this->m_InputManager->PushTextInput({.kind = hid::TextInputEvent::Kind::End});
+            return 0;
         case WM_CHAR: {
+            if (p_this->m_InputManager->GetTextInputSession()) {
+                const auto unit = static_cast<char16_t>(w_param);
+                if (unit < 32 || unit == 127 || p_this->m_Composing) return 0;
+                std::u16string text;
+                if (p_this->m_HighSurrogate) {
+                    if (unit >= 0xdc00 && unit <= 0xdfff) text += p_this->m_HighSurrogate;
+                    else text += u'\ufffd';
+                    p_this->m_HighSurrogate = 0;
+                }
+                if (unit >= 0xd800 && unit <= 0xdbff) p_this->m_HighSurrogate = unit;
+                else text += unit >= 0xdc00 && unit <= 0xdfff && text.empty() ? u'\ufffd' : unit;
+                if (!text.empty())
+                    for (unsigned i = 0; i < std::max<unsigned>(1, interop::loword(l_param)); ++i)
+                        p_this->m_InputManager->PushTextInput({.kind = hid::TextInputEvent::Kind::Commit, .text = text});
+                return 0;
+            }
             std::size_t repeat_count = (interop::hiword(l_param) & KF_REPEAT) == KF_REPEAT ? static_cast<size_t>(interop::loword(l_param)) : 1;
             p_this->m_InputManager->AppendInputText(std::u32string(repeat_count, static_cast<char32_t>(w_param)));
         }
             return 0;
         case WM_IME_CHAR: {
+            if (p_this->m_InputManager->GetTextInputSession()) return 0;
             p_this->m_InputManager->AppendInputText(std::u32string(1, static_cast<char32_t>(w_param)));
         }
             return 0;

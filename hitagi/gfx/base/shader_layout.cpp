@@ -5,12 +5,12 @@ import :bindless;
 
 export namespace hitagi::gfx {
 
-// Describes the raw, 32-bit storage-buffer ABI used by bindless.hlsl.
+// Describes the raw, 32-bit storage-buffer ABI used by bindless.slang.
 // Fields are typed from their CPU members; resource handles additionally name
 // the shader wrapper. This is not a constant-buffer packing description.
 struct ShaderField {
     std::string_view name;
-    std::string_view hlsl_type;
+    std::string_view slang_type;
     std::size_t      offset;
     std::size_t      size;
 };
@@ -78,7 +78,7 @@ inline auto GenerateShaderStruct(std::string_view name, std::span<const ShaderFi
             source += std::format("    uint _hitagi_padding_{};\n", padding++);
             offset += 4;
         }
-        source += std::format("    {} {};\n", field.hlsl_type, field.name);
+        source += std::format("    {} {};\n", field.slang_type, field.name);
         offset += field.size;
     }
     if (size < offset || size % 4 != 0) throw std::invalid_argument("Invalid shader storage size");

@@ -1,11 +1,11 @@
 target("hitagi_preset_pbr")
-    set_default(false)
+    set_default(true)
     set_kind("static")
     add_files("pbr.cppm", {public = true})
     add_deps("engine")
 
 target("hitagi_preset_pbr_authoring")
-    set_default(false)
+    set_default(true)
     set_kind("static")
     add_files("authoring.cppm", {public = true})
     add_deps("hitagi_preset_pbr", "hitagi_editor")

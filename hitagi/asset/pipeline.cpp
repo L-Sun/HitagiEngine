@@ -58,7 +58,7 @@ void RenderPipeline::Load(const ResourceLoadContext& context) {
             return shader && shader->GetDesc().type == gfx::ShaderType::Vertex;
         });
         if (vertex_shader != m_Shaders.end()) {
-            m_Desc.vertex_input_layout = context.shader_compiler.ExtractVertexLayout((*vertex_shader)->GetDesc());
+            m_Desc.vertex_input_layout = (*vertex_shader)->GetBuiltShader()->GetVertexLayout();
         }
     }
 

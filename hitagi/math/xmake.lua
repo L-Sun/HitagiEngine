@@ -7,7 +7,7 @@ option_end()
 
 target("ispc_math")
     set_kind("static")
-    set_default(false)
+    set_default(has_config("ispc"))
     add_rules("utils.ispc")
     add_files("ispc/*.ispc", "ispc/*.cpp")
     add_includedirs("ispc", {public = true})

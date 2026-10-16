@@ -1,0 +1,12 @@
+{
+  "extends": "./build/pocketjs/tsconfig.json",
+  "compilerOptions": {
+    "jsxImportSource": "solid-js"
+  },
+  "include": [
+    "examples/**/*.ts",
+    "examples/**/*.tsx",
+    "hitagi/**/*.ts",
+    "hitagi/**/*.tsx"
+  ]
+}

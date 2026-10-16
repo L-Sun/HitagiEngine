@@ -62,7 +62,7 @@ private:
         Page& operator=(Page&&) noexcept;
         ~Page();
 
-        inline auto GetHeadBlock() noexcept { return reinterpret_cast<Block*>(data); }
+        inline auto GetHeadBlock() const noexcept { return reinterpret_cast<Block*>(data); }
 
     private:
         const std::size_t      size;
@@ -81,10 +81,6 @@ private:
         Page&                new_page();
         [[nodiscard]] Block* allocate();
         void                 deallocate(Block* block);
-
-#ifdef HITAGI_DEBUG
-        std::unordered_set<Block*> allocated_blocks = {};
-#endif
     };
 
     constexpr static std::array block_size = {
@@ -165,10 +161,6 @@ auto MemoryPool::Pool::allocate() -> Block* {
     free_list     = free_list->next;
     num_free_blocks--;
 
-#ifdef HITAGI_DEBUG
-    allocated_blocks.emplace(result);
-#endif
-
     return result;
 }
 
@@ -178,10 +170,6 @@ auto MemoryPool::Pool::deallocate(Block* block) -> void {
     block->next = free_list;
     free_list   = block;
     num_free_blocks++;
-
-#ifdef HITAGI_DEBUG
-    allocated_blocks.erase(block);
-#endif
 }
 
 MemoryPool::MemoryPool(std::shared_ptr<spdlog::logger> logger)
@@ -199,12 +187,26 @@ MemoryPool::~MemoryPool() {
     for (const auto& pool : m_Pools) {
         const auto num_block_per_page = pool.page_size / pool.block_size;
         const auto total_blocks       = pool.pages.size() * num_block_per_page;
-        if (pool.num_free_blocks != total_blocks) {
-            m_Logger->warn("MemoryPool[{} bytes]: {} bytes memory leak", pool.block_size, (total_blocks - pool.num_free_blocks) * pool.block_size);
-        }
+        if (pool.num_free_blocks == total_blocks) continue;
+
+        m_Logger->warn("MemoryPool[{} bytes]: {} bytes memory leak", pool.block_size, (total_blocks - pool.num_free_blocks) * pool.block_size);
 #ifdef HITAGI_DEBUG
-        for (const auto allocated_block : pool.allocated_blocks) {
-            m_Logger->warn("MemoryPool[{} bytes]: {}", pool.block_size, fmt::ptr(allocated_block));
+        // Reconstruct live blocks only on a leak at shutdown. Tracking each
+        // allocation in a std::unordered_set would allocate a system-heap node
+        // for every pooled allocation, even after the pool itself is warm.
+        std::unordered_set<Block*> free_blocks;
+        free_blocks.reserve(pool.num_free_blocks);
+        for (auto block = pool.free_list; block != nullptr; block = block->next) {
+            free_blocks.emplace(block);
+        }
+        for (const auto& page : pool.pages) {
+            auto data = reinterpret_cast<std::byte*>(page.GetHeadBlock());
+            for (std::size_t i = 0; i < num_block_per_page; ++i) {
+                auto block = reinterpret_cast<Block*>(data + i * pool.block_size);
+                if (!free_blocks.contains(block)) {
+                    m_Logger->warn("MemoryPool[{} bytes]: {}", pool.block_size, fmt::ptr(block));
+                }
+            }
         }
 #endif
     }

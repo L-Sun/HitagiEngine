@@ -20,3 +20,6 @@ vtune
 imgui.ini
 
 __pycache__/
+
+# Local scratch dependencies (not used by the XMake PocketJS package).
+.local/

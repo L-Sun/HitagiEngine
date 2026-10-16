@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1200" viewBox="0 0 1440 1200" role="img" aria-labelledby="title desc">
+  <title id="title">PocketJS Integration · Components to Engine Pixels</title>
+  <desc id="desc">GuiManager runs QuickJS and the Rust UI core, receives DrawList commands and resource views, and produces owned geometry and resource snapshots. Hitagi caches font and image textures and draws UI triangles directly through its GPU GUI pass. Arrows show data flow, not thread boundaries.</desc>
+  <defs>
+    <style>
+      text { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; fill: #263443; }
+      .title { font-size: 32px; font-weight: 700; }
+      .section { font-size: 24px; font-weight: 700; }
+      .label { font-size: 21px; font-weight: 600; }
+      .body { font-size: 19px; }
+      .small { font-size: 17px; fill: #596878; }
+      .code { font-family: Consolas, monospace; font-size: 18px; }
+      .panel { fill: #ffffff; stroke: #c6d1dc; stroke-width: 1.5; }
+      .blue { fill: #e1eef9; stroke: #8db3d3; stroke-width: 1.5; }
+      .green { fill: #e2f1e7; stroke: #91b69b; stroke-width: 1.5; }
+      .orange { fill: #fbead8; stroke: #d6ac7a; stroke-width: 1.5; }
+      .purple { fill: #eee6f5; stroke: #b19acb; stroke-width: 1.5; }
+      .gray { fill: #edf0f4; stroke: #b1bdca; stroke-width: 1.5; }
+      .arrow { fill: none; stroke: #738293; stroke-width: 2; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0 0 L9 4.5 L0 9 Z" fill="#738293"/>
+    </marker>
+  </defs>
+  <rect width="1440" height="1200" fill="#f8fafc"/>
+  <rect x="40" y="34" width="6" height="64" rx="3" fill="#608db4"/>
+  <text x="64" y="62" class="title">PocketJS Integration · Components to Engine Pixels</text>
+  <text x="64" y="94" class="body">Current implementation · Build artifacts, UI runtime, DrawList bridge, and GPU rendering</text>
+
+  <text x="40" y="150" class="section">01   BUILD TWO KINDS OF ARTIFACTS</text>
+  <rect x="40" y="174" width="360" height="82" rx="5" class="green"/>
+  <text x="64" y="207" class="label">Solid / TSX interface</text>
+  <text x="64" y="236" class="code">hitagi-ui.tsx</text>
+  <path d="M404 215 H456" class="arrow"/>
+  <rect x="460" y="174" width="440" height="82" rx="5" class="panel"/>
+  <text x="484" y="207" class="label">@pocketjs/ui rule / Bun</text>
+  <text x="484" y="236" class="small">pocketjs package tools · Incremental inputs</text>
+  <path d="M904 215 H956" class="arrow"/>
+  <rect x="960" y="174" width="440" height="82" rx="5" class="green"/>
+  <text x="984" y="207" class="code">hitagi-ui.js + hitagi-ui.pak</text>
+  <text x="984" y="236" class="small">Application code + style / font resources</text>
+
+  <rect x="40" y="278" width="360" height="82" rx="5" class="blue"/>
+  <text x="64" y="311" class="label">pocketjs package recipe</text>
+  <text x="64" y="340" class="small">Pinned source · SHA-256 verified</text>
+  <path d="M404 319 H456" class="arrow"/>
+  <rect x="460" y="278" width="440" height="82" rx="5" class="panel"/>
+  <text x="484" y="311" class="label">XMake package install / Cargo</text>
+  <text x="484" y="340" class="small">Build once per package configuration · -j 1</text>
+  <path d="M904 319 H956" class="arrow"/>
+  <rect x="960" y="278" width="440" height="82" rx="5" class="blue"/>
+  <text x="984" y="311" class="code">pocket_apple.lib</text>
+  <text x="984" y="340" class="small">Package cache · add_packages → interop.pocketjs</text>
+
+  <text x="40" y="418" class="section">02   DRIVE THE UI ON THE ENGINE THREAD</text>
+  <text x="870" y="399" class="small">Application explicitly calls LoadApp(js, pak)</text>
+  <path d="M1404 215 H1420 V466 H1404" class="arrow"/>
+  <rect x="360" y="438" width="1040" height="396" rx="8" class="panel"/>
+  <text x="384" y="474" class="label">GuiManager / Owns the runtime, geometry and resource snapshots</text>
+  <text x="384" y="504" class="small">Fixed 60 Hz UI ticks · No UI loaded means no draw data</text>
+
+  <rect x="40" y="534" width="260" height="202" rx="5" class="orange"/>
+  <text x="64" y="568" class="label">Engine HID input</text>
+  <text x="64" y="602" class="body">Mouse + keyboard</text>
+  <text x="64" y="635" class="small">GuiManager maps:</text>
+  <text x="64" y="665" class="small">Window → UI coordinates</text>
+  <text x="64" y="695" class="small">Keys → button mask</text>
+  <path d="M304 614 H380" class="arrow"/>
+  <rect x="384" y="534" width="264" height="146" rx="5" class="green"/>
+  <text x="408" y="570" class="label">QuickJS</text>
+  <text x="408" y="604" class="body">Solid components</text>
+  <text x="408" y="635" class="small">Events → reactive state</text>
+  <text x="408" y="663" class="small">Updates retained UI nodes</text>
+  <path d="M652 614 H692" class="arrow"/>
+  <rect x="696" y="534" width="264" height="146" rx="5" class="blue"/>
+  <text x="720" y="570" class="label">PocketJS Rust core</text>
+  <text x="720" y="604" class="body">Layout + animation</text>
+  <text x="720" y="635" class="small">Ui::draw() walks the tree</text>
+  <text x="720" y="663" class="small">DrawList + resources</text>
+  <path d="M964 614 H1004" class="arrow"/>
+  <rect x="1008" y="534" width="368" height="146" rx="5" class="orange"/>
+  <text x="1032" y="570" class="label">Hitagi adapter</text>
+  <text x="1032" y="604" class="body">DrawList → geometry</text>
+  <text x="1032" y="635" class="small">Decode commands + cache resources</text>
+  <text x="1032" y="663" class="small">Copy data before guest mutation</text>
+  <path d="M1192 684 V704" class="arrow"/>
+  <rect x="384" y="708" width="992" height="70" rx="5" class="purple"/>
+  <text x="408" y="739" class="code">GuiDrawData</text>
+  <text x="618" y="739" class="body">Vertices + indices + resource snapshots</text>
+  <text x="618" y="765" class="small">Ordered batches · DPI / letterboxing · Native scene overlays</text>
+  <text x="384" y="812" class="small">The app schedules RenderGui(); RenderRuntime consumes this data after GuiManager::Tick().</text>
+
+  <path d="M380 751 H330 V854 H20 V996 H36" class="arrow"/>
+  <text x="40" y="886" class="section">03   DISPLAY THROUGH HITAGI'S GPU RENDERER</text>
+  <rect x="40" y="916" width="410" height="160" rx="5" class="purple"/>
+  <text x="64" y="952" class="label">RenderRuntime / GUI pass</text>
+  <text x="64" y="990" class="code">GuiRenderUtils::GuiPass()</text>
+  <text x="64" y="1022" class="small">Reads backend-neutral GuiDrawData</text>
+  <text x="64" y="1052" class="small">Uses the existing GUI shader and pipeline</text>
+  <path d="M454 996 H506" class="arrow"/>
+  <rect x="510" y="916" width="410" height="160" rx="5" class="blue"/>
+  <text x="534" y="952" class="label">GPU geometry + textures</text>
+  <text x="534" y="990" class="body">Upload changed resources once</text>
+  <text x="534" y="1022" class="small">Rasterize UI triangles on the GPU</text>
+  <text x="534" y="1052" class="small">Cache fonts / images across frames</text>
+  <path d="M924 996 H976" class="arrow"/>
+  <rect x="980" y="916" width="420" height="160" rx="5" class="green"/>
+  <text x="1004" y="952" class="label">Present pass / Engine window</text>
+  <text x="1004" y="990" class="code">ToSwapChain() → Present()</text>
+  <text x="1004" y="1022" class="small">Displays the composed render target</text>
+  <text x="1004" y="1052" class="small">Native scene textures stay on the GPU</text>
+
+  <rect x="40" y="1104" width="1360" height="64" rx="5" class="gray"/>
+  <text x="64" y="1131" class="small">DPI-aware editor · Resizable panels + scrolling · Docking, text/IME and full inspectors remain unported.</text>
+  <text x="64" y="1156" class="small">PocketJS is the only GUI backend. Arrows show artifact / data flow, not thread boundaries.</text>
+</svg>

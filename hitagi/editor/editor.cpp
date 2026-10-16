@@ -3,7 +3,6 @@ module;
 #include "interop/tracy_macros.hpp"
 
 module editor;
-import interop.imgui;
 import interop.nlohmann_json;
 import interop.spdlog;
 import interop.tracy;
@@ -209,7 +208,11 @@ auto ParseEditorLaunchOptions(int argc, const char* const* argv) -> EditorLaunch
             return std::string_view{argv[++i]};
         };
 
-        if (arg == "--open-scene") {
+        if (arg == "--headless") {
+            options.headless = true;
+        } else if (arg == "--gfx-backend") {
+            if (auto value = read_value()) options.gfx_backend = *value;
+        } else if (arg == "--open-scene") {
             if (auto value = read_value()) options.open_scene = std::filesystem::path{*value};
         } else if (arg == "--frames") {
             if (auto value = read_value()) {
@@ -240,8 +243,7 @@ auto ClassifyEditorAssetPath(const std::filesystem::path& path) noexcept -> Edit
     if (IsEditorScenePath(path)) return EditorAssetKind::Scene;
 
     if (IEqualsAscii(extension, ".json")) return EditorAssetKind::Material;
-    if (IEqualsAscii(extension, ".hlsl") ||
-        IEqualsAscii(extension, ".hlsli") ||
+    if (IEqualsAscii(extension, ".slang") ||
         IEqualsAscii(extension, ".glsl") ||
         IEqualsAscii(extension, ".vert") ||
         IEqualsAscii(extension, ".frag") ||
@@ -395,16 +397,20 @@ auto CreateEditorRuntimeScene(const asset::Scene& edit_scene) -> std::shared_ptr
 
 Editor::Editor(Engine& engine) : Editor(engine, {}) {}
 
-Editor::Editor(Engine& engine, EditorLaunchOptions options)
-    : core::RuntimeModule("Editor"), m_Engine(engine), m_App(engine.App()), m_LaunchOptions(std::move(options)) {
+Editor::Editor(Engine& engine, EditorLaunchOptions options, std::unique_ptr<IEditorGamePreview> game)
+    : core::RuntimeModule("Editor"), m_Engine(engine), m_App(engine.App()), m_LaunchOptions(std::move(options)), m_Game(std::move(game)) {
     m_Clock.Start();
 
-    m_SceneViewPort = static_cast<SceneViewPort*>(AddSubModule(std::make_unique<SceneViewPort>(engine, m_State, m_CommandStack)));
-    m_ImageViewer   = static_cast<ImageViewer*>(AddSubModule(std::make_unique<ImageViewer>(engine)));
-    m_FileDialog.SetPwd(m_App.GetConfig().asset_root_path);
+    if (!m_Game) {
+        m_SceneViewPort = static_cast<SceneViewPort*>(AddSubModule(std::make_unique<SceneViewPort>(engine, m_State, m_CommandStack)));
+        m_ImageViewer = static_cast<ImageViewer*>(AddSubModule(std::make_unique<ImageViewer>(engine)));
+    }
+    m_Engine.GuiManager().LoadApp(m_LaunchOptions.ui_bundle, m_LaunchOptions.ui_assets, {.desktop = true, .raster_density = 2});
+    if (m_Game) m_Game->Reset(false);
+    else NewScene();
     m_AssetBrowserModel.SetRoot(m_App.GetConfig().asset_root_path);
 
-    if (m_LaunchOptions.open_scene) {
+    if (!m_Game && m_LaunchOptions.open_scene) {
         OpenScene(*m_LaunchOptions.open_scene);
     }
     if (m_LaunchOptions.hid_script) {
@@ -421,6 +427,8 @@ Editor::Editor(Engine& engine, EditorLaunchOptions options)
     }
 }
 
+Editor::~Editor() { UnloadAllSubModules(); }
+
 void Editor::Tick() {
     ZoneScopedN("Editor::Tick");
 
@@ -436,63 +444,38 @@ void Editor::Tick() {
         }
     }
 
-    m_Engine.GuiManager().DrawGuiEarly([this]() {
-        ZoneScopedN("Editor Main UI");
-        {
-            ZoneScopedN("Editor Apply Style");
-            ApplyEditorStyle();
-        }
-        auto dockspace_id = ImGuiID{};
-        {
-            ZoneScopedN("Editor Dockspace");
-            dockspace_id = DrawDockSpace();
-        }
-        {
-            ZoneScopedN("Editor Default Layout");
-            PrepareDefaultLayout(dockspace_id);
-        }
-        {
-            ZoneScopedN("Editor Shortcuts");
-            HandleShortcuts();
-        }
-        {
-            ZoneScopedN("Editor Menu Bar");
-            MenuBar();
-        }
-        {
-            ZoneScopedN("Editor Toolbar");
-            Toolbar();
-        }
-        {
-            ZoneScopedN("Editor File Importer");
-            FileImporter();
-        }
-        {
-            ZoneScopedN("Editor Scene Graph");
-            SceneGraphViewer();
-        }
-        {
-            ZoneScopedN("Editor Inspector");
-            SceneNodeModifier();
-        }
-        {
-            ZoneScopedN("Editor Asset Explorer");
-            AssetExplorer();
-        }
-        {
-            ZoneScopedN("Editor Asset Preview");
-            AssetPreview();
-        }
-        {
-            ZoneScopedN("Editor Debug Profiling");
-            DebugProfilingPanel();
-        }
-        m_DefaultLayoutDone = true;
-    });
+    // Consume this frame's resized/dragged UI bounds before rendering native textures.
+    if (m_Game) {
+        const auto& input = m_App.GetInputManager();
+        if (input.GetBoolNew(hid::VirtualKeyCode::MOUSE_L_BUTTON))
+            m_GameFocused = m_Engine.GuiManager().PointerIn(m_GameRect);
+        if (input.GetBoolNew(hid::VirtualKeyCode::KEY_ESCAPE)) m_GameFocused = false;
+        m_Engine.GuiManager().SetKeyboardNavigationEnabled(!m_GameFocused);
+    }
+    m_Engine.GuiManager().PrepareFrame();
+    HandleUiCommands();
+    HandleShortcuts();
+    if (!m_Game) RefreshAssetBrowser();
+    PublishUiState();
 
     {
         ZoneScopedN("Editor Child Modules");
-        core::RuntimeModule::Tick();
+        if (m_Game) {
+            auto& gui = m_Engine.GuiManager();
+            const auto& input = m_App.GetInputManager();
+            if (m_GameFocused && input.GetBoolNew(hid::VirtualKeyCode::KEY_SPACE)) TogglePauseMode();
+            if (m_GameFocused && input.GetBoolNew(hid::VirtualKeyCode::KEY_R) && m_State.GetMode() != EditorMode::Edit) {
+                m_Game->Reset(true);
+                m_State.SetMode(EditorMode::Play);
+            }
+            m_Game->Update(m_Engine.GetDeltaTime().count(), m_GameFocused && m_State.GetMode() != EditorMode::Edit);
+            m_Game->PublishState(gui, m_GameFocused);
+            if (!m_App.WindowsMinimized() && m_GameRect.z > 0 && m_GameRect.w > 0) {
+                const auto physical = gui.DisplayRect(m_GameRect);
+                gui.DrawTexture(m_Game->Render({std::max(1u, static_cast<unsigned>(physical.z)),
+                                                std::max(1u, static_cast<unsigned>(physical.w))}), m_GameRect);
+            }
+        } else core::RuntimeModule::Tick();
     }
 
     if (!m_App.WindowsMinimized()) {
@@ -518,139 +501,6 @@ void Editor::Tick() {
     TickLaunchAutomation();
 
     m_Clock.Tick();
-}
-
-void Editor::ApplyEditorStyle() {
-    if (m_StyleApplied) return;
-    m_StyleApplied = true;
-
-    auto& style             = ImGui::GetStyle();
-    style.WindowRounding    = 4.0f;
-    style.ChildRounding     = 4.0f;
-    style.FrameRounding     = 3.0f;
-    style.PopupRounding     = 4.0f;
-    style.ScrollbarRounding = 4.0f;
-    style.GrabRounding      = 3.0f;
-    style.TabRounding       = 4.0f;
-    style.WindowPadding     = {10.0f, 8.0f};
-    style.FramePadding      = {8.0f, 4.0f};
-    style.ItemSpacing       = {8.0f, 6.0f};
-    style.ItemInnerSpacing  = {6.0f, 4.0f};
-    style.WindowBorderSize  = 1.0f;
-    style.FrameBorderSize   = 0.0f;
-    style.TabBorderSize     = 0.0f;
-
-    auto& colors                       = style.Colors;
-    colors[ImGuiCol_Text]              = ImVec4(0.90f, 0.92f, 0.95f, 1.00f);
-    colors[ImGuiCol_TextDisabled]      = ImVec4(0.48f, 0.52f, 0.58f, 1.00f);
-    colors[ImGuiCol_WindowBg]          = ImVec4(0.09f, 0.10f, 0.12f, 1.00f);
-    colors[ImGuiCol_ChildBg]           = ImVec4(0.07f, 0.08f, 0.09f, 1.00f);
-    colors[ImGuiCol_PopupBg]           = ImVec4(0.10f, 0.11f, 0.13f, 0.98f);
-    colors[ImGuiCol_Border]            = ImVec4(0.20f, 0.23f, 0.27f, 1.00f);
-    colors[ImGuiCol_FrameBg]           = ImVec4(0.14f, 0.16f, 0.19f, 1.00f);
-    colors[ImGuiCol_FrameBgHovered]    = ImVec4(0.20f, 0.23f, 0.28f, 1.00f);
-    colors[ImGuiCol_FrameBgActive]     = ImVec4(0.24f, 0.28f, 0.34f, 1.00f);
-    colors[ImGuiCol_TitleBg]           = ImVec4(0.08f, 0.09f, 0.11f, 1.00f);
-    colors[ImGuiCol_TitleBgActive]     = ImVec4(0.12f, 0.14f, 0.17f, 1.00f);
-    colors[ImGuiCol_MenuBarBg]         = ImVec4(0.08f, 0.09f, 0.11f, 1.00f);
-    colors[ImGuiCol_Button]            = ImVec4(0.15f, 0.18f, 0.22f, 1.00f);
-    colors[ImGuiCol_ButtonHovered]     = ImVec4(0.22f, 0.28f, 0.35f, 1.00f);
-    colors[ImGuiCol_ButtonActive]      = ImVec4(0.16f, 0.41f, 0.72f, 1.00f);
-    colors[ImGuiCol_Header]            = ImVec4(0.16f, 0.22f, 0.30f, 1.00f);
-    colors[ImGuiCol_HeaderHovered]     = ImVec4(0.20f, 0.30f, 0.42f, 1.00f);
-    colors[ImGuiCol_HeaderActive]      = ImVec4(0.18f, 0.42f, 0.72f, 1.00f);
-    colors[ImGuiCol_Tab]               = ImVec4(0.12f, 0.14f, 0.17f, 1.00f);
-    colors[ImGuiCol_TabHovered]        = ImVec4(0.20f, 0.30f, 0.42f, 1.00f);
-    colors[ImGuiCol_TabActive]         = ImVec4(0.16f, 0.20f, 0.25f, 1.00f);
-    colors[ImGuiCol_TableHeaderBg]     = ImVec4(0.12f, 0.14f, 0.17f, 1.00f);
-    colors[ImGuiCol_TableRowBg]        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    colors[ImGuiCol_TableRowBgAlt]     = ImVec4(1.00f, 1.00f, 1.00f, 0.03f);
-    colors[ImGuiCol_Separator]         = ImVec4(0.22f, 0.25f, 0.30f, 1.00f);
-    colors[ImGuiCol_ResizeGrip]        = ImVec4(0.18f, 0.42f, 0.72f, 0.35f);
-    colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.18f, 0.42f, 0.72f, 0.75f);
-    colors[ImGuiCol_ResizeGripActive]  = ImVec4(0.18f, 0.42f, 0.72f, 1.00f);
-    colors[ImGuiCol_DockingPreview]    = ImVec4(0.18f, 0.42f, 0.72f, 0.55f);
-}
-
-auto Editor::DrawDockSpace() -> ImGuiID {
-    const auto viewport  = ImGui::GetMainViewport();
-    const auto work_pos  = viewport->WorkPos;
-    const auto work_size = viewport->WorkSize;
-    const auto top       = work_pos.y + ImGui::GetFrameHeight() + 92.0f;
-    const auto height    = std::max(260.0f, work_size.y - (top - work_pos.y));
-
-    ImGui::SetNextWindowPos({work_pos.x, top}, ImGuiCond_Always);
-    ImGui::SetNextWindowSize({work_size.x, height}, ImGuiCond_Always);
-    ImGui::SetNextWindowViewport(viewport->ID);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0.0f, 0.0f});
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    constexpr auto flags =
-        ImGuiWindowFlags_NoDecoration |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoDocking |
-        ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoNavFocus;
-
-    ImGui::Begin("Editor DockSpace", nullptr, flags);
-    const auto dockspace_id = ImGui::GetID("EditorMainDockSpace");
-    ImGui::DockSpace(dockspace_id, {0.0f, 0.0f}, ImGuiDockNodeFlags_None);
-    ImGui::End();
-    ImGui::PopStyleVar(2);
-    return dockspace_id;
-}
-
-void Editor::PrepareDefaultLayout(ImGuiID dockspace_id) {
-    if (m_DefaultLayoutDone) return;
-    if (HasSavedDockLayout()) return;
-
-    ImGui::DockBuilderRemoveNode(dockspace_id);
-    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->WorkSize);
-
-    auto center_id = dockspace_id;
-    auto left_id   = ImGui::DockBuilderSplitNode(center_id, ImGuiDir_Left, 0.19f, nullptr, &center_id);
-    auto right_id  = ImGui::DockBuilderSplitNode(center_id, ImGuiDir_Right, 0.27f, nullptr, &center_id);
-    auto bottom_id = ImGui::DockBuilderSplitNode(center_id, ImGuiDir_Down, 0.27f, nullptr, &center_id);
-    auto asset_id  = ImGui::DockBuilderSplitNode(left_id, ImGuiDir_Down, 0.33f, nullptr, &left_id);
-
-    ImGui::DockBuilderDockWindow("Hierarchy", left_id);
-    ImGui::DockBuilderDockWindow("Assets", asset_id);
-    ImGui::DockBuilderDockWindow("Viewport", center_id);
-    ImGui::DockBuilderDockWindow("Preview", center_id);
-    ImGui::DockBuilderDockWindow("Console / Stats", bottom_id);
-    ImGui::DockBuilderDockWindow("Inspector", right_id);
-    ImGui::DockBuilderFinish(dockspace_id);
-}
-
-auto Editor::HasSavedDockLayout() const -> bool {
-    const auto ini_filename = ImGui::GetIO().IniFilename;
-    if (ini_filename == nullptr || std::string_view{ini_filename}.empty()) return false;
-
-    std::ifstream input{ini_filename};
-    if (!input) return false;
-
-    auto line                           = std::string{};
-    auto current_window_is_editor_panel = false;
-    while (std::getline(input, line)) {
-        if (line.starts_with("[Docking][Data]")) return true;
-
-        if (line.starts_with("[Window][")) {
-            current_window_is_editor_panel =
-                line.find("[Window][Editor DockSpace]") != std::string::npos ||
-                line.find("[Window][Hierarchy]") != std::string::npos ||
-                line.find("[Window][Assets]") != std::string::npos ||
-                line.find("[Window][Preview]") != std::string::npos ||
-                line.find("[Window][Viewport]") != std::string::npos ||
-                line.find("[Window][Console / Stats]") != std::string::npos ||
-                line.find("[Window][Inspector]") != std::string::npos;
-            continue;
-        }
-
-        if (current_window_is_editor_panel && line.starts_with("DockId=")) return true;
-    }
-
-    return false;
 }
 
 void Editor::OpenScene(const std::filesystem::path& path) {
@@ -692,18 +542,10 @@ void Editor::NewScene() {
 }
 
 void Editor::RequestOpenScene() {
-    m_FileDialogMode = EditorFileDialogMode::OpenScene;
-    m_FileDialog.SetTitle("Open Scene");
-    m_FileDialog.SetTypeFilters({".usd", ".usda", ".usdc", ".usdz", ".hcscene", ".hitagiscene"});
-    m_FileDialog.Open();
+    Notify("Select a scene in Assets and choose Open, or launch with --open-scene <path>.");
 }
 
-void Editor::RequestImportScene() {
-    m_FileDialogMode = EditorFileDialogMode::ImportScene;
-    m_FileDialog.SetTitle("Import Scene");
-    m_FileDialog.SetTypeFilters({".usd", ".usda", ".usdc", ".usdz", ".hcscene", ".hitagiscene"});
-    m_FileDialog.Open();
-}
+void Editor::RequestImportScene() { RequestOpenScene(); }
 
 void Editor::RequestSaveSceneAs() {
     if (!m_State.GetCurrentScene()) return;
@@ -730,6 +572,13 @@ void Editor::ActivateScene(std::shared_ptr<asset::Scene> scene) {
 }
 
 void Editor::EnterPlayMode() {
+    if (m_Game) {
+        if (m_State.GetMode() != EditorMode::Edit) return;
+        m_Game->Reset(true);
+        m_State.SetMode(EditorMode::Play);
+        Notify("Game started. Click the Game viewport to control it.");
+        return;
+    }
     if (m_State.GetMode() != EditorMode::Edit || !m_State.GetCurrentScene()) return;
 
     m_EditScene               = m_State.GetCurrentScene();
@@ -741,6 +590,13 @@ void Editor::EnterPlayMode() {
 }
 
 void Editor::ExitPlayMode() {
+    if (m_Game) {
+        m_Game->Reset(false);
+        m_GameFocused = false;
+        m_State.SetMode(EditorMode::Edit);
+        Notify("Stopped. Edit configuration restored.");
+        return;
+    }
     if (m_State.GetMode() == EditorMode::Edit) return;
 
     ActivateScene(m_EditScene);
@@ -753,6 +609,7 @@ void Editor::ExitPlayMode() {
 }
 
 void Editor::TogglePauseMode() {
+    if (m_Game && m_State.GetMode() != EditorMode::Edit) m_Game->Pause(m_State.GetMode() == EditorMode::Play);
     if (m_State.GetMode() == EditorMode::Play) {
         m_State.SetMode(EditorMode::Pause);
         Notify("Play mode paused.");
@@ -763,6 +620,13 @@ void Editor::TogglePauseMode() {
 }
 
 void Editor::StepPlayMode() {
+    if (m_Game) {
+        if (m_State.GetMode() == EditorMode::Edit) return;
+        m_Game->Step();
+        m_State.SetMode(EditorMode::Pause);
+        Notify("Advanced one game logic step.");
+        return;
+    }
     if (m_State.GetMode() == EditorMode::Edit || !m_State.GetCurrentScene()) return;
     m_State.SetMode(EditorMode::Pause);
     m_RuntimeStepRequested = true;
@@ -953,37 +817,45 @@ void Editor::TickLaunchAutomation() {
 }
 
 void Editor::HandleShortcuts() {
-    const auto& io = ImGui::GetIO();
-    if (io.WantTextInput) return;
+    if (m_Engine.GuiManager().WantsTextInput()) return;
+    const auto& input = m_App.GetInputManager();
+    using Key = hid::VirtualKeyCode;
+    if (m_Game) {
+        if (input.GetBoolNew(Key::KEY_F5)) {
+            if (m_State.GetMode() == EditorMode::Edit) EnterPlayMode(); else ExitPlayMode();
+        }
+        if (input.GetBoolNew(Key::KEY_F6)) TogglePauseMode();
+        if (input.GetBoolNew(Key::KEY_F10)) StepPlayMode();
+        return;
+    }
+    const auto ctrl = input.GetBool(Key::KEY_CTRL) || input.GetBool(Key::KEY_L_CTRL) || input.GetBool(Key::KEY_R_CTRL);
+    const auto shift = input.GetBool(Key::KEY_SHIFT) || input.GetBool(Key::KEY_L_SHIFT) || input.GetBool(Key::KEY_R_SHIFT);
 
-    const auto ctrl  = io.KeyCtrl;
-    const auto shift = io.KeyShift;
-
-    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_N)) NewScene();
-    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_O)) RequestOpenScene();
-    if (ctrl && shift && ImGui::IsKeyPressed(ImGuiKey_S))
+    if (ctrl && input.GetBoolNew(Key::KEY_N)) NewScene();
+    if (ctrl && input.GetBoolNew(Key::KEY_O)) RequestOpenScene();
+    if (ctrl && shift && input.GetBoolNew(Key::KEY_S))
         RequestSaveSceneAs();
-    else if (ctrl && ImGui::IsKeyPressed(ImGuiKey_S))
+    else if (ctrl && input.GetBoolNew(Key::KEY_S))
         SaveCurrentScene();
-    if (ctrl && !shift && ImGui::IsKeyPressed(ImGuiKey_Z)) Undo();
-    if ((ctrl && ImGui::IsKeyPressed(ImGuiKey_Y)) || (ctrl && shift && ImGui::IsKeyPressed(ImGuiKey_Z))) Redo();
-    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_D)) DuplicateSelectedEntity();
-    if (ImGui::IsKeyPressed(ImGuiKey_Delete)) DeleteSelectedEntity();
-    if (ImGui::IsKeyPressed(ImGuiKey_F5)) {
+    if (ctrl && !shift && input.GetBoolNew(Key::KEY_Z)) Undo();
+    if ((ctrl && input.GetBoolNew(Key::KEY_Y)) || (ctrl && shift && input.GetBoolNew(Key::KEY_Z))) Redo();
+    if (ctrl && input.GetBoolNew(Key::KEY_D)) DuplicateSelectedEntity();
+    if (input.GetBoolNew(Key::KEY_DELETE)) DeleteSelectedEntity();
+    if (input.GetBoolNew(Key::KEY_F5)) {
         if (m_State.GetMode() == EditorMode::Edit)
             EnterPlayMode();
         else
             ExitPlayMode();
     }
-    if (ImGui::IsKeyPressed(ImGuiKey_F6)) TogglePauseMode();
-    if (ImGui::IsKeyPressed(ImGuiKey_F10)) StepPlayMode();
-    if (ImGui::IsKeyPressed(ImGuiKey_Q)) m_State.SetActiveTool(EditorTool::Select);
-    if (ImGui::IsKeyPressed(ImGuiKey_W)) m_State.SetActiveTool(EditorTool::Translate);
-    if (ImGui::IsKeyPressed(ImGuiKey_E)) m_State.SetActiveTool(EditorTool::Rotate);
-    if (ImGui::IsKeyPressed(ImGuiKey_R)) m_State.SetActiveTool(EditorTool::Scale);
-    if (ImGui::IsKeyPressed(ImGuiKey_L)) m_State.SetCoordinateSpace(EditorCoordinateSpace::Local);
-    if (ImGui::IsKeyPressed(ImGuiKey_G)) m_State.SetCoordinateSpace(EditorCoordinateSpace::World);
-    if (ImGui::IsKeyPressed(ImGuiKey_F) && m_State.GetSelectedEntity()) {
+    if (input.GetBoolNew(Key::KEY_F6)) TogglePauseMode();
+    if (input.GetBoolNew(Key::KEY_F10)) StepPlayMode();
+    if (input.GetBoolNew(Key::KEY_Q)) m_State.SetActiveTool(EditorTool::Select);
+    if (input.GetBoolNew(Key::KEY_W)) m_State.SetActiveTool(EditorTool::Translate);
+    if (input.GetBoolNew(Key::KEY_E)) m_State.SetActiveTool(EditorTool::Rotate);
+    if (input.GetBoolNew(Key::KEY_R)) m_State.SetActiveTool(EditorTool::Scale);
+    if (input.GetBoolNew(Key::KEY_L)) m_State.SetCoordinateSpace(EditorCoordinateSpace::Local);
+    if (input.GetBoolNew(Key::KEY_G)) m_State.SetCoordinateSpace(EditorCoordinateSpace::World);
+    if (input.GetBoolNew(Key::KEY_F) && m_State.GetSelectedEntity()) {
         if (m_SceneViewPort) m_SceneViewPort->FocusSelectedEntity();
         Notify("Focused selected entity.");
     }

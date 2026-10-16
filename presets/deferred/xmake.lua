@@ -1,5 +1,5 @@
 target("hitagi_preset_deferred")
-    set_default(false)
+    set_default(true)
     set_kind("static")
     add_files("*.cppm", "*.cpp", {public = true})
     add_deps("engine")

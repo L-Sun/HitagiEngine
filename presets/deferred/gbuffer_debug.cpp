@@ -75,8 +75,7 @@ void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
                                                                            .name        = "deferred-debug-view-vs",
                                                                            .type        = gfx::ShaderType::Vertex,
                                                                            .entry       = "VSMain",
-                                                                           .source_code = m_Shader.code,
-                                                                           .path        = m_Shader.path,
+                                                                           .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                        });
     }
 
@@ -85,8 +84,7 @@ void passes::GBufferDebugView::EnsureResources(gfx::Format target_format) {
                                                                            .name        = std::pmr::string(name),
                                                                            .type        = gfx::ShaderType::Pixel,
                                                                            .entry       = std::pmr::string(entry),
-                                                                           .source_code = m_Shader.code,
-                                                                           .path        = m_Shader.path,
+                                                                           .program = {.modules = {{.source_code = m_Shader.code, .path = m_Shader.path}}},
                                                                        });
     };
     auto make_pipeline = [&](std::string_view name, const std::shared_ptr<gfx::Shader>& pixel_shader) {
