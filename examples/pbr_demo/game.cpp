@@ -4,7 +4,7 @@ import engine;
 import pbr_demo_game;
 import std;
 
-namespace {
+namespace game::pbr_demo {
 
 struct PbrDemoGameOptions {
     std::filesystem::path        cooked_scene = game::pbr_demo::DefaultCookedScenePath();
@@ -24,14 +24,13 @@ auto ParsePbrDemoGameOptions(int argc, char** argv) -> PbrDemoGameOptions {
     return options;
 }
 
-}  // namespace
-
+}  // namespace game::pbr_demo
 auto main(int argc, char** argv) -> int {
 #ifdef HITAGI_DEBUG
     spdlog::set_level(spdlog::level::debug);
 #endif
 
-    const auto options = ParsePbrDemoGameOptions(argc, argv);
+    const auto options = game::pbr_demo::ParsePbrDemoGameOptions(argc, argv);
 
     hitagi::Engine engine(hitagi::AppConfig{
         .title       = "Hitagi PBR Demo",

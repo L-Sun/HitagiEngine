@@ -1,5 +1,6 @@
 export module gui:draw_data;
 import std;
+import core;
 import gfx;
 import math;
 
@@ -37,10 +38,10 @@ struct GuiDrawList {
 };
 
 struct GuiTextureData {
-    std::uint64_t          id    = 0;
-    std::uint32_t          width = 0, height = 0;
-    bool                   linear = true;
-    std::vector<std::byte> pixels;  // Owned RGBA8; resources are immutable once published.
+    std::uint64_t id    = 0;
+    std::uint32_t width = 0, height = 0;
+    bool          linear = true;
+    core::Buffer  pixels;  // Owned RGBA8; resources are immutable once published.
 };
 
 struct GuiDrawData {

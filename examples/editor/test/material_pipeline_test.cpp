@@ -37,7 +37,7 @@ TEST(PbrMaterialCompilerTest, RequiresMatchingContractDefaults) {
     EXPECT_FLOAT_EQ(std::get<float>(result.pass.bindings[0].default_value), 0.5f);
 }
 
-namespace {
+namespace hitagi::material_pipeline_tests {
 
 bool HasGraphError(const MaterialGraphValidationResult& result, MaterialGraphValidationErrorCode code) {
     return std::any_of(result.errors.begin(), result.errors.end(), [code](const auto& error) {
@@ -58,8 +58,9 @@ protected:
     core::JobSystem     job_system;
 };
 
-}  // namespace
+}  // namespace hitagi::material_pipeline_tests
 
+using namespace hitagi::material_pipeline_tests;
 TEST_F(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPasses) {
     const std::filesystem::path base_texture_path{"assets/test/test.png"};
     const auto                  base_texture = std::make_shared<Texture>(base_texture_path, MakeFileImageLoader(file_io, base_texture_path), "base");

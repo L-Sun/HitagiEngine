@@ -1,3 +1,3 @@
 import { mount } from "@pocketjs/framework/solid";
-import { EditorShell } from "../../../hitagi/editor/ui/editor-shell";
+import { EditorShell } from "./editor-shell";
 mount(() => <EditorShell />);

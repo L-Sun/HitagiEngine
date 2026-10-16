@@ -1,19 +1,35 @@
 module;
 #include "pocket_apple.h"
-#include "pocket_hitagi.h"
+#include "pocket.h"
 #include "pocket_spec.h"
 
 export module interop.pocketjs;
 
-export namespace hitagi::interop {
-inline constexpr auto pocket_button_up    = POCKET_BTN_UP;
-inline constexpr auto pocket_button_right = POCKET_BTN_RIGHT;
-inline constexpr auto pocket_button_down  = POCKET_BTN_DOWN;
-inline constexpr auto pocket_button_left  = POCKET_BTN_LEFT;
-// PocketJS's portable focus controller activates with CIRCLE.
-inline constexpr auto pocket_button_confirm = POCKET_BTN_CIRCLE;
-inline constexpr auto pocket_button_cancel  = POCKET_BTN_CROSS;
-}  // namespace hitagi::interop
+export namespace hitagi::interop::pocketjs {
+enum class Button : uint32_t {
+    None   = 0,
+    Up     = POCKET_BTN_UP,
+    Right  = POCKET_BTN_RIGHT,
+    Down   = POCKET_BTN_DOWN,
+    Left   = POCKET_BTN_LEFT,
+    Circle = POCKET_BTN_CIRCLE,
+    Cross  = POCKET_BTN_CROSS,
+};
+
+using ::pocket::bytes_per_word;
+using ::pocket::BytesPerPixel;
+using ::pocket::CommandWordCount;
+using ::pocket::DrawOp;
+using ::pocket::FixedWordCount;
+using ::pocket::glyph_words;
+using ::pocket::GradientDirection;
+using ::pocket::max_viewport_dimension;
+using ::pocket::palette_entries;
+using ::pocket::PixelFormat;
+using ::pocket::resource_present;
+using ::pocket::resource_vacant;
+using ::pocket::rgba_bytes_per_pixel;
+}  // namespace hitagi::interop::pocketjs
 
 // Upstream names are retained to preserve the C ABI and error semantics.
 export {
@@ -30,14 +46,14 @@ export {
     using ::pocket_apple_set_effect_callback;
     using ::pocket_apple_set_identity;
     using ::pocket_apple_set_svc_allowlist;
-    using ::pocket_hitagi_resize;
-    using ::pocket_hitagi_create_gpu;
-    using ::pocket_hitagi_draw;
-    using ::pocket_hitagi_texture;
-    using ::pocket_hitagi_font;
-    using ::PocketHitagiDrawList;
-    using ::PocketHitagiTexture;
-    using ::PocketHitagiFont;
+    using ::pocket_create_gpu;
+    using ::pocket_draw;
+    using ::pocket_font;
+    using ::pocket_resize;
+    using ::pocket_texture;
     using ::PocketApple;
     using ::PocketAppleFrame;
+    using ::PocketDrawList;
+    using ::PocketFont;
+    using ::PocketTexture;
 }

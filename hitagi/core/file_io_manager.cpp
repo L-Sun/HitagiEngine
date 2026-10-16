@@ -46,7 +46,7 @@ bool FileIOManager::IsFileChanged(const std::filesystem::path& file_path) const 
 
 auto FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& file_path) -> const Buffer& {
     if (!std::filesystem::exists(file_path)) {
-        m_Logger->warn("File dose not exist. {}", file_path.string());
+        m_Logger->warn("File does not exist. {}", file_path.string());
         return m_EmptyBuffer;
     }
     if (!IsFileChanged(file_path)) {
@@ -54,11 +54,22 @@ auto FileIOManager::SyncOpenAndReadBinary(const std::filesystem::path& file_path
         return m_FileCache.at(std::filesystem::hash_value(file_path));
     }
     auto file_size = std::filesystem::file_size(file_path);
+    if (file_size > static_cast<std::uintmax_t>(std::numeric_limits<std::streamsize>::max()) ||
+        file_size > std::numeric_limits<std::size_t>::max()) {
+        m_Logger->error("File is too large to read. {}", file_path.string());
+        return m_EmptyBuffer;
+    }
     m_Logger->trace("Open file: {} ({} bytes)", file_path.string(), file_size);
-    Buffer        buffer(file_size);
     std::ifstream ifs(file_path, std::ios::binary);
-    ifs.read(reinterpret_cast<char*>(buffer.GetData()), buffer.GetDataSize());
-    ifs.close();
+    if (!ifs) {
+        m_Logger->error("Cannot open file. {}", file_path.string());
+        return m_EmptyBuffer;
+    }
+    Buffer buffer(static_cast<std::size_t>(file_size));
+    if (file_size != 0 && !ifs.read(reinterpret_cast<char*>(buffer.GetData()), static_cast<std::streamsize>(file_size))) {
+        m_Logger->error("Cannot read complete file. {}", file_path.string());
+        return m_EmptyBuffer;
+    }
 
     // store cache
     return CacheFile(file_path, std::move(buffer));

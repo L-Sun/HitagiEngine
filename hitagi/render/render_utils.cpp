@@ -226,7 +226,7 @@ void GuiRenderUtils::GuiPass(rg::RenderGraph& render_graph, rg::TextureHandle ta
         auto& texture = m_Textures[source->id];
         if (!texture) texture = gfx::Texture::Create(render_graph.GetDevice(), render_graph.GetQueues(), render_graph.GetBindings(),
             {.name = std::pmr::string(std::format("gui-resource-{}", source->id)), .width = source->width, .height = source->height,
-             .format = gfx::Format::R8G8B8A8_UNORM, .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst}, source->pixels);
+             .format = gfx::Format::R8G8B8A8_UNORM, .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst}, source->pixels.Span<std::byte>());
         resources.emplace(source->id, render_graph.Import(texture, std::format("gui-resource-{}", source->id)));
         if (!source->linear) nearest.insert(source->id);
     }

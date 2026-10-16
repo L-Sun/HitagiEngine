@@ -59,7 +59,7 @@ auto ImportEditorScene(
 }  // namespace hitagi
 
 namespace hitagi {
-namespace {
+namespace usd_import {
 
 struct ExpandedMeshTopology {
     std::vector<std::uint32_t> point_indices;
@@ -70,7 +70,7 @@ struct ExpandedMeshTopology {
 using TextureCache  = std::pmr::unordered_map<std::string, std::shared_ptr<Texture>>;
 using MaterialCache = std::pmr::unordered_map<std::string, EditorMaterial>;
 
-auto ToMat4f(const pxr::GfMatrix4d& matrix) noexcept -> mat4f {
+static auto ToMat4f(const pxr::GfMatrix4d& matrix) noexcept -> mat4f {
     mat4f result{};
     for (std::size_t row = 0; row < 4; ++row) {
         for (std::size_t col = 0; col < 4; ++col) {
@@ -80,23 +80,23 @@ auto ToMat4f(const pxr::GfMatrix4d& matrix) noexcept -> mat4f {
     return result;
 }
 
-auto ToVec2f(const pxr::GfVec2f& value) noexcept -> vec2f {
+static auto ToVec2f(const pxr::GfVec2f& value) noexcept -> vec2f {
     return {value[0], value[1]};
 }
 
-auto ToVec3f(const pxr::GfVec3f& value) noexcept -> vec3f {
+static auto ToVec3f(const pxr::GfVec3f& value) noexcept -> vec3f {
     return {value[0], value[1], value[2]};
 }
 
-auto ToVec4f(const pxr::GfVec4f& value) noexcept -> vec4f {
+static auto ToVec4f(const pxr::GfVec4f& value) noexcept -> vec4f {
     return {value[0], value[1], value[2], value[3]};
 }
 
-auto ToColor(const pxr::GfVec3f& value, float alpha = 1.0f) noexcept -> Color {
+static auto ToColor(const pxr::GfVec3f& value, float alpha = 1.0f) noexcept -> Color {
     return {value[0], value[1], value[2], alpha};
 }
 
-auto GetLocalTransform(const pxr::UsdPrim& prim) -> mat4f {
+static auto GetLocalTransform(const pxr::UsdPrim& prim) -> mat4f {
     pxr::GfMatrix4d transform(1.0);
     bool            resets_xform_stack = false;
 
@@ -108,7 +108,7 @@ auto GetLocalTransform(const pxr::UsdPrim& prim) -> mat4f {
     return ToMat4f(transform);
 }
 
-auto BuildExpandedTopology(
+static auto BuildExpandedTopology(
     const pxr::VtArray<int>& face_vertex_counts,
     const pxr::VtArray<int>& face_vertex_indices) -> ExpandedMeshTopology {
     ExpandedMeshTopology topology;
@@ -145,7 +145,7 @@ auto BuildExpandedTopology(
     return topology;
 }
 
-auto SelectValueIndex(
+static auto SelectValueIndex(
     const pxr::TfToken&         interpolation,
     const ExpandedMeshTopology& topology,
     std::size_t                 expanded_index,
@@ -165,7 +165,7 @@ auto SelectValueIndex(
     return std::min(index, value_count - 1);
 }
 
-auto ComputeFaceNormals(const std::vector<vec3f>& positions) -> std::vector<vec3f> {
+static auto ComputeFaceNormals(const std::vector<vec3f>& positions) -> std::vector<vec3f> {
     std::vector<vec3f> normals(positions.size(), vec3f{0.0f, 0.0f, 1.0f});
 
     for (std::size_t i = 0; i + 2 < positions.size(); i += 3) {
@@ -179,7 +179,7 @@ auto ComputeFaceNormals(const std::vector<vec3f>& positions) -> std::vector<vec3
     return normals;
 }
 
-auto DecodeUsdTexture(
+static auto DecodeUsdTexture(
     const pxr::SdfAssetPath&               asset_path,
     TextureCache&                          texture_cache,
     const std::shared_ptr<spdlog::logger>& logger) -> std::shared_ptr<Texture> {
@@ -230,7 +230,7 @@ auto DecodeUsdTexture(
     return texture;
 }
 
-auto GetConnectedShader(
+static auto GetConnectedShader(
     const pxr::UsdShadeShader& shader,
     const pxr::TfToken&        input_name) -> std::optional<pxr::UsdShadeShader> {
     const auto input = shader.GetInput(input_name);
@@ -246,7 +246,7 @@ auto GetConnectedShader(
     return source_shader;
 }
 
-bool InputHasConnection(const pxr::UsdShadeShader& shader, const pxr::TfToken& input_name) {
+static bool InputHasConnection(const pxr::UsdShadeShader& shader, const pxr::TfToken& input_name) {
     const auto input = shader.GetInput(input_name);
     if (!input) return false;
 
@@ -256,7 +256,7 @@ bool InputHasConnection(const pxr::UsdShadeShader& shader, const pxr::TfToken& i
     return input.GetConnectedSource(&source, &source_name, &source_type);
 }
 
-auto LoadConnectedTexture(
+static auto LoadConnectedTexture(
     const pxr::UsdShadeShader&             shader,
     const pxr::TfToken&                    input_name,
     TextureCache&                          texture_cache,
@@ -276,11 +276,11 @@ auto LoadConnectedTexture(
     return DecodeUsdTexture(texture_path, texture_cache, logger);
 }
 
-void AppendTextureSource(MaterialSourceInfo& source_info, const std::shared_ptr<Texture>& texture) {
+static void AppendTextureSource(MaterialSourceInfo& source_info, const std::shared_ptr<Texture>& texture) {
     if (texture && !texture->GetPath().empty()) source_info.source_texture_paths.emplace_back(texture->GetPath());
 }
 
-void AppendUnsupportedConnection(
+static void AppendUnsupportedConnection(
     MaterialSourceInfo&        source_info,
     const pxr::UsdShadeShader& shader,
     const pxr::TfToken&        input_name) {
@@ -292,7 +292,7 @@ void AppendUnsupportedConnection(
     }
 }
 
-auto ReadShaderInputValue(const pxr::UsdShadeInput& input) -> std::optional<MaterialParameterValue> {
+static auto ReadShaderInputValue(const pxr::UsdShadeInput& input) -> std::optional<MaterialParameterValue> {
     if (float value; input.Get(&value, pxr::UsdTimeCode::Default())) return value;
     if (std::int32_t value; input.Get(&value, pxr::UsdTimeCode::Default())) return value;
     if (std::uint32_t value; input.Get(&value, pxr::UsdTimeCode::Default())) return value;
@@ -304,7 +304,7 @@ auto ReadShaderInputValue(const pxr::UsdShadeInput& input) -> std::optional<Mate
     return std::nullopt;
 }
 
-auto BuildMaterialFromUsd(
+static auto BuildMaterialFromUsd(
     const pxr::UsdShadeMaterial&           usd_material,
     const std::filesystem::path&           source_asset,
     TextureCache&                          texture_cache,
@@ -359,7 +359,7 @@ auto BuildMaterialFromUsd(
     };
 }
 
-auto BuildMesh(
+static auto BuildMesh(
     const pxr::UsdGeomMesh&                    usd_mesh,
     MaterialCache&                             material_cache,
     TextureCache&                              texture_cache,
@@ -479,7 +479,7 @@ auto BuildMesh(
     return mesh;
 }
 
-auto BuildCamera(const pxr::UsdGeomCamera& usd_camera) -> std::shared_ptr<Camera> {
+static auto BuildCamera(const pxr::UsdGeomCamera& usd_camera) -> std::shared_ptr<Camera> {
     auto gf_camera = usd_camera.GetCamera(pxr::UsdTimeCode::Default());
     auto clipping  = gf_camera.GetClippingRange();
 
@@ -496,7 +496,7 @@ auto BuildCamera(const pxr::UsdGeomCamera& usd_camera) -> std::shared_ptr<Camera
         usd_camera.GetPrim().GetName().GetString());
 }
 
-auto BuildLight(const pxr::UsdPrim& prim, const mat4f& local_transform) -> std::shared_ptr<Light> {
+static auto BuildLight(const pxr::UsdPrim& prim, const mat4f& local_transform) -> std::shared_ptr<Light> {
     const pxr::UsdLuxLightAPI light_api(prim);
 
     Light::Parameters parameters;
@@ -522,12 +522,15 @@ auto BuildLight(const pxr::UsdPrim& prim, const mat4f& local_transform) -> std::
     return std::make_shared<Light>(parameters, prim.GetName().GetString());
 }
 
-bool IsUsdLight(const pxr::UsdPrim& prim) {
+static bool IsUsdLight(const pxr::UsdPrim& prim) {
     return prim.IsA<pxr::UsdLuxBoundableLightBase>() ||
            prim.IsA<pxr::UsdLuxNonboundableLightBase>();
 }
 
-}  // namespace
+
+}  // namespace usd_import
+
+using namespace usd_import;
 
 auto GetEditorSceneFormat(std::string_view extension) noexcept -> EditorSceneFormat {
     if (!extension.empty() && extension.front() != '.') {

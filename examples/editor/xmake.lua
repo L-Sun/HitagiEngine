@@ -1,12 +1,10 @@
 target("editor")
-    add_deps("pocketjs-editor-ui")
     add_files("main.cpp")
     add_deps("hitagi_editor", "hitagi_preset_deferred")
     set_rundir("$(projectdir)")
     set_default(true)
 
 target("editor_tests")
-    add_deps("pocketjs-editor-ui")
     set_default(true)
     set_group("test")
     add_files("test/*.cpp")

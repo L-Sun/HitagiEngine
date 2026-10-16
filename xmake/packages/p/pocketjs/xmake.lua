@@ -12,9 +12,9 @@ package("pocketjs")
         import("lib.detect.find_tool")
         local cargo = assert(find_tool("cargo"), "PocketJS requires Cargo/Rust on PATH")
         local bun = assert(find_tool("bun"), "PocketJS UI compilation requires Bun on PATH")
-        os.cp(path.join(package:scriptdir(), "hitagi_desktop.rs"), "engine/ios/src/hitagi_desktop.rs")
-        os.cp(path.join(package:scriptdir(), "hitagi_gpu.rs"), "engine/ios/src/hitagi_gpu.rs")
-        io.replace("engine/ios/src/lib.rs", "pub mod core_host;", "pub mod core_host;\nmod hitagi_desktop;\nmod hitagi_gpu;", {plain = true})
+        os.cp(path.join(package:scriptdir(), "pocket_desktop.rs"), "engine/ios/src/pocket_desktop.rs")
+        os.cp(path.join(package:scriptdir(), "pocket_gpu.rs"), "engine/ios/src/pocket_gpu.rs")
+        io.replace("engine/ios/src/lib.rs", "pub mod core_host;", "pub mod core_host;\nmod pocket_desktop;\nmod pocket_gpu;", {plain = true})
         local profile = package:is_debug() and "dev" or "release"
         os.vrunv(cargo.program, {"build", "--manifest-path", "engine/Cargo.toml",
             "-p", "pocket-apple", "--profile", profile, "--locked", "-j", "1",
@@ -23,7 +23,7 @@ package("pocketjs")
         os.cp(path.join("engine/target/x86_64-pc-windows-msvc", output, "pocket_apple.lib"), package:installdir("lib"))
         os.cp("engine/ios/include/*.h", package:installdir("include"))
         os.cp("contracts/generated/*.h", package:installdir("include"))
-        os.cp(path.join(package:scriptdir(), "pocket_hitagi.h"), package:installdir("include"))
+        os.cp(path.join(package:scriptdir(), "pocket.h"), package:installdir("include"))
 
         -- Install the compiler alongside the runtime, but keep application builds
         -- and their mutable caches in the consuming project's @pocketjs/ui rule.
@@ -47,13 +47,14 @@ package("pocketjs")
     on_test(function (package)
         assert(package:check_cxxsnippets({test = [[
             void test() {
-                auto runtime = pocket_hitagi_create_gpu(1, 960, 540);
-                pocket_hitagi_resize(runtime, 1200, 800);
-                PocketHitagiDrawList draw{};
-                pocket_hitagi_draw(runtime, &draw);
+                static_assert(pocket::FixedWordCount(pocket::DrawOp::Rect) == 4);
+                auto runtime = pocket_create_gpu(1, 960, 540);
+                pocket_resize(runtime, 1200, 800);
+                PocketDrawList draw{};
+                pocket_draw(runtime, &draw);
                 pocket_apple_destroy(runtime);
             }
-        ]]}, {includes = "pocket_hitagi.h"}))
+        ]]}, {includes = "pocket.h", configs = {languages = "c++17"}}))
         assert(os.isfile(package:installdir("share/pocketjs/tools/build.ts")))
         assert(os.isfile(package:installdir("share/pocketjs/node_modules/solid-js/package.json")))
     end)

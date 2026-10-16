@@ -7,7 +7,7 @@ import engine;
 
 using namespace hitagi;
 
-namespace {
+namespace hitagi::editor_tests {
 
 auto ResolvePassTextures(const asset::Material& material, const asset::MaterialPass& pass) -> std::pmr::vector<std::shared_ptr<asset::Texture>> {
     std::pmr::vector<std::shared_ptr<asset::Texture>> textures;
@@ -27,8 +27,9 @@ protected:
     core::JobSystem     job_system;
 };
 
-}  // namespace
+}  // namespace hitagi::editor_tests
 
+using namespace hitagi::editor_tests;
 int main(int argc, char** argv) {
     spdlog::set_level(spdlog::level::trace);
 
@@ -348,7 +349,7 @@ TEST_F(EditorTest, EditorStateTracksPlayPauseModes) {
     EXPECT_FLOAT_EQ(state.GetScaleSnap(), 0.25f);
 }
 
-namespace {
+namespace hitagi::editor_tests {
 auto CreateEditorPickingTriangle() -> std::shared_ptr<asset::Mesh> {
     auto vertices = std::make_shared<asset::VertexArray>(3, "picking-triangle");
     vertices->Modify<asset::VertexAttribute::Position>([](std::span<math::vec3f> positions) {
@@ -371,8 +372,7 @@ auto CreateEditorPickingTriangle() -> std::shared_ptr<asset::Mesh> {
     });
     return mesh;
 }
-}  // namespace
-
+}  // namespace hitagi::editor_tests
 TEST_F(EditorTest, ViewportPickingHitsNearestEntityMesh) {
     auto scene       = std::make_shared<asset::Scene>("picking");
     auto near_entity = scene->CreateMeshEntity(asset::MeshFactory::Cube(), math::translate(math::vec3f{0.0f, 5.0f, 0.0f}), scene->GetRootEntity(), "near");

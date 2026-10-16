@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { TextEdit, TextInputHost, type TextEvent } from "./text-edit";
+import { TextEdit, TextInputHost, type TextEvent } from "../ui/text-edit";
 const event = (event: TextEvent["event"], data: Partial<TextEvent> = {}): TextEvent => ({ kind: "text", session: 1, event, ...data });
 
 test("composition updates replace preedit without changing the draft", () => {

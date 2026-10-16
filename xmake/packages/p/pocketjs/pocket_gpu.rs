@@ -1,15 +1,15 @@
-//! Borrowed DrawList/resource views for Hitagi's renderer. No raster invocation.
+//! Borrowed DrawList/resource views for native GPU renderers. No raster invocation.
 use super::*;
 
 #[repr(C)]
-pub struct PocketHitagiDrawList {
+pub struct PocketDrawList {
     words: *const u32,
     word_count: usize,
     texture_slots: u32,
     font_slots: u32,
 }
 #[repr(C)]
-pub struct PocketHitagiTexture {
+pub struct PocketTexture {
     pixels: *const u8,
     byte_count: usize,
     palette: *const u8,
@@ -22,7 +22,7 @@ pub struct PocketHitagiTexture {
     linear: u32,
 }
 #[repr(C)]
-pub struct PocketHitagiFont {
+pub struct PocketFont {
     coverage: *const u8,
     byte_count: usize,
     revision: u64,
@@ -34,7 +34,7 @@ pub struct PocketHitagiFont {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn pocket_hitagi_create_gpu(
+pub extern "C" fn pocket_create_gpu(
     density: u32,
     width: u32,
     height: u32,
@@ -73,9 +73,9 @@ pub extern "C" fn pocket_hitagi_create_gpu(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn pocket_hitagi_draw(
+pub extern "C" fn pocket_draw(
     handle: *mut PocketApple,
-    out: *mut PocketHitagiDrawList,
+    out: *mut PocketDrawList,
 ) -> i32 {
     with_handle(handle, ERR_PANIC, |state| {
         if out.is_null() || !state.mounted {
@@ -88,7 +88,7 @@ pub extern "C" fn pocket_hitagi_draw(
                 (list.words.as_ptr(), list.words.len())
             };
             unsafe {
-                *out = PocketHitagiDrawList {
+                *out = PocketDrawList {
                     words,
                     word_count,
                     texture_slots: ui.texture_slot_count() as u32,
@@ -101,10 +101,10 @@ pub extern "C" fn pocket_hitagi_draw(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn pocket_hitagi_texture(
+pub extern "C" fn pocket_texture(
     handle: *mut PocketApple,
     slot: u32,
-    out: *mut PocketHitagiTexture,
+    out: *mut PocketTexture,
 ) -> i32 {
     with_handle(handle, ERR_PANIC, |state| {
         if out.is_null() {
@@ -119,7 +119,7 @@ pub extern "C" fn pocket_hitagi_texture(
             };
             let palette = view.palette.unwrap_or(&[]);
             unsafe {
-                *out = PocketHitagiTexture {
+                *out = PocketTexture {
                     pixels: view.pixels.as_ptr(),
                     byte_count: view.pixels.len(),
                     palette: palette.as_ptr(),
@@ -138,10 +138,10 @@ pub extern "C" fn pocket_hitagi_texture(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn pocket_hitagi_font(
+pub extern "C" fn pocket_font(
     handle: *mut PocketApple,
     slot: u32,
-    out: *mut PocketHitagiFont,
+    out: *mut PocketFont,
 ) -> i32 {
     with_handle(handle, ERR_PANIC, |state| {
         if out.is_null() || slot as usize >= spec::MAX_FONT_SLOTS {
@@ -152,7 +152,7 @@ pub extern "C" fn pocket_hitagi_font(
                 return 1;
             };
             unsafe {
-                *out = PocketHitagiFont {
+                *out = PocketFont {
                     coverage: atlas.bitmap.as_ptr(),
                     byte_count: atlas.bitmap.len(),
                     revision: ui.font_atlas_revision(slot as u8),

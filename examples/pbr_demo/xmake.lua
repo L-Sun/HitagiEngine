@@ -11,7 +11,6 @@ target("pbr-demo-game")
     set_rundir("$(projectdir)")
 
 target("pbr-demo-game-editor")
-    add_deps("pocketjs-editor-ui")
     set_default(true)
     add_files("editor.cpp")
     add_deps("pbr-demo-game-lib", "hitagi_editor", "hitagi_preset_pbr_authoring")

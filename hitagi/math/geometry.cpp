@@ -6,6 +6,12 @@ import :matrix;
 
 export namespace hitagi::math {
 
+// rect is {x, y, width, height}; left/top are included, right/bottom are excluded.
+constexpr bool contains(const vec4f& rect, const vec2f& point) noexcept {
+    return point.x >= rect.x && point.y >= rect.y &&
+           point.x < rect.x + rect.z && point.y < rect.y + rect.w;
+}
+
 template <typename T>
 struct AABB {
     Vector<T, 3> min_point{std::numeric_limits<T>::max()};

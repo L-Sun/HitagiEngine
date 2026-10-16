@@ -14,7 +14,7 @@ using namespace hitagi::asset;
 using namespace hitagi::math;
 using namespace hitagi::testing;
 
-namespace {
+namespace hitagi::testing {
 
 constexpr std::string_view kTestImagePath = "assets/test/test.png";
 
@@ -38,8 +38,7 @@ using AssetRegistryTest    = AssetFixture;
 using SceneResidencyTest   = AssetFixture;
 using AsyncTextureLoadTest = AssetFixture;
 
-}  // namespace
-
+}  // namespace hitagi::testing
 // ---------------------------------------------------------------------------
 // P0: identity & deduplication
 // ---------------------------------------------------------------------------

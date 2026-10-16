@@ -34,8 +34,6 @@ option("benchmarks")
     set_description("Enable benchmark dependencies and targets.")
 option_end()
 
-includes("hitagi/gui/pocketjs/xmake.lua")
-
 if has_config("profile") then
     add_defines("TRACY_ENABLE")
     if is_plat("windows") then

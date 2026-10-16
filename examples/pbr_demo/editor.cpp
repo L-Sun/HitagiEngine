@@ -9,7 +9,7 @@ import preset.pbr;
 import engine;
 import pbr_demo_game;
 
-namespace {
+namespace game::pbr_demo {
 
 auto MakeGeneratedShaderName(const hitagi::asset::Material& material) -> std::pmr::string {
     auto source = std::string_view(material.GetName());
@@ -545,15 +545,14 @@ auto RunCookCommand(int argc, char** argv) -> int {
     }
 }
 
-}  // namespace
-
+}  // namespace game::pbr_demo
 auto main(int argc, char** argv) -> int {
 #ifdef HITAGI_DEBUG
     spdlog::set_level(spdlog::level::debug);
 #endif
 
-    if (IsCookCommand(argc, argv)) {
-        return RunCookCommand(argc, argv);
+    if (game::pbr_demo::IsCookCommand(argc, argv)) {
+        return game::pbr_demo::RunCookCommand(argc, argv);
     }
 
     auto config  = hitagi::LoadEditorAppConfig();
@@ -566,7 +565,7 @@ auto main(int argc, char** argv) -> int {
     if (!options.open_scene) {
         options.open_scene = game::pbr_demo::FindDefaultSourceScenePath();
     }
-    options.material_processor = MakePbrDemoMaterialProcessor(config.asset_root_path);
+    options.material_processor = game::pbr_demo::MakePbrDemoMaterialProcessor(config.asset_root_path);
 
     hitagi::Engine engine(std::move(config));
     engine.SetRenderer(std::make_unique<game::pbr_demo::PbrDemoRenderer>(engine.ResourceLoadContext()));

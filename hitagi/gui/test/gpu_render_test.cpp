@@ -33,11 +33,15 @@ TEST(PocketGpuRenderTest, SolidTextureAlphaClipAndResourceReplacement) {
         image->width = image->height = 2;
         image->linear                = false;
         // First frame: half-alpha green; second: half-alpha blue.
-        for (unsigned i = 0; i < 4; ++i) {
-            image->pixels.push_back(std::byte{0});
-            image->pixels.push_back(frame ? std::byte{0} : std::byte{255});
-            image->pixels.push_back(frame ? std::byte{255} : std::byte{0});
-            image->pixels.push_back(std::byte{128});
+        image->pixels = core::Buffer(image->width * image->height * 4);
+        {
+            const auto pixels = image->pixels.Span<math::R8G8B8A8Unorm>();
+            for (unsigned i = 0; i < 4; ++i) {
+                pixels[i][0] = 0;
+                pixels[i][1] = frame ? 0 : 255;
+                pixels[i][2] = frame ? 255 : 0;
+                pixels[i][3] = 128;
+            }
         }
         data.textures.push_back(image);
         auto&      list = data.draw_lists.emplace_back();

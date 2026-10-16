@@ -48,7 +48,7 @@ TEST(MaterialTest, MissingAndMistypedBindingsUseContractDefaultsWithoutShifting)
     EXPECT_FLOAT_EQ(pass->material_data.Span<const float>()[1], 0.6f);
 }
 
-namespace {
+namespace hitagi::testing {
 
 auto MakeMaterial(
     MaterialParameters             parameters = {},
@@ -78,8 +78,7 @@ auto ResolvePassTextures(const Material& material, const MaterialPass& pass) -> 
     return textures;
 }
 
-}  // namespace
-
+}  // namespace hitagi::testing
 TEST(MaterialTest, InitMaterial) {
     const auto texture = std::make_shared<Texture>(128, 128, hitagi::gfx::Format::R8G8B8A8_UNORM);
 

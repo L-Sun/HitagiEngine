@@ -13,16 +13,23 @@ export namespace hitagi::hid {
 // UTF-16 offsets match Windows IME and JavaScript string indices. Events are
 // ordered and consumed once, independently of the fixed GUI timestep.
 struct TextInputEvent {
-    enum class Kind { Start, Update, Commit, End, Key, Blur };
-    Kind kind = Kind::Commit;
-    std::uint64_t session = 0;
-    std::u16string text;
-    std::uint32_t caret = 0;
-    std::vector<std::uint8_t> attributes;
-    std::vector<std::uint32_t> clauses;
-    std::uint32_t key = 0;
-    bool shift = false;
-    bool control = false;
+    enum class Kind {
+        Start,
+        Update,
+        Commit,
+        End,
+        Key,
+        Blur
+    };
+    Kind                            kind    = Kind::Commit;
+    std::uint64_t                   session = 0;
+    std::u16string                  text;
+    std::uint32_t                   caret = 0;
+    std::pmr::vector<std::uint8_t>  attributes;
+    std::pmr::vector<std::uint32_t> clauses;
+    std::uint32_t                   key     = 0;
+    bool                            shift   = false;
+    bool                            control = false;
 };
 
 class InputManager : public core::RuntimeModule {
@@ -49,9 +56,9 @@ public:
     void PushTextInput(TextInputEvent event) {
         if (!m_TextSession) return;
         event.session = m_TextSession;
-        m_TextEvents.push_back(std::move(event));
+        m_TextEvents.emplace_back(std::move(event));
     }
-    auto DrainTextInput() -> std::vector<TextInputEvent> { return std::exchange(m_TextEvents, {}); }
+    auto DrainTextInput() -> std::pmr::vector<TextInputEvent> { return std::exchange(m_TextEvents, {}); }
 
     bool  GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const;
     bool  GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) const;
@@ -66,8 +73,8 @@ private:
     MouseState                                                          m_MouseState{};
     std::u32string                                                      m_TextInput;
     bool                                                                m_TextInputDirty = false;
-    std::uint64_t m_TextSession = 0;
-    std::vector<TextInputEvent> m_TextEvents;
+    std::uint64_t                                                       m_TextSession    = 0;
+    std::pmr::vector<TextInputEvent>                                    m_TextEvents;
 };
 
 }  // namespace hitagi::hid

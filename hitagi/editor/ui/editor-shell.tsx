@@ -3,8 +3,8 @@ import { View, Text, type NodeMirror } from "@pocketjs/framework/solid/component
 import { hostViewport, getOps } from "@pocketjs/framework/host";
 import { connectOverlay } from "@pocketjs/framework/overlay-host";
 import { theme as t } from "./theme";
-import { TextInputHost } from "../../gui/ui/text-edit";
-import { TextField } from "../../gui/ui/text-field";
+import { TextInputHost } from "./text-edit";
+import { TextField } from "./text-field";
 
 type Node = { id: string; name: string; depth: number };
 type State = {

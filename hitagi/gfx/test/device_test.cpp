@@ -34,7 +34,7 @@ std::string flags_name(E flags) {
 }
 }  // namespace hitagi::gfx
 
-namespace {
+namespace hitagi::gfx {
 auto CreateBufferView(Device& device, BindlessUtils& bindings, const std::shared_ptr<GPUBuffer>& buffer, std::uint64_t element_size) -> std::shared_ptr<GPUBufferView> {
     return hitagi::gfx::GPUBufferView::Create(device, bindings, GPUBufferViewDesc{
                                                                     .name          = std::pmr::string(buffer->GetName()),
@@ -45,8 +45,7 @@ auto CreateBufferView(Device& device, BindlessUtils& bindings, const std::shared
                                                                     .element_count = 1,
                                                                 });
 }
-}  // namespace
-
+}  // namespace hitagi::gfx
 constexpr std::array supported_device_types = {
 #ifdef _WIN32
     Device::Type::DX12,
