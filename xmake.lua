@@ -42,4 +42,4 @@ if has_config("profile") then
 end
 
 includes("hitagi/xmake.lua")
-includes("presets/**/xmake.lua")
+includes("examples/*/xmake.lua")

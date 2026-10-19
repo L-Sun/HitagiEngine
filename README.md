@@ -15,13 +15,13 @@ Hitagi Engine is an experimental game engine written with C++23 modules and buil
 - **Core**: pmr-based memory pools, file I/O, a [Taskflow](https://github.com/taskflow/taskflow)-based job system, timers, and a runtime module tree composed by `Engine` with explicit dependency injection
 - **Math**: a 3D math library with swizzle support and optional [ISPC](https://github.com/ispc/ispc) acceleration; matrices are row-major on both CPU and GPU
 - **Graphics (gfx)**: a graphics API abstraction with DX12, Vulkan, and mock backends, bindless resources, and a render graph
-- **Render**: reusable rendering interfaces, render-graph integration, GUI and text rendering; optional PBR forward and deferred rendering presets live outside Engine
+- **Render**: concrete PBR and deferred renderers built on RenderGraph, registered as ordinary runtime modules; GUI and text drawing remain separate composable utilities
 - **Asset**: runtime resources (textures, materials, meshes, cameras, lights, scenes) loaded from a cooked binary format, with GPU residency management in `AssetManager`
 - **ECS**: archetype-based entities, filters, and system scheduling
 - **Physics**: integration of [Jolt Physics](https://github.com/jrouwe/JoltPhysics)
 - **GUI and input**: [PocketJS](https://pocketjs.dev/) with Solid/TSX components and engine HID input
 - **Platform**: Win32 on Windows, SDL3 elsewhere
-- **Asset authoring**: OpenUSD import, material source metadata, material graph validation and asset cooking; concrete shader generation is supplied by optional presets or games
+- **Asset authoring**: OpenUSD import, material source metadata, renderer-agnostic material graph compilation against renderer-supplied pass templates, and asset cooking
 
 Platform status: Windows is the primary target and the only one covered by CI. Linux/Wayland code paths exist for Vulkan and SDL3 but are not regularly validated.
 
@@ -29,9 +29,10 @@ Platform status: Windows is the primary target and the only one covered by CI. L
 
 | Path | Contents |
 | --- | --- |
-| [hitagi/](hitagi) | Engine modules (`core`, `math`, `gfx`, `render`, `asset`, `ecs`, `physics`, `gui`, `hid`, `platform`, ...) and the editor library |
+| [hitagi/engine/](hitagi/engine) | Runtime modules (`core`, `math`, `gfx`, `render`, `asset`, `ecs`, `physics`, `gui`, `hid`, `platform`, ...), Engine composition, and runtime tests |
+| [hitagi/editor/](hitagi/editor) | Editor Framework: USD import, material graphs, and asset cooking |
 | [hitagi/interop/](hitagi/interop) | Module bridges for third-party dependencies (`interop.<library>`) |
-| [presets/](presets) | Opt-in rendering models and authoring companions; Engine and Editor Framework do not depend on them |
+| [hitagi/engine/render/](hitagi/engine/render) | Concrete PBR and deferred runtime renderers; the PBR material pass template |
 | [assets/](assets) | Shaders, fonts, materials, scenes, and cooked assets |
 | [docs/](docs) | Architecture, asset, and development documentation |
 | [tools/](tools) | Python helpers for Blender/USD authoring and asset validation |
@@ -63,7 +64,7 @@ xmake f -m debug --toolchain=clang-cl
 xmake build -j 1
 ```
 
-The repository currently provides engine libraries, rendering presets, asset authoring tools and tests. Examples and the interactive editor have been removed so that future tooling can follow the needs of a concrete game. The `editor` C++ module / `hitagi_editor` library retains only USD import, cook and material graphs. Engine GUI support remains available.
+The repository provides engine libraries, built-in renderers, asset authoring tools and tests. `examples/renderer` demonstrates explicit renderer construction and module-tree execution. The interactive editor has been removed; the `editor` C++ module / `hitagi_editor` library retains USD import, cook, and material graphs with a shading-model-agnostic compiler. Engine GUI support remains available.
 
 The default build includes enabled libraries and tests. Benchmark targets join it with `--benchmarks=y`.
 
@@ -72,6 +73,26 @@ The default build includes enabled libraries and tests. Benchmark targets join i
 | `--profile=y` | `n` | Enable [Tracy](https://github.com/wolfpld/tracy) profiling |
 | `--benchmarks=y` | `n` | Enable the `memory_benchmark` and `ecs_benchmark` targets |
 | `--ispc=n` | `y` | Disable ISPC acceleration in the math library |
+
+### USD Viewer
+
+```powershell
+xmake build usd-viewer
+xmake r usd-viewer path/to/scene.usda --renderer=pbr
+xmake r usd-viewer --renderer=deferred --backend=Vulkan
+```
+
+The PocketJS interface provides a searchable scene tree, object inspector, visibility controls, file opening/reloading, camera controls, and live PBR/deferred switching. Without a path it opens the material studio sample with deferred rendering. Deferred mode also exposes color, normal and roughness views. Opening an invalid file displays an error and preserves the current scene.
+
+Drag **LMB** to orbit, **MMB** to pan, scroll to zoom, press **F** to frame the selection (or scene), **Tab** to switch renderer, and **Esc** to clear the selection. Close the window to exit. `--backend=DX12` selects DirectX 12 on Windows; `--headless --frames=3` runs a rendering smoke test.
+
+See the [viewer guide](examples/usd-viewer/README.md) for the code layout, supported USD features, and deterministic GPU E2E tests:
+
+```powershell
+xmake build usd-viewer-e2e
+xmake r usd-viewer-e2e Vulkan
+xmake r usd-viewer-e2e DX12
+```
 
 ### Testing
 

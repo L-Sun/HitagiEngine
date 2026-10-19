@@ -74,7 +74,8 @@ static auto ToMat4f(const pxr::GfMatrix4d& matrix) noexcept -> mat4f {
     mat4f result{};
     for (std::size_t row = 0; row < 4; ++row) {
         for (std::size_t col = 0; col < 4; ++col) {
-            result[row][col] = static_cast<float>(matrix[row][col]);
+            // USD applies row vectors; engine transforms multiply column vectors.
+            result[row][col] = static_cast<float>(matrix[col][row]);
         }
     }
     return result;

@@ -15,7 +15,7 @@
     "Google Test Template": {
         "prefix": "gtest",
         "body": [
-            "#include <hitagi/utils/test.hpp>",
+            "#include <test_macros.hpp>",
             "",
             "using namespace testing;",
             "",
@@ -97,7 +97,7 @@
     "Benchmark": {
         "prefix": "bm",
         "body": [
-            "#include <hitagi/utils/test.hpp>",
+            "#include <test_macros.hpp>",
             "",
             "static void BM_${1:SomeFunction}(benchmark::State& state) {",
             "    // Perform setup here",

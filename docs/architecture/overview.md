@@ -26,18 +26,51 @@ The game editor can also use engine APIs directly. Engine has no dependency on e
 | game | Gameplay, resource semantics and rendering policy | To be developed from game requirements |
 | game editor | Game-specific asset conversion and tools | To be developed from game requirements |
 
+## Current render architecture
+
+The `render` module provides two concrete runtime modules: `render::pbr::PbrRenderer` and `render::deferred::DeferredRenderer`. Both directly inherit `core::RuntimeModule`; there is no common renderer interface. Applications choose an implementation, inject its dependencies, and attach it to the ordinary module tree. Engine creates no default renderer, owns no renderer slot, and does not re-export `render`. Applications can also implement their own `RuntimeModule` using RenderGraph directly.
+
+![Hitagi render architecture: explicit construction, concrete renderer modules, frame submission, and RenderGraph execution.](../assets/render_architecture.svg)
+
+Editable [SVG](../assets/render_architecture.svg) and matching [PNG preview](../assets/render_architecture.png). Solid arrows show labeled calls/data; dashed arrows show inheritance. Module boundaries and object ownership are labeled separately.
+
+The host creates Engine's infrastructure first, then injects individual services at the composition root. Renderers never receive or look up an Engine instance:
+
+```cpp
+import engine;
+import render;
+
+hitagi::Engine engine(config);
+auto renderer = std::make_unique<hitagi::render::pbr::PbrRenderer>(
+    engine.ResourceLoadContext(), engine.App());
+renderer->SetFrame(frame); // camera, draw items and lights; retained until replaced
+engine.AddSubModule(std::move(renderer));
+
+engine.Tick(); // renderer handles its window target, graph execution and presentation
+```
+
+Constructing a renderer with `Application&` enables window rendering. The renderer owns its SwapChain and color target, skips window rendering while minimized or zero-sized, resizes the SwapChain and recreates its target when dimensions change, and presents after graph execution. `SetFrame(frame)` snapshots the scene inputs and retains them until replaced; every visible `Tick()` renders the current snapshot, which is empty by default. The application must outlive the renderer. No child adapter or callback is required.
+
+For offscreen rendering, use the constructor without Application and call `Submit(frame, target)`. Each submission renders once on the next `Tick()`, writing the caller-owned texture. A window renderer can also consume offscreen submissions before drawing its window. `SetFrame` rejects renderers created without Application; use `Submit` or `Build` for those instances.
+
+Both `SetFrame` and `Submit` copy views, draw items, and lights and retain shared resources. They do not deep-copy mesh/material contents; calls and resource mutation must be serialized by the host. `Tick()` first ticks any ordinary child modules, consumes offscreen submissions, then renders its window. A failed execution retires the graph before propagating the error; later ticks can create a fresh graph. Renderer destruction releases children before its own state and graphics resources.
+
+The runnable [renderer example](../../examples/renderer/main.cpp) only constructs the selected renderer, sets its frame, and registers it in Engine. Run `xmake r renderer-example --renderer=pbr` or `--renderer=deferred`; add `--headless --frames=3 --resize --backend=Vulkan` for a bounded smoke run (DX12 is also supported on Windows).
+
+For custom composition, both renderers expose `Build(graph, request)`, which only adds passes and returns graph handles. The caller then owns compilation, execution, import cleanup, and presentation. Execute that graph before the next `Build()` or `Tick()` on the same renderer, and keep the renderer and any borrowed resources alive until execution completes. Deferred exposes debug views and `IDeferredRenderExtension`; PBR owns the `PBRForward` material contract. Custom application renderers remain ordinary runtime modules with their own APIs.
+
+GUI is an opt-in component: `gui::GuiRenderUtils` adds drawing passes, including PocketJS text, to the application graph. A UI host owns `GuiManager`, prepares layout before rendering native overlays, finishes GUI composition, and builds the GUI pass before executing the graph. No implicit GUI submission is performed by Engine.
+
 ## Current authoring library
 
-Examples and the interactive editor have been removed. The retained `editor` C++ module is an asset authoring library, built as `hitagi_editor`. It has no Editor runtime module, UI bundle, viewport, command stack or Play mode.
+The interactive editor has been removed. The retained `editor` C++ module is an asset authoring library, built as `hitagi_editor`. It has no Editor runtime module, UI bundle, viewport, command stack or Play mode.
 
 ```text
 hitagi_editor -> engine + hitagi_interop_editor
-hitagi_preset_pbr -> engine
-hitagi_preset_pbr_authoring -> hitagi_preset_pbr + hitagi_editor
-asset_pipeline_tests -> hitagi_editor + hitagi_preset_pbr_authoring + test bridge
+asset_pipeline_tests -> hitagi_editor + test bridge
 ```
 
-The PBR preset retains runtime material contracts and an authoring compiler. Neither Engine nor Editor Framework depends on the preset. A future game tool can supply `UsdSceneImporter::MaterialProcessor` to convert source materials to the game's contracts, without adding game policy to the importer.
+The engine build target contains the runtime render implementations. The Editor Framework's material graph compiler knows no shading model: it lowers a graph into a Slang material module and specializes an `asset::MaterialPassTemplate` supplied by a renderer, such as `render::pbr::PbrForwardPassTemplate()`. A future game tool can supply `UsdSceneImporter::MaterialProcessor` to convert source materials to the game's contracts, without adding game policy to the importer.
 
 ## Shared runtime objects and authoring metadata
 
@@ -79,11 +112,11 @@ See [Cooked binary format](../assets/cooked_binary_format.md) for the file layou
 
 ## Shader ABI and optional rendering policy
 
-Engine owns bindless descriptors, handles, residency, and the raw-storage shader layout API. The PBR preset describes its CPU frame, instance, and draw fields; Engine generates their shader declarations from member types and offsets. Material shader fields are generated from the same typed defaults that govern runtime packing. A game chooses what a draw references, but does not maintain a second handwritten HLSL ABI or manage descriptor indices.
+Engine owns bindless descriptors, handles, residency, and the raw-storage shader layout API. Each renderer owns its pass shaders: the PBR frame, instance, and draw records are mirrored by hand in `assets/shaders/pbr_forward.slang`, like the deferred shaders; reflection-based layout validation is follow-up work. Material shader fields are generated from the same typed defaults that govern runtime packing. A game chooses what a draw references, but does not manage descriptor indices.
 
-Engine starts with `ClearRenderer`, which initializes the requested target. Applications explicitly choose optional `preset.pbr`, `preset.deferred`, or a game renderer. The presets remain outside Engine and the authoring library.
+Applications explicitly import `render` to select a built-in renderer or implement their own runtime module. The built-ins own their frame/request/result types and rendering policy. Their source files are in `hitagi/engine/render/`, collected by the engine build target; the `engine` C++ module does not import or re-export `render`. This keeps Engine's composition class independent of specific renderer APIs without creating a circular target dependency.
 
-Rendering models remain optional policy packages. The PBR compiler and lighting code live outside Editor Framework. Generic USD import does not depend on PBR; game editor supplies the conversion adapter. The former material cache and hot-reload placeholder API are removed rather than presented as completed facilities.
+The material graph compiler lives in `hitagi/editor/material_compiler.cppm` and depends only on engine; PBR lighting stays in the renderer's Slang shell. Generic USD import does not depend on PBR; game editor supplies the conversion adapter. The former material cache and hot-reload placeholder API are removed rather than presented as completed facilities.
 
 ## Service composition and resource lifetime
 

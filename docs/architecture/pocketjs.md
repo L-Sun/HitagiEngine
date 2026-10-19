@@ -15,7 +15,7 @@ PocketJS is the only GUI backend. The integration runs Solid/TSX components in Q
 - The package installs `pocket.h`, containing the C ABI and a handwritten C++ adapter for the pinned SDK's `contracts/spec/spec.ts`. It owns draw enums, command lengths and resource-format helpers; `interop.pocketjs` re-exports them for the draw decoder. Review these definitions against the upstream contract when upgrading PocketJS. Existing package caches need reinstallation when the adapter changes.
 - The exported [@pocketjs/ui rule](../../xmake/packages/p/pocketjs/rules/ui.lua) invokes Bun on an application's TSX entry. UI targets use `add_packages("pocketjs")`, `add_rules("@pocketjs/ui")` and the `pocketjs.entry` / `pocketjs.density` values. Output is written under `build/pocketjs/ui/`. Applications and tests explicitly depend on the bundles they use.
 
-There are currently no application TSX bundles or root TypeScript configuration. The editor UI and its text-field tests were removed; the engine adapter and package UI build rule remain available for future game UIs.
+The USD Viewer bundles its application UI from `examples/usd-viewer/ui/usd-viewer.tsx`. The repository's [root TypeScript configuration](../../tsconfig.json) extends `build/pocketjs/tsconfig.json`, which the UI rule generates during XMake configuration with paths to the installed SDK and Solid types. The root config selects project TS/TSX sources and Solid JSX types for all UIs, excluding build outputs, temporary directories and local dependencies. Keep SDK paths in the generated config rather than duplicating them in application configs. Run XMake configuration/build first on a fresh checkout; no separate application `node_modules` installation is needed.
 
 The UI rule records the compiler's input manifest, including imported UI modules, fonts and resource manifests, and tracks its own script as a build input. Unchanged inputs skip bundling; missing outputs force regeneration. UI edits do not rebuild the native dependency. Compiler patches redirect the generated style mirror and transform cache to each target's `build/pocketjs/work/` directory. The installed framework has a placeholder style module for Bun's first-pass resolver; actual styles are injected into each bundle in memory. UI builds do not mutate the shared package installation or depend on `.local/pocketjs`.
 
@@ -23,7 +23,7 @@ A host explicitly calls `GuiManager::LoadApp(js, pak)` to load its bundle. Const
 
 ## 2. Advance the runtime and collect drawing commands
 
-[GuiManager](../../hitagi/gui/gui_manager.cpp) owns a native runtime created with `pocket_create_gpu`. This constructs the same upstream `Guest` and `UiSurface` as the portable host, without allocating its software framebuffer. Existing load, event and frame APIs remain in use; production code never calls `pocket_apple_render`.
+[GuiManager](../../hitagi/engine/gui/gui_manager.cpp) owns a native runtime created with `pocket_create_gpu`. This constructs the same upstream `Guest` and `UiSurface` as the portable host, without allocating its software framebuffer. Existing load, event and frame APIs remain in use; production code never calls `pocket_apple_render`.
 
 All calls run on the engine thread. The adapter accumulates elapsed time and advances the guest/core at fixed 60 Hz steps, clamping each elapsed-time contribution to 0.1 seconds. Desktop input uses floating-point pointer packets in logical coordinates, wheel messages and keyboard navigation. Fixed-canvas mode retains letterboxing and encoded touch input.
 
@@ -33,7 +33,7 @@ The package-owned [C ABI extension](../../xmake/packages/p/pocketjs/pocket.h) ex
 - `pocket_texture`: returns a live texture's generation-tagged handle, content revision, format, pixels and sampling mode.
 - `pocket_font`: returns an atlas's revision, coverage bytes and logical/coverage cell dimensions.
 
-These are borrowed views, consumed synchronously before subsequent guest mutations. [PocketDrawDecoder](../../hitagi/gui/draw.cpp) copies the command words, decodes them into engine-owned geometry, and caches immutable RGBA8 resource snapshots. Texture identity/revision and font revision determine replacement; unchanged resources share the same snapshot. Each replacement receives a unique engine resource ID, including across UI reloads. Freed core textures leave the current resource set, while older copied frame data retains its shared resources.
+These are borrowed views, consumed synchronously before subsequent guest mutations. [PocketDrawDecoder](../../hitagi/engine/gui/draw.cpp) copies the command words, decodes them into engine-owned geometry, and caches immutable RGBA8 resource snapshots. Texture identity/revision and font revision determine replacement; unchanged resources share the same snapshot. Each replacement receives a unique engine resource ID, including across UI reloads. Freed core textures leave the current resource set, while older copied frame data retains its shared resources.
 
 The decoder handles rectangles, gradients, glyph runs, textured quads, triangles, textured triangles and nested scissors. It expands 5650, 4444, 8888 and indexed T8 textures once per resource change. Glyph atlases retain bundle density and include transparent gutters for fractional-DPI filtering. Native-provider text and Pocket System compositor surfaces are rejected explicitly: this host installs neither provider. Hosts composite native textures through `DrawTexture`.
 
@@ -43,15 +43,17 @@ The decoder handles rectangles, gradients, glyph runs, textured quads, triangles
 
 `GuiManager::Tick()` transforms logical geometry and clip rectangles into display coordinates, then appends frame-local scene/preview texture quads. `GuiDrawData` owns geometry and shared immutable image/font snapshots; it no longer uses a full-screen image in a `font_atlas` field.
 
-[GuiRenderUtils::GuiPass()](../../hitagi/render/render_utils.cpp) caches GPU textures by immutable resource ID. It uploads a resource only when first encountered, drops cache entries absent from the current resource set, and declares all texture accesses through RenderGraph. The graph retains imported resources through execution. After GPU completion, `RenderRuntime` clears frame imports so replaced textures can be released; live renderer caches reimport their resources next frame. Fonts use linear filtering; images preserve the core's sampling hint. Solid geometry outputs vertex color directly. The current UNORM target preserves the portable renderer's encoded-byte color blending convention.
+[GuiRenderUtils::GuiPass()](../../hitagi/engine/gui/gpu_draw.cpp) caches GPU textures by immutable resource ID. It uploads a resource only when first encountered, drops cache entries absent from the current resource set, and declares all texture accesses through RenderGraph. The graph retains imported resources through execution. After GPU completion, the application renderer clears frame imports so replaced textures can be released; live renderer caches reimport their resources next frame. Fonts use linear filtering; images preserve the core's sampling hint. Solid geometry outputs vertex color directly. The current UNORM target preserves the portable renderer's encoded-byte color blending convention.
 
 Each frame uploads vertex/index and draw-parameter buffers. Consecutive geometry with the same resource and clip rectangle is batched without reordering transparent draws. Hitagi rasterizes those triangles directly into the render target, composites native GPU scene textures and presents the result. There is no UI-wide BGRA-to-RGBA conversion or framebuffer upload. Layout, animation, tree traversal and geometry conversion still consume CPU time; this change does not imply a measured frame-rate improvement.
 
-The application schedules `RenderGui()` with a draw-data reference, which `RenderRuntime` consumes after the GUI tick. Window resize and native viewport ordering remain as described below.
+The application owns both `GuiManager` and `gui::GuiRenderUtils`. After completing the GUI tick, it passes `GuiManager::GetDrawData()` to `GuiPass(graph, target, draw_data, clear_target)` and executes its graph while the draw data remains alive and unchanged. Engine performs no implicit GUI submission. Window resize and native viewport ordering remain as described below.
 
 ## Host ordering and validation
 
 Hosts using native texture overlays call `GuiManager::PrepareFrame()` before consuming layout effects and rendering those textures. The later GUI tick composes the prepared frame. Logical coordinates map through uniform DPI scaling.
+
+For deterministic hosts, `GuiAppOptions::single_step` advances exactly one virtual frame per `PrepareFrame()` / `Tick()` pair, without consulting elapsed time. The USD viewer [E2E driver](../../examples/usd-viewer/test/e2e.cpp) injects one action per tick, reads back real GPU output, and compares every frame's state and PNG against a fresh-session replay. Ordinary application execution still uses the clock accumulator.
 
 The engine retains native modal-resize handling, GUI input, DrawList decoding and GPU rendering. Interactive editor, game-preview and editor resize tests were removed with their host. Current adapter checks run through `unit_tests`:
 

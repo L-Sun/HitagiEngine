@@ -207,6 +207,6 @@ void AssetManager::UnloadScene(const std::shared_ptr<Scene>& scene) {
 }
 ```
 
-The caller also has to make the renderer drop its own cache (`IRenderer::InvalidateResources`). Otherwise the renderer may still hold GPU handles that have already been released.
+The caller also has to make the renderer drop its own cache (through the application renderer's own API). Otherwise the renderer may still hold GPU handles that have already been released.
 
 Destruction order is a dependency contract: `AssetManager`'s destructor calls `Texture::DestroyDefaultTexture()`, and the placeholder texture holds GPU resources and a view. **Device and binding facilities must outlive AssetManager**; queues must also outlive consumers that submit or wait for work during teardown. Tests should construct Device, queues/bindings, then graphics consumers, so destruction runs in reverse.

@@ -9,8 +9,6 @@ import interop.magic_enum;
 import std;
 import physics;
 import gfx;
-import render;
-import gui;
 import debugger;
 import app;
 import asset;
@@ -30,11 +28,6 @@ public:
     gfx::CommandQueues                  queues;
     std::unique_ptr<gfx::BindlessUtils> bindings;
     gfx::ShaderCompiler                 compiler;
-};
-
-class OutLogicArea : public core::RuntimeModule {
-public:
-    OutLogicArea() : core::RuntimeModule("OutLogicArea") {}
 };
 
 Engine::Engine(AppConfig config)
@@ -65,14 +58,8 @@ Engine::Engine(AppConfig config)
     m_AssetManager          = add_inner_module(std::make_unique<asset::AssetManager>(*m_FileIO, *m_JobSystem, m_App->GetConfig().asset_root_path));
     m_PhysicsWorld          = add_inner_module(std::make_unique<physics::PhysicsWorld>(*m_JobSystem));
 
-    // Game or editor logic here
-    m_OutLogicArea = add_inner_module(std::make_unique<OutLogicArea>());
-
-    // use modified state -> Render
+    // Application modules are appended after infrastructure in their chosen order.
     add_inner_module(std::make_unique<debugger::DebugManager>());
-    m_Renderer      = add_inner_module(std::make_unique<render::ClearRenderer>());
-    m_GuiManager    = add_inner_module(std::make_unique<gui::GuiManager>(*m_App, *m_FileIO));
-    m_RenderRuntime = static_cast<render::RenderRuntime*>(add_inner_module(std::make_unique<render::RenderRuntime>(*m_Device, *m_Queues, *m_Bindings, *m_ShaderCompiler, *m_App)));
 
     m_Clock.Start();
     m_App->SetModalFrameCallback([this] { TickFrame(); });
@@ -113,20 +100,6 @@ void Engine::TickFrame() {
     }
     TracyPlot("CPU Frame Time (ms)", m_Clock.DeltaTime().count() * 1000.0);
     FrameMark;
-}
-
-auto Engine::SetRenderer(std::unique_ptr<render::IRenderer> renderer) -> render::IRenderer* {
-    if (renderer == nullptr) {
-        m_Logger->warn("Can not set a empty renderer!");
-        return nullptr;
-    }
-
-    m_Renderer = static_cast<render::IRenderer*>(core::RuntimeModule::AddSubModule(std::move(renderer), m_Renderer));
-    return m_Renderer;
-}
-
-auto Engine::AddSubModule(std::unique_ptr<core::RuntimeModule> module, core::RuntimeModule* after) -> core::RuntimeModule* {
-    return m_OutLogicArea->AddSubModule(std::move(module), after);
 }
 
 }  // namespace hitagi

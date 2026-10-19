@@ -115,15 +115,33 @@ One material can have several passes, each with its own `bindings` and `material
 
 `ValidateBindings()` is shared validation machinery: Cook treats its diagnostics as errors, while runtime logs warnings and continues with defaults. A binding cannot be constructed without an explicit default, so a separate expected-type tag cannot disagree with the default's type.
 
-## Optional PBR preset
+## Pass templates and the material graph compiler
 
-`presets/pbr` is opt-in. `hitagi_preset_pbr` owns the PBR description, defaults, `PBRForward` contract, and renderer; it depends only on Engine. `hitagi_preset_pbr_authoring` depends on that runtime preset and Editor Framework, and owns the PBR graph compiler and shader generation.
+A renderer that accepts graph materials publishes an `asset::MaterialPassTemplate`: its pass contract, pipeline state, stage entry names, and a Slang shell file module. The shell owns everything about shading and declares the interface materials implement:
 
-The legacy deferred renderer, concrete routing rules, and lighting passes are separately available through `hitagi_preset_deferred`. Engine starts with `ClearRenderer`, and application entry points opt into their renderer.
+```slang
+struct SurfaceInput { ... };      // geometry visible to materials
+struct MaterialContext { ... };   // material_data buffer and sampler
+struct Surface { ... };           // material outputs; the shell provides defaults
+interface IMaterial {
+    static void evaluate(SurfaceInput input, MaterialContext context, inout Surface surface);
+}
+float4 PSMain<M : IMaterial>(PSInput input) : SV_TARGET { ... }   // every stage entry is generic
+```
 
-Engine and Editor Framework do not depend on these presets. The framework retains generic graph validation, USD import and Cook. Future game tools supply their own source-to-runtime material adapters.
+The Editor Framework's `CompileMaterialGraph(graph, pass_template, defaults, options)` knows no shading model. It lowers the graph into a module defining `struct Material : IMaterial` plus the generated `MaterialData`, collects bindings from `parameter` nodes and their typed defaults, and builds one shader per template stage with modules `[material, shell]` and `specialization_types = {"Material"}`. Inputs of the Surface-producing node assign `Surface` fields of the same name; geometry nodes (`uv`, `normal`, `vertex_color`) read `SurfaceInput` fields, so a graph only compiles against shells that provide them. Generic nodes include valued constants (`MaterialGraph::AddConstant`), `texture_sample` with an optional `fallback` input, `normal_map`, `mix`, and `swizzle`, whose output socket names are channel masks.
 
-Frame, instance, and draw-resource declarations are generated using Engine's `gfx::ShaderField` API from CPU member types and offsets. Applications choose resource roles; Engine owns handle allocation, resource lifetime, and shader ABI machinery. The raw storage layout API is not a constant-buffer packing API.
+The shell stays a file module referenced by name, so cooked materials embed only the generated module; lighting changes in the renderer reach existing cooked materials without re-cooking, as long as the `IMaterial` interface is unchanged.
+
+## Built-in PBR renderer
+
+`render::pbr` owns the PBR description, defaults, `PBRForward` contract, `PbrForwardPassTemplate()`, and `PbrRenderer`, under `hitagi/engine/render/pbr`. Its shell is `assets/shaders/pbr_forward.slang`: `Surface.base_color` is sRGB and `Surface.normal` is a tangent-space normal, transformed with a screen-space tangent frame. Its geometry is position, normal and UV; it provides no vertex color.
+
+`render::deferred` owns deferred rendering, routing rules, debug views, and lighting passes. Both concrete renderers derive from `RuntimeModule`: hosts set window frame snapshots with `SetFrame`, or submit offscreen frames and targets with `Submit`; the module tree drives `Tick()`. Window renderers own SwapChain, resize handling and presentation. They also expose `Build(graph, request)` for applications composing their own graph. Engine does not select or construct a renderer.
+
+The engine build contains the runtime renderers, while the Engine composition class does not select one. Editor Framework APIs (graph validation and compilation, USD import, Cook) depend on no renderer. Future game tools supply their own source-to-runtime material adapters and pass templates.
+
+Renderer shells mirror their frame, instance, and draw records by hand, as the deferred shaders do; reflection-based validation against the CPU layout is follow-up work. Material data declarations are generated with Engine's `gfx::ShaderField` API from binding defaults. Applications choose resource roles; Engine owns handle allocation, resource lifetime, and shader ABI machinery. The raw storage layout API is not a constant-buffer packing API.
 
 The unfinished material shader cache, cache keys, and hot-reload toggle have been removed. This does not remove graphics shader compilation or unrelated resource registries.
 

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1090" viewBox="0 0 1440 1090" role="img" aria-labelledby="title desc">
   <title id="title">Engine · Ownership Is a Container, References Are Fields</title>
-  <desc id="desc">Engine owns the infrastructure members and RuntimeModule subtree. Infrastructure members are MemoryManager, FileIOManager and JobSystem. The subtree lists modules in relative tick order, with Debug omitted. GraphicsServices owns queues, bindings and compiler. AssetManager borrows FileIOManager and JobSystem; PhysicsWorld borrows JobSystem; IRenderer uses Application and graphics services; GuiManager uses Application and FileIOManager; RenderRuntime uses Device and graphics services. Device is used to create GraphicsServices. Subtree teardown precedes reverse member destruction.</desc>
+  <desc id="desc">Engine owns the infrastructure members and RuntimeModule subtree. Infrastructure members are MemoryManager, FileIOManager and JobSystem. The subtree lists modules in relative tick order, with Debug omitted. GraphicsServices owns queues, bindings and compiler. AssetManager borrows FileIOManager and JobSystem; PhysicsWorld borrows JobSystem; Hosts add logic, optional GuiManager, and concrete renderer RuntimeModules; consumers receive explicit services. Device is used to create GraphicsServices. Subtree teardown precedes reverse member destruction.</desc>
   <defs><style>
     text { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; fill: #263443; }
     .title { font-size: 32px; font-weight: 700; }
@@ -70,26 +70,26 @@
   <rect x="884" y="533" width="452" height="32" rx="3" class="orange"/>
   <text x="900" y="555" class="small" text-anchor="start">JobSystem&amp;</text>
   <rect x="474" y="576" width="878" height="42" rx="5" class="panel"/>
-  <text x="490" y="604" class="code" text-anchor="start">OutLogicArea</text>
-  <text x="900" y="603" class="small" text-anchor="start">Game / editor modules mount here</text>
+  <text x="490" y="604" class="code" text-anchor="start">Host logic (example)</text>
+  <text x="900" y="603" class="small" text-anchor="start">Host chooses and appends modules</text>
   <rect x="474" y="624" width="878" height="42" rx="5" class="purple"/>
-  <text x="490" y="652" class="code" text-anchor="start">IRenderer</text>
+  <text x="490" y="652" class="code" text-anchor="start">GuiManager (optional)</text>
   <rect x="884" y="629" width="452" height="32" rx="3" class="orange"/>
-  <text x="900" y="651" class="small" text-anchor="start">Application&amp; · individual graphics services</text>
+  <text x="900" y="651" class="small" text-anchor="start">Application&amp; · FileIOManager&amp;</text>
   <rect x="474" y="672" width="878" height="42" rx="5" class="panel"/>
-  <text x="490" y="700" class="code" text-anchor="start">GuiManager</text>
+  <text x="490" y="700" class="code" text-anchor="start">Renderer : RuntimeModule</text>
   <rect x="884" y="677" width="452" height="32" rx="3" class="orange"/>
-  <text x="900" y="699" class="small" text-anchor="start">Application&amp; · FileIOManager&amp;</text>
+  <text x="900" y="699" class="small" text-anchor="start">Graphics services; optional Application&amp;</text>
   <rect x="474" y="720" width="878" height="42" rx="5" class="purple"/>
-  <text x="490" y="748" class="code" text-anchor="start">RenderRuntime</text>
+  <text x="490" y="748" class="code" text-anchor="start">Other host modules</text>
   <rect x="884" y="725" width="452" height="32" rx="3" class="orange"/>
-  <text x="900" y="747" class="small" text-anchor="start">Device&amp; · individual graphics services</text>
-  <text x="64" y="824" class="small" text-anchor="start">IRenderer starts as ClearRenderer; the host may install a preset. Debug is omitted from this relative-order view.</text>
+  <text x="900" y="747" class="small" text-anchor="start">Explicit dependencies, chosen by host</text>
+  <text x="64" y="824" class="small" text-anchor="start">Hosts choose and register these modules. Debug is omitted from this relative-order view.</text>
   <text x="40" y="898" class="section" text-anchor="start">DESTRUCTION ORDER</text>
   <text x="1400" y="898" class="small" text-anchor="end">Consumers are destroyed before their dependencies</text>
   <rect x="40" y="924" width="444" height="98" rx="5" class="gray"/>
   <text x="64" y="960" class="code" text-anchor="start">1   UnloadAllSubModules()</text>
-  <text x="64" y="994" class="small" text-anchor="start">RenderRuntime … Application, in reverse</text>
+  <text x="64" y="994" class="small" text-anchor="start">Host modules … Application, in reverse</text>
   <path d="M488 973H530" class="arrow"/>
   <rect x="534" y="924" width="266" height="98" rx="5" class="blue"/>
   <text x="558" y="960" class="code" text-anchor="start">2   JobSystem</text>

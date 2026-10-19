@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1480" height="1170" viewBox="0 0 1480 1170" role="img" aria-labelledby="title desc">
   <title id="title">Dependency Injection · Four Different Things to Pass</title>
-  <desc id="desc">Four injection shapes: AssetManager holds FileIOManager and JobSystem references; PhysicsWorld needs JobSystem; GuiManager needs Application and FileIOManager. Scene and World receive JobSystem for Update(jobs). Texture stores ImageLoader backed by FileIOManager and JobSubmitter backed by JobSystem. DeferredRenderer reads shader source through FileIOManager at construction and supplies ShaderSource values to GBuffer, DeferredLighting and GBufferDebugView; it also uses Device and Application.</desc>
+  <desc id="desc">Four injection shapes: AssetManager holds FileIOManager and JobSystem references; PhysicsWorld needs JobSystem; GuiManager needs Application and FileIOManager. Scene and World receive JobSystem for Update(jobs). Texture stores ImageLoader backed by FileIOManager and JobSubmitter backed by JobSystem. DeferredRenderer reads shader source through FileIOManager at construction and supplies ShaderSource values to GBuffer, DeferredLighting and GBufferDebugView; it also uses graphics services and a shader directory.</desc>
   <defs><style>
     text { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; fill: #263443; }
     .title { font-size: 32px; font-weight: 700; }
@@ -94,8 +94,8 @@
   <rect x="784" y="896" width="632" height="74" rx="5" class="purple"/>
   <text x="804" y="925" class="code" text-anchor="start">GBuffer / DeferredLighting / GBufferDebugView</text>
   <text x="804" y="953" class="small" text-anchor="start">Passes receive ShaderSource; they do not retain FileIOManager.</text>
-  <text x="784" y="1016" class="label" text-anchor="start">Renderer dependencies</text>
-  <text x="784" y="1050" class="small" text-anchor="start">Device + Application, plus file I/O during construction.</text>
+  <text x="784" y="1016" class="label" text-anchor="start">Pipeline dependencies</text>
+  <text x="784" y="1050" class="small" text-anchor="start">Graphics services + shader directory; file I/O at construction.</text>
   <text x="784" y="1078" class="small" text-anchor="start">The file service is not retained after source loading.</text>
   <text x="40" y="1144" class="body" text-anchor="start">Reference = service access · Parameter = call scope · Function = capability · Value = produced data</text>
 </svg>

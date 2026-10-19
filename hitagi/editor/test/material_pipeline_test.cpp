@@ -4,38 +4,12 @@ import std;
 import interop.gtest;
 
 import editor;
-import preset.pbr;
-import preset.pbr.authoring;
+import render;
 import engine;
 
 using namespace hitagi;
-using namespace hitagi::preset::pbr;
 using namespace hitagi::asset;
 using namespace hitagi::math;
-
-TEST(MaterialContractCookTest, RejectsMissingAndMistypedParameters) {
-    const auto missing = std::make_shared<Material>(MaterialParameters{},
-        std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "Missing");
-    EXPECT_THROW(CookEditorMaterial(EditorMaterial{.material = missing}), std::invalid_argument);
-    const auto wrong = std::make_shared<Material>(MaterialParameters{{.name = "roughness", .value = std::uint32_t{1}}},
-        std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "WrongType");
-    EXPECT_THROW(CookEditorMaterial(EditorMaterial{.material = wrong}), std::invalid_argument);
-}
-
-TEST(PbrMaterialCompilerTest, RequiresMatchingContractDefaults) {
-    MaterialGraph graph;
-    const auto value = graph.AddNode("roughness", "parameter", {}, {{"value", ShaderValueType::Float}});
-    const auto surface = graph.AddNode("surface", "surface_output", {{"roughness", ShaderValueType::Float}}, {{"out", ShaderValueType::Surface}});
-    graph.AddEdge(value, "value", surface, "roughness");
-    graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
-    EXPECT_FALSE(PbrMaterialCompiler{}.Compile(graph, {}));
-    const MaterialParameters wrong{{.name = "roughness", .value = std::uint32_t{1}}};
-    EXPECT_FALSE(PbrMaterialCompiler{}.Compile(graph, wrong));
-    const auto result = PbrMaterialCompiler{}.Compile(graph, PbrMaterialDefaults());
-    ASSERT_TRUE(result);
-    ASSERT_EQ(result.pass.bindings.size(), 1);
-    EXPECT_FLOAT_EQ(std::get<float>(result.pass.bindings[0].default_value), 0.5f);
-}
 
 namespace hitagi::material_pipeline_tests {
 
@@ -52,6 +26,90 @@ void WriteTextFile(const std::filesystem::path& path, std::string_view content) 
     file.write(content.data(), static_cast<std::streamsize>(content.size()));
 }
 
+void ExpectCompilesForBothBackends(const MaterialPass& pass) {
+    ASSERT_TRUE(pass.pipeline);
+    gfx::ShaderCompiler compiler("MaterialGraphCompilerTest");
+    for (const auto& shader : pass.pipeline->GetShaders()) {
+        const auto& desc = shader->GetDesc();
+        for (const auto target : {gfx::ShaderTarget::DXIL, gfx::ShaderTarget::SPIRV}) {
+            EXPECT_FALSE(compiler.LoadProgram(desc.program, target)->Compile(desc.entry, desc.type, desc.specialization_types).bytecode.Empty());
+        }
+    }
+}
+
+// A shell unrelated to PBR: the compiler must only rely on the IMaterial contract.
+auto TestPassTemplate() -> MaterialPassTemplate {
+    const std::filesystem::path path{"temp/material_compiler_test/test_shell.slang"};
+    WriteTextFile(path, R"slang(import bindless;
+
+struct SurfaceInput {
+    float2 uv;
+    float3 normal;
+    float4 color;
+};
+
+struct MaterialContext {
+    hitagi::SimpleBuffer material_data;
+    SamplerState         sampler;
+};
+
+struct Surface {
+    float4 albedo;
+    float3 normal;
+};
+
+interface IMaterial {
+    static void evaluate(SurfaceInput input, MaterialContext context, inout Surface surface);
+}
+
+struct BindlessInfo {
+    hitagi::SimpleBuffer material_data;
+    hitagi::Sampler      sampler;
+};
+
+struct VSInput {
+    float3 position : POSITION;
+    float2 uv : TEXCOORD;
+    float4 color : COLOR;
+};
+
+struct PSInput {
+    float4 position : SV_POSITION;
+    float2 uv : TEXCOORD0;
+    float4 color : COLOR0;
+};
+
+PSInput VSMain<M : IMaterial>(VSInput input) {
+    PSInput output;
+    output.position = float4(input.position, 1.0f);
+    output.uv       = input.uv;
+    output.color    = input.color;
+    return output;
+}
+
+float4 PSMain<M : IMaterial>(PSInput input) : SV_TARGET {
+    const BindlessInfo resource = hitagi::load_bindless<BindlessInfo>();
+    SurfaceInput surface_input;
+    surface_input.uv     = input.uv;
+    surface_input.normal = float3(0.0f, 0.0f, 1.0f);
+    surface_input.color  = input.color;
+    MaterialContext context;
+    context.material_data = resource.material_data;
+    context.sampler       = resource.sampler.load();
+    Surface surface;
+    surface.albedo = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    surface.normal = float3(0.0f, 0.0f, 1.0f);
+    M.evaluate(surface_input, context, surface);
+    return float4(surface.albedo.rgb * (surface.normal.z * 0.5f + 0.5f), 1.0f);
+}
+)slang");
+    return {
+        .contract = "Test",
+        .shell    = {.name = "test_shell", .path = path},
+        .stages   = {{.type = gfx::ShaderType::Vertex, .entry = "VSMain"}, {.type = gfx::ShaderType::Pixel, .entry = "PSMain"}},
+    };
+}
+
 class EditorMaterialCookTest : public ::testing::Test {
 protected:
     core::FileIOManager file_io;
@@ -61,6 +119,31 @@ protected:
 }  // namespace hitagi::material_pipeline_tests
 
 using namespace hitagi::material_pipeline_tests;
+
+TEST(MaterialContractCookTest, RejectsMissingAndMistypedParameters) {
+    const auto missing = std::make_shared<Material>(MaterialParameters{},
+        std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "Missing");
+    EXPECT_THROW(CookEditorMaterial(EditorMaterial{.material = missing}), std::invalid_argument);
+    const auto wrong = std::make_shared<Material>(MaterialParameters{{.name = "roughness", .value = std::uint32_t{1}}},
+        std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "WrongType");
+    EXPECT_THROW(CookEditorMaterial(EditorMaterial{.material = wrong}), std::invalid_argument);
+}
+
+TEST(MaterialGraphCompilerTest, RequiresMatchingContractDefaults) {
+    MaterialGraph graph;
+    const auto value = graph.AddNode("roughness", "parameter", {}, {{"value", ShaderValueType::Float}});
+    const auto surface = graph.AddNode("surface", "surface_output", {{"roughness", ShaderValueType::Float}}, {{"out", ShaderValueType::Surface}});
+    graph.AddEdge(value, "value", surface, "roughness");
+    graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
+    const auto pass_template = render::pbr::PbrForwardPassTemplate();
+    EXPECT_FALSE(CompileMaterialGraph(graph, pass_template, {}));
+    const MaterialParameters wrong{{.name = "roughness", .value = std::uint32_t{1}}};
+    EXPECT_FALSE(CompileMaterialGraph(graph, pass_template, wrong));
+    const auto result = CompileMaterialGraph(graph, pass_template, render::pbr::PbrMaterialDefaults());
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result.pass.bindings.size(), 1);
+    EXPECT_FLOAT_EQ(std::get<float>(result.pass.bindings[0].default_value), 0.5f);
+}
 TEST_F(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPasses) {
     const std::filesystem::path base_texture_path{"assets/test/test.png"};
     const auto                  base_texture = std::make_shared<Texture>(base_texture_path, MakeFileImageLoader(file_io, base_texture_path), "base");
@@ -273,7 +356,7 @@ TEST(MaterialGraphTest, SingleNodeGraphValid) {
 
 TEST(MaterialGraphTest, TextureSampleToSurfaceGraphValid) {
     MaterialGraph graph;
-    const auto    texture = graph.AddNode("base_color_texture", "texture_2d", {}, {{"texture", ShaderValueType::Texture2D}});
+    const auto    texture = graph.AddNode("base_color_texture", "parameter", {}, {{"texture", ShaderValueType::Texture2D}});
     const auto    uv      = graph.AddNode("uv0", "primvar", {}, {{"uv", ShaderValueType::Float2}});
     const auto    sample  = graph.AddNode(
         "sample_base_color",
@@ -395,9 +478,9 @@ TEST(MaterialGraphTest, CollectTerminalDependenciesOnlyUsedNodes) {
     EXPECT_EQ(std::find(dependencies.begin(), dependencies.end(), unused), dependencies.end());
 }
 
-TEST(PbrMaterialCompilerTest, GeneratesReadablePixelShaderAndPassBindingSnapshot) {
+TEST(MaterialGraphCompilerTest, SpecializesPbrForwardTemplate) {
     MaterialGraph graph;
-    const auto    texture = graph.AddNode("base_color_texture", "texture_2d", {}, {{"texture", ShaderValueType::Texture2D}});
+    const auto    texture = graph.AddNode("base_color_texture", "parameter", {}, {{"texture", ShaderValueType::Texture2D}});
     const auto    uv      = graph.AddNode("uv0", "uv", {}, {{"uv", ShaderValueType::Float2}});
     const auto    sample  = graph.AddNode(
         "sample_base_color",
@@ -405,7 +488,7 @@ TEST(PbrMaterialCompilerTest, GeneratesReadablePixelShaderAndPassBindingSnapshot
         {{"texture", ShaderValueType::Texture2D}, {"uv", ShaderValueType::Float2}},
         {{"rgba", ShaderValueType::Color}});
     const auto metallic  = graph.AddNode("metallic", "parameter", {}, {{"value", ShaderValueType::Float}});
-    const auto roughness = graph.AddNode("roughness_default", "constant", {}, {{"value", ShaderValueType::Float}});
+    const auto roughness = graph.AddConstant("roughness_default", 0.25f);
     const auto surface   = graph.AddNode(
         "surface",
         "surface_output",
@@ -419,94 +502,111 @@ TEST(PbrMaterialCompilerTest, GeneratesReadablePixelShaderAndPassBindingSnapshot
     graph.AddEdge(roughness, "value", surface, "roughness");
     graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
 
-    const auto result = PbrMaterialCompiler{}.Compile(graph, PbrMaterialDefaults(), {.shader_name = "SnapshotMaterial"});
-
+    const auto result = CompileMaterialGraph(graph, render::pbr::PbrForwardPassTemplate(), render::pbr::PbrMaterialDefaults(), {.name = "SnapshotMaterial"});
     ASSERT_TRUE(result);
-    EXPECT_EQ(result.shader.name, "SnapshotMaterial");
-    EXPECT_EQ(result.shader.type, gfx::ShaderType::Pixel);
-    EXPECT_EQ(result.shader.entry, "main");
-    EXPECT_EQ(result.shader.program.modules.back().source_code, result.slang);
+
+    EXPECT_EQ(result.pass.pass_contract, render::pbr::kPbrForwardContract);
     ASSERT_TRUE(result.pass.pipeline);
+    EXPECT_EQ(result.pass.pipeline->GetDesc().name, "SnapshotMaterialPipeline");
+    EXPECT_EQ(result.pass.pipeline->GetDesc().depth_stencil_format, gfx::Format::D32_FLOAT);
     const auto shaders = result.pass.pipeline->GetShaders();
     ASSERT_EQ(shaders.size(), 2);
     EXPECT_EQ(shaders[0]->GetDesc().type, gfx::ShaderType::Vertex);
-    EXPECT_EQ(shaders[1]->GetDesc().name, result.shader.name);
-    EXPECT_EQ(result.pipeline_desc.name, "SnapshotMaterialPipeline");
+    EXPECT_EQ(shaders[1]->GetDesc().type, gfx::ShaderType::Pixel);
+    EXPECT_EQ(shaders[1]->GetDesc().name, "SnapshotMaterial.PSMain");
+    for (const auto& shader : shaders) {
+        const auto& modules = shader->GetDesc().program.modules;
+        ASSERT_EQ(modules.size(), 2);
+        EXPECT_EQ(modules[0].source_code, result.slang);
+        // The shell stays a file module, so cooked materials reference it instead of copying it.
+        EXPECT_EQ(modules[1].name, "pbr_forward");
+        EXPECT_TRUE(modules[1].source_code.empty());
+        EXPECT_EQ(shader->GetDesc().specialization_types, (std::pmr::vector<std::pmr::string>{"Material"}));
+    }
 
     ASSERT_EQ(result.pass.bindings.size(), 2);
     EXPECT_EQ(result.pass.bindings[0].name, "base_color_texture");
     EXPECT_EQ(result.pass.bindings[1].name, "metallic");
 
-    EXPECT_NE(result.slang.find("import bindless;"), std::pmr::string::npos);
-    EXPECT_EQ(result.slang.find("textures[7]"), std::pmr::string::npos);
-    EXPECT_NE(result.slang.find("struct MaterialData"), std::pmr::string::npos);
-    EXPECT_EQ(result.slang.find("float4 color : COLOR"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("import pbr_forward;"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("struct Material : IMaterial"), std::pmr::string::npos);
     EXPECT_NE(result.slang.find("hitagi::Texture base_color_texture;"), std::pmr::string::npos);
     EXPECT_NE(result.slang.find("float metallic;"), std::pmr::string::npos);
-    EXPECT_NE(result.slang.find("if (hitagi::valid(material_data.base_color_texture.handle)) sample_base_color_rgba = material_data.base_color_texture.sample<float4>(sampler, input.uv);"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("if (hitagi::valid(material_data.base_color_texture.handle)) sample_base_color_rgba = material_data.base_color_texture.sample<float4>(context.sampler, input.uv);"), std::pmr::string::npos);
     EXPECT_NE(result.slang.find("surface.base_color = sample_base_color_rgba;"), std::pmr::string::npos);
     EXPECT_NE(result.slang.find("surface.metallic = material_data.metallic;"), std::pmr::string::npos);
-    EXPECT_NE(result.slang.find("surface.roughness = 0.0f;"), std::pmr::string::npos);
-    gfx::ShaderCompiler compiler("PbrTextureContract");
-    for (const auto& shader : result.pass.pipeline->GetShaders()) {
-        EXPECT_FALSE(compiler.LoadProgram(shader->GetDesc().program, gfx::ShaderTarget::DXIL)->Compile(shader->GetDesc().entry, shader->GetDesc().type, shader->GetDesc().specialization_types).bytecode.Empty());
-        EXPECT_FALSE(compiler.LoadProgram(shader->GetDesc().program, gfx::ShaderTarget::SPIRV)->Compile(shader->GetDesc().entry, shader->GetDesc().type, shader->GetDesc().specialization_types).bytecode.Empty());
-    }
+    EXPECT_NE(result.slang.find("surface.roughness = 0.25f;"), std::pmr::string::npos);
+    EXPECT_EQ(result.slang.find("DistributionGGX"), std::pmr::string::npos);
+    ExpectCompilesForBothBackends(result.pass);
 }
 
-TEST(PbrMaterialCompilerTest, GeneratedIndexedRecordShadersCompileForBothBackends) {
-    MaterialGraph graph;
-    const auto    color   = graph.AddNode("base_color", "parameter", {}, {{"value", ShaderValueType::Color}});
-    const auto    surface = graph.AddNode("surface", "surface_output", {{"base_color", ShaderValueType::Color}}, {{"out", ShaderValueType::Surface}});
-    graph.AddEdge(color, "value", surface, "base_color");
-    graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
-
-    const auto result = PbrMaterialCompiler{}.Compile(graph, PbrMaterialDefaults(), {.shader_name = "CompilableMaterial"});
-    ASSERT_TRUE(result);
-
-    EXPECT_NE(result.slang.find("uint instance_index;"), std::string::npos);
-    EXPECT_NE(result.slang.find("resource.instance_index * resource.instance_stride"), std::string::npos);
-    gfx::ShaderCompiler compiler("PbrMaterialCompilerTest.GeneratedIndexedRecordShaders");
-    for (const auto& shader : result.pass.pipeline->GetShaders()) {
-        EXPECT_FALSE(compiler.LoadProgram(shader->GetDesc().program, gfx::ShaderTarget::DXIL)->Compile(shader->GetDesc().entry, shader->GetDesc().type, shader->GetDesc().specialization_types).bytecode.Empty());
-        EXPECT_FALSE(compiler.LoadProgram(shader->GetDesc().program, gfx::ShaderTarget::SPIRV)->Compile(shader->GetDesc().entry, shader->GetDesc().type, shader->GetDesc().specialization_types).bytecode.Empty());
-    }
-}
-
-TEST(PbrMaterialCompilerTest, SupportsBaseNodeKinds) {
+TEST(MaterialGraphCompilerTest, CompilesBaseNodeKindsAgainstAnyShell) {
     MaterialGraph graph;
     const auto    vertex_color = graph.AddNode("vertex_color", "vertex_color", {}, {{"color", ShaderValueType::Color}});
-    const auto    normal       = graph.AddNode("geometry_normal", "normal", {}, {{"normal", ShaderValueType::Float3}});
     const auto    tint         = graph.AddNode("tint", "parameter", {}, {{"value", ShaderValueType::Color}});
     const auto    mix          = graph.AddNode(
         "mix_vertex_color",
         "mix",
         {{"a", ShaderValueType::Color}, {"b", ShaderValueType::Color}, {"t", ShaderValueType::Float}},
         {{"value", ShaderValueType::Color}});
-    const auto normal_map = graph.AddNode(
-        "normal_from_sample",
-        "normal_map",
-        {{"sample", ShaderValueType::Color}},
-        {{"normal", ShaderValueType::Float3}});
-    const auto surface = graph.AddNode(
+    const auto normal_texture = graph.AddNode("normal_texture", "parameter", {}, {{"texture", ShaderValueType::Texture2D}});
+    const auto flat_normal    = graph.AddConstant("flat_normal", vec4f{0.5f, 0.5f, 1.0f, 1.0f});
+    const auto sample         = graph.AddNode(
+        "sample_normal",
+        "texture_sample",
+        {{"texture", ShaderValueType::Texture2D}, {"fallback", ShaderValueType::Float4}},
+        {{"rgba", ShaderValueType::Float4}});
+    const auto normal_map = graph.AddNode("decode_normal", "normal_map", {{"sample", ShaderValueType::Float4}}, {{"normal", ShaderValueType::Float3}});
+    const auto channels   = graph.AddNode("tint_channels", "swizzle", {{"in", ShaderValueType::Color}}, {{"a", ShaderValueType::Float}});
+    const auto surface    = graph.AddNode(
         "surface",
         "surface_output",
-        {{"base_color", ShaderValueType::Color}, {"normal", ShaderValueType::Float3}},
+        {{"albedo", ShaderValueType::Color}, {"normal", ShaderValueType::Float3}},
         {{"out", ShaderValueType::Surface}});
 
     graph.AddEdge(vertex_color, "color", mix, "a");
     graph.AddEdge(tint, "value", mix, "b");
-    graph.AddEdge(vertex_color, "color", normal_map, "sample");
-    graph.AddEdge(mix, "value", surface, "base_color");
+    graph.AddEdge(tint, "value", channels, "in");
+    graph.AddEdge(channels, "a", mix, "t");
+    graph.AddEdge(normal_texture, "texture", sample, "texture");
+    graph.AddEdge(flat_normal, "value", sample, "fallback");
+    graph.AddEdge(sample, "rgba", normal_map, "sample");
+    graph.AddEdge(mix, "value", surface, "albedo");
     graph.AddEdge(normal_map, "normal", surface, "normal");
     graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
 
-    auto defaults = PbrMaterialDefaults();
-    defaults.push_back({.name = "tint", .value = Color::White()});
-    const auto first = PbrMaterialCompiler{}.Compile(graph, defaults, {.shader_name = "BaseNodeMaterial"});
-    ASSERT_TRUE(first);
-    EXPECT_NE(first.slang.find("float4 color : COLOR"), std::pmr::string::npos);
-    EXPECT_NE(first.slang.find("input.color"), std::pmr::string::npos);
-    EXPECT_NE(first.slang.find("lerp(input.color, material_data.tint, 0.5f)"), std::pmr::string::npos);
-    EXPECT_NE(first.slang.find("normal_from_sample_normal"), std::pmr::string::npos);
+    const MaterialParameters defaults{
+        {.name = "tint", .value = Color::White()},
+        {.name = "normal_texture", .value = std::shared_ptr<Texture>{}},
+    };
+    const auto result = CompileMaterialGraph(graph, TestPassTemplate(), defaults, {.name = "BaseNodeMaterial"});
+    ASSERT_TRUE(result) << (result.validation.errors.empty() ? "" : result.validation.errors.front().message);
+    EXPECT_EQ(result.pass.pass_contract, "Test");
+    EXPECT_NE(result.slang.find("lerp(input.color, material_data.tint, (material_data.tint).a)"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("float4 sample_normal_rgba = float4(0.5f, 0.5f, 1.0f, 1.0f);"), std::pmr::string::npos);
+    EXPECT_NE(result.slang.find("surface.normal = normalize(sample_normal_rgba.xyz * 2.0f - 1.0f);"), std::pmr::string::npos);
+    ExpectCompilesForBothBackends(result.pass);
+}
+
+TEST(MaterialGraphCompilerTest, ReportsUnsupportedNodesAndChannelMismatches) {
+    const auto pass_template = TestPassTemplate();
+    {
+        MaterialGraph graph;
+        const auto    value   = graph.AddNode("value", "noise", {}, {{"value", ShaderValueType::Float3}});
+        const auto    surface = graph.AddNode("surface", "surface_output", {{"normal", ShaderValueType::Float3}}, {{"out", ShaderValueType::Surface}});
+        graph.AddEdge(value, "value", surface, "normal");
+        graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
+        EXPECT_TRUE(HasGraphError(CompileMaterialGraph(graph, pass_template, {}).validation, MaterialGraphValidationErrorCode::UnsupportedNode));
+        EXPECT_TRUE(HasGraphError(CompileMaterialGraph(graph, pass_template, {}, {.terminal = "missing"}).validation, MaterialGraphValidationErrorCode::MissingTerminal));
+    }
+    {
+        MaterialGraph graph;
+        const auto    color    = graph.AddConstant("color", Color::White());
+        const auto    channels = graph.AddNode("channels", "swizzle", {{"in", ShaderValueType::Color}}, {{"rg", ShaderValueType::Float3}});
+        const auto    surface  = graph.AddNode("surface", "surface_output", {{"normal", ShaderValueType::Float3}}, {{"out", ShaderValueType::Surface}});
+        graph.AddEdge(color, "value", channels, "in");
+        graph.AddEdge(channels, "rg", surface, "normal");
+        graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
+        EXPECT_TRUE(HasGraphError(CompileMaterialGraph(graph, pass_template, {}).validation, MaterialGraphValidationErrorCode::TypeMismatch));
+    }
 }

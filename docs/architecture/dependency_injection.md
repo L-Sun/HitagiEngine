@@ -102,7 +102,7 @@ struct ShaderSource {
 };
 ```
 
-The optional `preset.deferred` renderer reads its sources with `render::LoadShaderSource(file_io, path)` during construction. It then passes `ShaderSource` values to `GBuffer`, `DeferredLighting`, and `GBufferDebugView`, alongside their device, binding, and compiler references.
+The optional deferred renderer reads its sources with `render::deferred::LoadShaderSource(file_io, path)` during construction. It then passes `ShaderSource` values to `GBuffer`, `DeferredLighting`, and `GBufferDebugView`, alongside their device, binding, and compiler references.
 
 The passes retain shader data and graphics dependencies. File access belongs to the assembly step, and `DeferredRenderer` does not retain `FileIOManager&` after construction. Editor viewport passes use the same value-injection pattern.
 
@@ -118,7 +118,7 @@ Nested containers show ownership. Amber labels identify borrowed dependencies or
 
 `MemoryManager`, `FileIOManager`, and `JobSystem` are owned by `Engine` members. They are outside the ticked module subtree, and member declaration order determines their lifetime.
 
-The runtime subtree owns application, graphics, asset, physics, logic, rendering, and GUI modules. `RuntimeModule::Tick()` visits children in tree order. `Engine::AddSubModule` mounts game and editor modules under `OutLogicArea`.
+The runtime subtree owns application, graphics, asset, physics, and debug modules. `RuntimeModule::Tick()` visits children in tree order. Hosts append their own logic, optional GUI, and renderer modules using inherited `AddSubModule()`, or group them under an application module. Register dependencies before their consumers so reverse destruction preserves their lifetimes.
 
 The initial assembly order is:
 
@@ -126,14 +126,14 @@ The initial assembly order is:
 Engine construction
   members: MemoryManager → FileIOManager → JobSystem
   subtree: App → Device → GraphicsServices → Assets → Physics
-           → OutLogicArea → Debug → ClearRenderer → Gui → RenderRuntime
+           → Debug → host-added modules (logic → optional GUI → renderer)
 
 ~Engine
-  UnloadAllSubModules(): RenderRuntime → ... → App
+  UnloadAllSubModules(): host consumers → host dependencies → Debug → ... → App
   member destruction: JobSystem → FileIOManager → MemoryManager
 ```
 
-`GraphicsServices` owns command queues, bindings, and the shader compiler. Graphics consumers receive the individual facilities they need. GPU resource creation receives the device, allocator, or binding facilities required by the relevant `Create` API. See the [gfx contracts](../../hitagi/gfx/AGENT.md) for graphics ownership and destruction requirements.
+`GraphicsServices` owns command queues, bindings, and the shader compiler. Graphics consumers receive the individual facilities they need. GPU resource creation receives the device, allocator, or binding facilities required by the relevant `Create` API. See the [gfx contracts](../../hitagi/engine/gfx/AGENT.md) for graphics ownership and destruction requirements.
 
 ### Application access to services
 
@@ -144,10 +144,9 @@ Game and editor application code obtains services through the `Engine&` it holds
 | Infrastructure | `FileIO()`, `Jobs()` |
 | Application and simulation | `App()`, `Physics()` |
 | Graphics facilities | `Device()`, `Queues()`, `Bindings()`, `ShaderCompiler()` |
-| Resources and rendering | `Assets()`, `Renderer()`, `RenderRuntime()`, `ResourceLoadContext()` |
-| GUI | `GuiManager()` |
+| Resources | `Assets()`, `ResourceLoadContext()` |
 
-The application layer can use the complete engine to assemble workflows. Modules inside the engine receive the specific dependencies they consume. `Engine` starts with `ClearRenderer`; the host selects another renderer through `SetRenderer`. See [Overall abstraction design](overview.md) for the engine, editor, and game boundaries.
+The application layer can use the complete engine to assemble workflows. Modules inside the engine receive the specific dependencies they consume. The host explicitly imports `render`, constructs a concrete `PbrRenderer` or `DeferredRenderer` from graphics services and, for window rendering, `Application&`, and registers it with `AddSubModule()`. Custom renderers directly inherit `RuntimeModule`. Engine construction creates infrastructure first; no renderer factory or service lookup is needed. The host retains a concrete reference to use that renderer's API. It also constructs any `GuiManager` it needs and explicitly injects it into rendering consumers. Engine has no default renderer or fixed GUI/rendering slots. See [Overall abstraction design](overview.md) for the engine, editor, and game boundaries.
 
 ## Lifetime rules
 
@@ -191,9 +190,9 @@ This assembly supports asset work without an interactive engine or editor instan
 ## Source entry points
 
 * Engine assembly and accessors: [engine.cpp](../../hitagi/engine/engine.cpp), [engine.cppm](../../hitagi/engine/engine.cppm)
-* Runtime module ownership and tick order: [runtime_module.cpp](../../hitagi/core/runtime_module.cpp)
-* Asset service injection and texture capabilities: [asset_manager.cpp](../../hitagi/asset/asset_manager.cpp), [texture.cpp](../../hitagi/asset/texture.cpp)
-* Executor capability: [job_system.cpp](../../hitagi/core/job_system.cpp)
-* ECS update and execution: [world.cpp](../../hitagi/ecs/world.cpp), [schedule.cpp](../../hitagi/ecs/schedule.cpp)
-* Shader values and preset assembly: [types.cpp](../../hitagi/render/types.cpp), [deferred_renderer.cpp](../../presets/deferred/deferred_renderer.cpp)
+* Runtime module ownership and tick order: [runtime_module.cpp](../../hitagi/engine/core/runtime_module.cpp)
+* Asset service injection and texture capabilities: [asset_manager.cpp](../../hitagi/engine/asset/asset_manager.cpp), [texture.cpp](../../hitagi/engine/asset/texture.cpp)
+* Executor capability: [job_system.cpp](../../hitagi/engine/core/job_system.cpp)
+* ECS update and execution: [world.cpp](../../hitagi/engine/ecs/world.cpp), [schedule.cpp](../../hitagi/engine/ecs/schedule.cpp)
+* Shader values and renderer assembly: [types.cpp](../../hitagi/engine/render/deferred/types.cpp), [renderer.cpp](../../hitagi/engine/render/deferred/renderer.cpp)
 * Standalone cook composition: [asset pipeline tests](../../hitagi/editor/test/material_pipeline_test.cpp)

@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1510" viewBox="0 0 1800 1510" role="img" aria-labelledby="title desc">
   <title id="title">Hitagi Engine — Cooked Asset Runtime Format</title>
   <desc id="desc">HTGC v1 file layout, record references and runtime loading. The 80-byte header stores absolute section offsets. Records use section-relative references. Scene records reference five record arrays. Vertex and index data are copied to CPU arrays, then uploaded on demand. Textures are loaded separately by path.</desc>
-  <metadata>Source of truth: hitagi/asset/cooked_format.cpp, hitagi/asset/cooked_binary.cpp, hitagi/editor/cook.cppm. Visual reference: Unity ECS ArchetypeChunkDiagram, https://docs.unity3d.com/Packages/com.unity.entities@0.1/manual/images/ArchetypeChunkDiagram.png . Diagram is schematic, not to byte scale; record graph is not physical write order.</metadata>
+  <metadata>Source of truth: hitagi/engine/asset/cooked_format.cpp, hitagi/engine/asset/cooked_binary.cpp, hitagi/editor/cook.cppm. Visual reference: Unity ECS ArchetypeChunkDiagram, https://docs.unity3d.com/Packages/com.unity.entities@0.1/manual/images/ArchetypeChunkDiagram.png . Diagram is schematic, not to byte scale; record graph is not physical write order.</metadata>
   <defs>
     <style>
       text { font-family: 'Segoe UI', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: #263443; }

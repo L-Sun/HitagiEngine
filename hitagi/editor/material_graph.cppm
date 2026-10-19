@@ -31,6 +31,9 @@ struct MaterialGraphSocket {
     ShaderIRMetadata metadata;
 };
 
+// The alternative fixes the constant node's output type.
+using MaterialGraphConstant = std::variant<float, std::uint32_t, math::vec2f, math::vec3f, math::vec4f, math::Color>;
+
 struct MaterialGraphNode {
     MaterialGraphNodeId                   id = 0;
     std::pmr::string                      name;
@@ -38,6 +41,7 @@ struct MaterialGraphNode {
     std::pmr::vector<MaterialGraphSocket> inputs;
     std::pmr::vector<MaterialGraphSocket> outputs;
     ShaderIRMetadata                      metadata;
+    std::optional<MaterialGraphConstant>  constant;
 };
 
 struct MaterialGraphEdge {
@@ -62,6 +66,7 @@ enum struct MaterialGraphValidationErrorCode : std::uint8_t {
     TypeMismatch,
     MissingTerminal,
     Cycle,
+    UnsupportedNode,
 };
 
 struct MaterialGraphValidationError {
@@ -84,6 +89,8 @@ public:
         std::initializer_list<MaterialGraphSocket> inputs   = {},
         std::initializer_list<MaterialGraphSocket> outputs  = {},
         ShaderIRMetadata                           metadata = {}) -> MaterialGraphNodeId;
+    // Adds a "constant" node with one output socket named "value".
+    auto AddConstant(std::string_view name, MaterialGraphConstant value, ShaderIRMetadata metadata = {}) -> MaterialGraphNodeId;
     void AddEdge(
         MaterialGraphNodeId from_node,
         std::string_view    from_output,
@@ -140,6 +147,22 @@ auto MaterialGraph::AddNode(
     node.inputs.assign(inputs.begin(), inputs.end());
     node.outputs.assign(outputs.begin(), outputs.end());
     m_Nodes.emplace_back(std::move(node));
+    return id;
+}
+
+auto MaterialGraph::AddConstant(std::string_view name, MaterialGraphConstant value, ShaderIRMetadata metadata) -> MaterialGraphNodeId {
+    const auto type = std::visit(
+        utils::Overloaded{
+            [](float) { return ShaderValueType::Float; },
+            [](std::uint32_t) { return ShaderValueType::UInt32; },
+            [](const math::vec2f&) { return ShaderValueType::Float2; },
+            [](const math::vec3f&) { return ShaderValueType::Float3; },
+            [](const math::vec4f&) { return ShaderValueType::Float4; },
+            [](const math::Color&) { return ShaderValueType::Color; },
+        },
+        value);
+    const auto id           = AddNode(name, "constant", {}, {{"value", type}}, std::move(metadata));
+    m_Nodes.back().constant = std::move(value);
     return id;
 }
 

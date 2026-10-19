@@ -1,0 +1,8 @@
+{
+  "extends": "./build/pocketjs/tsconfig.json",
+  "compilerOptions": {
+    "jsxImportSource": "solid-js"
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["build", "temp", ".local", ".xmake", ".cache", "**/node_modules"]
+}

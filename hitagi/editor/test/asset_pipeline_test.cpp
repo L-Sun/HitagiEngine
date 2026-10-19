@@ -103,3 +103,32 @@ TEST_F(AssetPipelineTest, ImportsUsdSceneWithoutEditorWindow) {
     EXPECT_TRUE(scene->GetRootEntity());
     EXPECT_EQ(GetEditorSceneFormat(".usda"), EditorSceneFormat::USDA);
 }
+
+TEST_F(AssetPipelineTest, ImportsUsdTransformOpsIntoColumnVectorMatrices) {
+    const std::filesystem::path path{"temp/usd-transform-test.usda"};
+    std::filesystem::create_directories(path.parent_path());
+    {
+        std::ofstream file(path);
+        file << R"USD(#usda 1.0
+(defaultPrim = "Root")
+def Xform "Root" {
+    double3 xformOp:translate = (10, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate"]
+    def Mesh "Triangle" {
+        double3 xformOp:translate = (0, 2, 3)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        int[] faceVertexCounts = [3]
+        int[] faceVertexIndices = [0, 1, 2]
+        point3f[] points = [(0, 0, 0), (1, 0, 0), (0, 1, 0)]
+    }
+}
+)USD";
+    }
+    const auto scene = UsdSceneImporter{}.Import(path);
+    ASSERT_TRUE(scene);
+    ASSERT_EQ(scene->GetMeshEntities().size(), 1u);
+    scene->Update();
+    const auto& transform = scene->GetMeshEntities().front().Get<asset::Transform>();
+    EXPECT_EQ(math::get_translation(transform.local_matrix), (math::vec3f{0, 2, 3}));
+    EXPECT_EQ(math::get_translation(transform.world_matrix), (math::vec3f{10, 2, 3}));
+}

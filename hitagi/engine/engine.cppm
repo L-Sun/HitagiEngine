@@ -7,7 +7,6 @@ export import math;
 export import physics;
 export import gfx;
 export import ecs;
-export import render;
 export import gui;
 export import debugger;
 export import app;
@@ -22,9 +21,6 @@ public:
 
     void Tick() final;
 
-    auto AddSubModule(std::unique_ptr<core::RuntimeModule> module, core::RuntimeModule* after = nullptr) -> core::RuntimeModule* final;
-    auto SetRenderer(std::unique_ptr<render::IRenderer> renderer) -> render::IRenderer*;
-
     // Composition root accessors: the engine owns every subsystem below and hands
     // them to game/editor modules explicitly instead of through a global registry.
     inline auto& FileIO() const noexcept { return *m_FileIO; }
@@ -36,9 +32,6 @@ public:
     inline auto& ShaderCompiler() const noexcept { return *m_ShaderCompiler; }
     inline auto  ResourceLoadContext() const noexcept -> asset::ResourceLoadContext { return {.device = *m_Device, .queues = *m_Queues, .bindings = *m_Bindings, .shader_compiler = *m_ShaderCompiler}; }
     inline auto& Assets() const noexcept { return *m_AssetManager; }
-    inline auto& Renderer() const noexcept { return *m_Renderer; };
-    inline auto& RenderRuntime() const noexcept { return *m_RenderRuntime; }
-    inline auto& GuiManager() const noexcept { return *m_GuiManager; }
     inline auto& Physics() const noexcept { return *m_PhysicsWorld; }
 
     inline auto GetDeltaTime() const noexcept { return m_Clock.DeltaTime(); }
@@ -57,17 +50,13 @@ private:
     core::Clock   m_Clock;
 
     // Sub-modules, owned by the RuntimeModule tree in construction order.
-    Application*           m_App          = nullptr;
-    gfx::Device*           m_Device       = nullptr;
+    Application*           m_App            = nullptr;
+    gfx::Device*           m_Device         = nullptr;
     gfx::CommandQueues*    m_Queues         = nullptr;
     gfx::BindlessUtils*    m_Bindings       = nullptr;
     gfx::ShaderCompiler*   m_ShaderCompiler = nullptr;
-    asset::AssetManager*   m_AssetManager = nullptr;
-    core::RuntimeModule*   m_OutLogicArea = nullptr;
-    physics::PhysicsWorld* m_PhysicsWorld = nullptr;
-    render::RenderRuntime* m_RenderRuntime = nullptr;
-    render::IRenderer*     m_Renderer     = nullptr;
-    gui::GuiManager*       m_GuiManager   = nullptr;
+    asset::AssetManager*   m_AssetManager   = nullptr;
+    physics::PhysicsWorld* m_PhysicsWorld   = nullptr;
 };
 
 }  // namespace hitagi

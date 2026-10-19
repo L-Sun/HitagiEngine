@@ -32,7 +32,7 @@ boundaries; there is no target per package.
 
 | Target | Consumers | Modules |
 | --- | --- | --- |
-| `hitagi_interop` | Runtime engine and games | `fmt`, `spdlog`, `taskflow`, `pocketjs`, `sdl`, `jolt`, `freetype`, `png`, `jpeg`, `slang`, `vulkan`, `vma`, `magic_enum`, `tracy`, `tracy.vulkan`; Windows: `win32`, `dx12`, `d3d12ma`, `tracy.dx12` |
+| `hitagi_interop` | Runtime engine and games | `fmt`, `spdlog`, `taskflow`, `pocketjs`, `sdl`, `jolt`, `png`, `jpeg`, `slang`, `vulkan`, `vma`, `magic_enum`, `tracy`, `tracy.vulkan`; Windows: `win32`, `dx12`, `d3d12ma`, `tracy.dx12` |
 | `hitagi_interop_editor` | Asset authoring tools | `usd` |
 | `hitagi_interop_test` | Unit/editor tests and benchmark test helpers | `gtest` |
 | `hitagi_interop_benchmark` | Opt-in benchmarks (`--benchmarks=y`) | `benchmark` |

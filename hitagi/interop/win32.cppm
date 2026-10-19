@@ -50,6 +50,7 @@ inline const auto     idc_sizewe          = IDC_SIZEWE;
 inline constexpr auto kf_repeat           = KF_REPEAT;
 inline constexpr auto pm_remove           = PM_REMOVE;
 inline constexpr auto size_minimized      = SIZE_MINIMIZED;
+inline constexpr auto size_restored       = SIZE_RESTORED;
 inline constexpr auto sw_hide             = SW_HIDE;
 inline constexpr auto sw_maximize         = SW_MAXIMIZE;
 inline constexpr auto sw_show             = SW_SHOW;
@@ -64,6 +65,8 @@ inline constexpr auto vk_rshift           = VK_RSHIFT;
 inline constexpr auto wait_timeout        = WAIT_TIMEOUT;
 inline constexpr auto wm_char             = WM_CHAR;
 inline constexpr auto wm_destroy          = WM_DESTROY;
+inline constexpr auto wm_close            = WM_CLOSE;
+inline constexpr auto wm_erasebkgnd       = WM_ERASEBKGND;
 inline constexpr auto wm_ime_char         = WM_IME_CHAR;
 inline constexpr auto wm_keydown          = WM_KEYDOWN;
 inline constexpr auto wm_keyup            = WM_KEYUP;
@@ -134,6 +137,7 @@ export inline void  zero_memory(void* pointer, SIZE_T size) { ZeroMemory(pointer
 #undef KF_REPEAT
 #undef PM_REMOVE
 #undef SIZE_MINIMIZED
+#undef SIZE_RESTORED
 #undef SW_HIDE
 #undef SW_MAXIMIZE
 #undef SW_SHOW
@@ -148,6 +152,8 @@ export inline void  zero_memory(void* pointer, SIZE_T size) { ZeroMemory(pointer
 #undef WAIT_TIMEOUT
 #undef WM_CHAR
 #undef WM_DESTROY
+#undef WM_CLOSE
+#undef WM_ERASEBKGND
 #undef WM_IME_CHAR
 #undef WM_KEYDOWN
 #undef WM_KEYUP
@@ -201,6 +207,16 @@ export inline void  zero_memory(void* pointer, SIZE_T size) { ZeroMemory(pointer
 #undef MAX_PATH
 
 export {
+    inline constexpr auto WM_ERASEBKGND = hitagi::interop::wm_erasebkgnd;
+    using ::CreateCompatibleDC;
+    using ::CreateCompatibleBitmap;
+    using ::DeleteDC;
+    using ::DeleteObject;
+    using ::SelectObject;
+    using ::GetDC;
+    using ::ReleaseDC;
+    using ::GetPixel;
+    using ::SetPixel;
     inline constexpr auto WM_IME_STARTCOMPOSITION = hitagi::interop::wm_ime_startcomposition;
     inline constexpr auto WM_IME_COMPOSITION = hitagi::interop::wm_ime_composition;
     inline constexpr auto WM_IME_ENDCOMPOSITION = hitagi::interop::wm_ime_endcomposition;
@@ -269,6 +285,7 @@ export {
     using ::MulDiv;
     using ::PeekMessageW;
     using ::POINT;
+    using ::PostMessageW;
     using ::PostQuitMessage;
     using ::PROCESS_MEMORY_COUNTERS;
     using ::PROCESS_MEMORY_COUNTERS_EX;
@@ -323,6 +340,7 @@ export {
     inline constexpr auto KF_REPEAT           = hitagi::interop::kf_repeat;
     inline constexpr auto PM_REMOVE           = hitagi::interop::pm_remove;
     inline constexpr auto SIZE_MINIMIZED      = hitagi::interop::size_minimized;
+    inline constexpr auto SIZE_RESTORED       = hitagi::interop::size_restored;
     inline constexpr auto SW_HIDE             = hitagi::interop::sw_hide;
     inline constexpr auto SW_MAXIMIZE         = hitagi::interop::sw_maximize;
     inline constexpr auto SW_SHOW             = hitagi::interop::sw_show;
@@ -337,6 +355,7 @@ export {
     inline constexpr auto WAIT_TIMEOUT        = hitagi::interop::wait_timeout;
     inline constexpr auto WM_CHAR             = hitagi::interop::wm_char;
     inline constexpr auto WM_DESTROY          = hitagi::interop::wm_destroy;
+    inline constexpr auto WM_CLOSE            = hitagi::interop::wm_close;
     inline constexpr auto WM_IME_CHAR         = hitagi::interop::wm_ime_char;
     inline constexpr auto WM_KEYDOWN          = hitagi::interop::wm_keydown;
     inline constexpr auto WM_KEYUP            = hitagi::interop::wm_keyup;

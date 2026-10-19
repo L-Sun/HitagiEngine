@@ -11,7 +11,6 @@ add_requires("taskflow v4.1.0", {configs = {modules = true}})
 add_requires(
     "libpng",
     "libjpeg-turbo",
-    "freetype",
     "libsdl3",
     "joltphysics",
     {configs = {shared = true}}
@@ -42,8 +41,8 @@ target("hitagi_interop")
     add_files("vma.cpp")
     add_files("slang.cppm", {public = true})
     add_packages("directx-shader-compiler", {public = true})
-    add_files("taskflow.cppm", "sdl.cppm", "jolt.cppm", "freetype.cppm", "png.cppm", "jpeg.cppm", {public = true})
-    add_packages("taskflow", "libsdl3", "joltphysics", "freetype", "libpng", "libjpeg-turbo", {public = true})
+    add_files("taskflow.cppm", "sdl.cppm", "jolt.cppm", "png.cppm", "jpeg.cppm", {public = true})
+    add_packages("taskflow", "libsdl3", "joltphysics", "libpng", "libjpeg-turbo", {public = true})
     add_files("pocketjs.cppm", {public = true})
     add_packages("pocketjs", {public = true})
     add_includedirs("..", {public = true})

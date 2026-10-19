@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1890" viewBox="0 0 1920 1890" role="img" aria-labelledby="title desc">
   <title id="title">Hitagi Asset Module — Editor, Cook and Runtime</title>
   <desc id="desc">Current resource architecture: editor import and cooking, shared asset objects, weak-reference registries, renderer contracts, service injection, and GPU residency.</desc>
-  <metadata>Source: hitagi/editor/{editor.cpp,editor.cppm,usd.cppm,cook.cppm,material_compiler.cppm,editor_asset_browser.cppm}; hitagi/asset/{asset_manager.cpp,asset_manager.cppm,resource.cpp,scene.cpp,mesh.cpp,material.cpp,texture.cpp,pipeline.cpp,shader.cpp,cooked_binary.cpp,cooked_format.cpp}; hitagi/engine/engine.cppm; hitagi/render/deferred_renderer.cpp. Current implementation, not a proposed API. Visual language follows the companion cooked_asset_layout.svg.</metadata>
+  <metadata>Source: hitagi/editor/{editor.cpp,editor.cppm,usd.cppm,cook.cppm,material_compiler.cppm,editor_asset_browser.cppm}; hitagi/engine/asset/{asset_manager.cpp,asset_manager.cppm,resource.cpp,scene.cpp,mesh.cpp,material.cpp,texture.cpp,pipeline.cpp,shader.cpp,cooked_binary.cpp,cooked_format.cpp}; hitagi/engine/engine.cppm; hitagi/engine/render/deferred/renderer.cpp. Current implementation, not a proposed API. Visual language follows the companion cooked_asset_layout.svg.</metadata>
   <defs>
     <style>
       text { font-family: 'Segoe UI', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: #263443; }
