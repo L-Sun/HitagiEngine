@@ -9,6 +9,7 @@ hitagi.json
 temp
 .cache
 vtune
+output
 
 .vscode/compile_commands.json
 
