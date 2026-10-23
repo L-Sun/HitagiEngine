@@ -28,7 +28,7 @@ The game editor can also use engine APIs directly. Engine has no dependency on e
 
 ## Current render architecture
 
-The `render` module provides two concrete runtime modules: `render::pbr::PbrRenderer` and `render::deferred::DeferredRenderer`. Both directly inherit `core::RuntimeModule`; there is no common renderer interface. Applications choose an implementation, inject its dependencies, and attach it to the ordinary module tree. Engine creates no default renderer, owns no renderer slot, and does not re-export `render`. Applications can also implement their own `RuntimeModule` using RenderGraph directly.
+The `render` module provides three concrete runtime modules: `render::pbr::PbrRenderer`, `render::toon::ToonRenderer` and `render::deferred::DeferredRenderer`. All directly inherit `core::RuntimeModule`; there is no common renderer interface. Applications choose an implementation, inject its dependencies, and attach it to the ordinary module tree. Engine creates no default renderer, owns no renderer slot, and does not re-export `render`. Applications can also implement their own `RuntimeModule` using RenderGraph directly.
 
 ![Hitagi render architecture: explicit construction, concrete renderer modules, frame submission, and RenderGraph execution.](../assets/render_architecture.svg)
 
@@ -55,9 +55,7 @@ For offscreen rendering, use the constructor without Application and call `Submi
 
 Both `SetFrame` and `Submit` copy views, draw items, and lights and retain shared resources. They do not deep-copy mesh/material contents; calls and resource mutation must be serialized by the host. `Tick()` first ticks any ordinary child modules, consumes offscreen submissions, then renders its window. A failed execution retires the graph before propagating the error; later ticks can create a fresh graph. Renderer destruction releases children before its own state and graphics resources.
 
-The runnable [renderer example](../../examples/renderer/main.cpp) only constructs the selected renderer, sets its frame, and registers it in Engine. Run `xmake r renderer-example --renderer=pbr` or `--renderer=deferred`; add `--headless --frames=3 --resize --backend=Vulkan` for a bounded smoke run (DX12 is also supported on Windows).
-
-For custom composition, both renderers expose `Build(graph, request)`, which only adds passes and returns graph handles. The caller then owns compilation, execution, import cleanup, and presentation. Execute that graph before the next `Build()` or `Tick()` on the same renderer, and keep the renderer and any borrowed resources alive until execution completes. Deferred exposes debug views and `IDeferredRenderExtension`; PBR owns the `PBRForward` material contract. Custom application renderers remain ordinary runtime modules with their own APIs.
+For custom composition, all three renderers expose `Build(graph, request)`, which only adds passes and returns graph handles. The caller then owns compilation, execution, import cleanup, and presentation. Execute that graph before the next `Build()` or `Tick()` on the same renderer, and keep the renderer and any borrowed resources alive until execution completes. Deferred exposes debug views and `IDeferredRenderExtension`; PBR owns the `PBRForward` material contract. Toon owns `ToonForward` and `ToonOutline`; see its [rendering and material contract](toon_renderer.md). PBR and Toon share renderer-neutral scene draw inputs; ECS remains responsible for instance animation and skinning. Custom application renderers remain ordinary runtime modules with their own APIs.
 
 GUI is an opt-in component: `gui::GuiRenderUtils` adds drawing passes, including PocketJS text, to the application graph. A UI host owns `GuiManager`, prepares layout before rendering native overlays, finishes GUI composition, and builds the GUI pass before executing the graph. No implicit GUI submission is performed by Engine.
 

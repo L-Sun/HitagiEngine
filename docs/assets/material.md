@@ -5,11 +5,11 @@
 Concrete material semantics live further out:
 
 ```text
-game / renderer preset
+game / renderer
   owns material semantics, graph-lowering policy, and pass-contract definitions
 
 editor / importer / cooker
-  reads authoring data (USD and similar), runs the preset processor, and produces cooked materials
+  reads authoring data (USD and similar), runs the game's material processor, and produces cooked materials
 
 engine asset::Material
   stores parameter values, stores pass binding contracts, and packs material_data in binding order
@@ -59,24 +59,36 @@ public:
     auto GetPasses()     const noexcept -> std::span<const MaterialPass>;
     auto FindPass(std::string_view pass_contract) const noexcept -> const MaterialPass*;
 
-    template <MaterialParametric T> void DefineParameter(std::string_view name, T value);
+    auto Clone(std::string_view name) const -> std::shared_ptr<Material>;
     template <MaterialParametric T> void SetParameter(std::string_view name, T value);
     template <MaterialParametric T> auto GetParameter(std::string_view name) const noexcept -> std::optional<T>;
 };
 ```
 
-The constructor deduplicates parameters by name (keeping the first occurrence) and takes ownership of the supplied parameter and pass descriptions.
+The constructor fixes parameter names/types and pass definitions, rejects duplicate parameter names, and takes ownership of their data.
 
-`DefineParameter<T>(name, value)` adds a parameter and fixes its type through the active `MaterialParameterValue` variant alternative. Defining an existing name throws `std::invalid_argument`. Constructor-supplied parameters are already defined.
+There is no runtime schema-editing interface. Parameter values are mutable runtime state; their types are fixed by the construction-time variant alternatives.
 
-`SetParameter(name, value)` only assigns to an existing parameter of the same type. An undefined name or a type mismatch throws `std::invalid_argument`, leaving values, load state, and packed pass data unchanged. Successful definitions and assignments invalidate packed pass data. No separate type field is stored.
+`SetParameter(name, value)` only assigns to an existing parameter of the same type. An undefined name or a type mismatch throws `std::invalid_argument`, leaving values, load state, and packed pass data unchanged. Successful assignments invalidate packed pass data. No separate type field is stored.
 
 ```cpp
-material.DefineParameter<float>("roughness", 0.5f);
+Material material({{.name = "roughness", .value = 0.5f}});
 material.SetParameter("roughness", 0.8f);
 ```
 
 Importers that convert a source parameter to a different runtime type construct a new parameter set before rebuilding the material; they do not use `SetParameter` to change its type.
+
+## Independent entity material state
+
+Clone(name) copies parameter values and pass definitions, assigns a new resource identity, and starts unloaded with empty packed buffers. Pipeline, shader and texture dependencies remain shared. Mutating the shared Material directly affects all its users; clone it when only one entity should change.
+
+~~~cpp
+auto local = mesh->sub_meshes[0].material->Clone("KnightTint");
+local->SetParameter("base_color", math::Color::Red());
+entity.Get<asset::MeshComponent>().material_overrides = {local};
+~~~
+
+Overrides are indexed by submesh. Missing/null entries use the Mesh default; excess entries are rejected. Render extraction copies these references into draw items. Cook preserves override references and current parameter values while retaining shared mesh geometry. An extracted draw item owns material references, not a deep snapshot of mutable material parameters; edits must precede frame submission or use a new clone.
 
 ## bindings are the GPU ABI
 
@@ -97,7 +109,7 @@ MaterialPass("PBRForward").bindings   (ABI, order is the layout)
   material_data : [base_color(16B)][roughness(4B)][albedo handle(16B)]
 ```
 
-A parameter that does not appear in `bindings` (such as `unused` above) is left out of that pass's `material_data`. Every binding requires a typed default supplied by the game or preset. Cook rejects missing or mistyped final parameters. Runtime warns once per material parameter revision and substitutes the contract default, preserving the expected field size and all subsequent offsets. Equal byte sizes do not imply equal types (for example, `float` versus `uint32_t`).
+A parameter that does not appear in `bindings` (such as `unused` above) is left out of that pass's `material_data`. Every binding requires a typed default supplied by the game or renderer. Cook rejects missing or mistyped final parameters. Runtime warns once per material parameter revision and substitutes the contract default, preserving the expected field size and all subsequent offsets. Equal byte sizes do not imply equal types (for example, `float` versus `uint32_t`).
 
 One material can have several passes, each with its own `bindings` and `material_data`. The renderer fetches a pass with `FindPass("the contract it agreed on")`. If the pass is missing, that material is skipped. The renderer does not infer a shading model from parameter names, and it does not synthesize a pass on the spot.
 
@@ -167,7 +179,7 @@ Frame 3  Material::Load
 
 The check uses `Texture::IsSettled()` (`Loaded` or `Failed`), so a texture that failed to decode does not make the material repack forever. It settles on the placeholder handle.
 
-`GenerateMaterialData` has one more fallback for textures: if a non-empty texture has no GPU view, the engine loads and uses `Texture::DefaultTexture()`. This applies to contract texture defaults as well as ordinary parameters. An explicit null texture default means no texture; the preset shader must guard sampling and define that case's behavior. The PBR preset does so.
+`GenerateMaterialData` has one more fallback for textures: if a non-empty texture has no GPU view, the engine loads and uses `Texture::DefaultTexture()`. This applies to contract texture defaults as well as ordinary parameters. An explicit null texture default means no texture; the renderer shader must guard sampling and define that case's behavior. The PBR renderer does so.
 
 ## Load / Unload
 

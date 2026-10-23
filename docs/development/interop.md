@@ -111,8 +111,8 @@ xmake lua xmake/scripts/check_interop.lua
 
 It includes excluded historical benchmark/test-main sources in its scan and
 recognizes shader includes embedded in strings. This is an include audit, not
-a compiler or clang-tidy pass. Build and run both test targets, build all game
-and editor examples, and validate both `--profile=n` and `--profile=y` when
+a compiler or clang-tidy pass. Build and run both test targets, and validate
+both `--profile=n` and `--profile=y` when
 changing shared dependency definitions. The default Windows debug build has also
 been validated with MSVC 14.51. Linux, profiling-enabled configurations and other
 compilers require their own build checks for these compatibility changes.

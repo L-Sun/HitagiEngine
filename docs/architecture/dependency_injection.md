@@ -11,7 +11,7 @@ The injection shape follows how the consumer uses the dependency:
 | Shape | When to use it | Examples |
 | --- | --- | --- |
 | Constructor injection (reference) | The object needs access to a service, or data backed by that service, throughout its lifetime | `AssetManager(FileIOManager&, JobSystem&)`, `PhysicsWorld(JobSystem&)`, `GuiManager(Application&, FileIOManager&)` |
-| Call injection (parameter) | A particular operation needs a service the caller already has | `World::Update(JobSystem&)`, `Scene::Update(JobSystem&)`, `Resource::Load(const ResourceLoadContext&)` |
+| Call injection (parameter) | A particular operation needs a service the caller already has | `World::Update(JobSystem&)`, `Resource::Load(const ResourceLoadContext&)` |
 | Capability injection (function object) | The consumer needs a specific operation supplied by a service | `ImageLoader` obtains pixels; `JobSubmitter` submits a task |
 | Value injection (data) | The consumer needs the result produced by a service | `render::ShaderSource` carries source text and its path |
 
@@ -31,21 +31,18 @@ hitagi::asset::AssetManager assets(file_io, job_system, "assets");
 
 ### Call injection: an executor for one update
 
-`ecs::World` receives an executor when running a parallel update. Its public update interface is:
+`ecs::World` and `asset::Scene` receive an executor for each update. The caller owns the job system:
 
 ```cpp
 class World {
 public:
     explicit World(std::string_view name);
-    void Update();                         // serial execution on the calling thread
-    void Update(core::JobSystem& jobs);     // parallel execution through the supplied executor
+    void Update(core::JobSystem& jobs);  // execution through the supplied executor
     // Other declarations omitted.
 };
 ```
 
-Both overloads run the same validated dependency graph. Serial execution follows its topological order; parallel execution uses Taskflow to schedule independent work.
-
-Scene construction, cooked parsing, USD import, and editor command do/undo can use serial updates without a thread pool. Frame updates can call `Update(engine.Jobs())`. `asset::Scene` exposes the same choice for updating its world. See [ECS contracts](ecs.md) for scheduling and structural-update rules.
+The update runs the validated dependency graph on that executor and waits for it to finish. Frame updates call `Update(engine.Jobs())`. Cooked loading and USD import take the same kind of reference for the evaluation that finishes the import. See [ECS contracts](ecs.md) for scheduling and structural-update rules.
 
 GPU resource loading also receives services per operation:
 
@@ -174,7 +171,7 @@ protected:
 };
 ```
 
-The fixture destroys `assets` first, followed by `job_system` and `file_io`. ECS tests can construct `World(name)` and call serial `Update()`; parallel tests supply a job system. Render-pass tests can supply shader source values directly.
+The fixture destroys `assets` first, followed by `job_system` and `file_io`. ECS and scene tests construct a `JobSystem` and pass it to `Update`. Render-pass tests can supply shader source values directly.
 
 A standalone tool composes services in the same way. The PBR cook command uses this declaration order:
 

@@ -40,7 +40,7 @@ A few choices are deliberate:
 
 * **`enable_shared_from_this` sits at the top of the hierarchy.** It can appear only once on an inheritance chain. A second occurrence makes the base ambiguous and makes `shared_from_this()` fail silently. Putting it on `Resource` lets any resource hand an asynchronous task a handle that owns it.
 * **The state is a `std::atomic`, not a `bool`.** Texture decode writes the state on a worker thread and the render thread reads it, so it has to be atomic. `SetLoadState` uses release and `GetLoadState` uses acquire. That pair also publishes the decoded pixel data.
-* **Copy is deleted, and move is written by hand.** `std::atomic` is not movable, so the move constructor and assignment move the state themselves (relaxed is enough, because only a resource that is not yet shared gets moved).
+* **Copy and move are deleted.** Name, UUID and type are fixed for the resource lifetime; registered objects and asynchronous jobs retain a stable identity.
 * **There is no wrapper such as `IsLoaded()`.** Call sites write `GetLoadState() == ResourceLoadState::Loaded` directly, so the state meaning stays visible at the call.
 
 ## ResourceLoadState
@@ -64,24 +64,25 @@ Unload() : any state ──> Unloaded
 
 `Loading` and `Staged` exist only on the asynchronous path. A synchronous resource goes from `Unloaded` straight to `Loaded` inside `Load()`.
 
-The state describes **how resident** the resource is, not **whether the content is stale**. Derived classes track staleness themselves: `VertexArray` and `IndexArray` use a `dirty` flag, and `Material` uses `m_HasPendingTextures`.
+The state describes **how resident** the resource is, not **whether the content is stale**. Mesh geometry is immutable after construction: VertexArray and IndexArray have no dirty state. Repeated Load calls reuse their buffers until Unload. Material separately tracks pending texture readiness with m_HasPendingTextures.
 
 ## Load / Unload per resource
 
 | Resource | `Load` | `Unload` |
 | --- | --- | --- |
 | `Texture` | Decode (optionally async) + `CreateTexture` + `CreateTextureView` | Release the view and texture, keep `m_ImageData` |
-| `VertexArray` | Build a GPU buffer for each non-empty dirty attribute | Clear every `gpu_buffer` |
+| `VertexArray` | Build a GPU buffer for each non-empty attribute | Clear every `gpu_buffer` |
 | `IndexArray` | Build the index GPU buffer; throw if the CPU buffer is empty | Clear `gpu_buffer` |
 | `Mesh` | Cascade into `vertices` / `indices` | Cascade `Unload` into both |
 | `Material` | Load texture parameters, then pipelines, then pack `material_data` | Clear `material_data` and cascade `pipeline->Unload()` |
 | `Shader` | `device.CreateShader(desc)` | Release `gfx::Shader` |
-| `RenderPipeline` | Load every shader, reflect the layout from the VS when it is missing, then `CreateRenderPipeline` | Release `gfx::RenderPipeline` |
+| `RenderPipeline` | Load shaders and build a GPU pipeline from a local descriptor; an uncooked procedural pipeline may derive a missing layout without mutating its definition | Release `gfx::RenderPipeline` |
 | `ComputePipeline` | Load the shader, then `CreateComputePipeline` | Release the pipeline |
-| `Scene` | Cascade `Mesh::Load` for every mesh entity | Cascade into each mesh **and** the material of each submesh |
-| `Camera` / `Light` | No GPU resource; set `Loaded` directly | Set `Unloaded` directly |
+| `Scene` | Cascade `Mesh::Load` for every mesh entity | Cascade into each mesh **and** each resolved submesh material (entity override or mesh default) |
 
-`Scene::Load` returns early when the state is `Loaded`. `Scene::Unload` **deliberately has no state guard**: the renderer can load meshes and materials without going through `Scene::Load`, so the scene state can be `Unloaded` while GPU data really exists. Unload has to walk down unconditionally.
+CameraComponent and LightComponent are plain ECS state, outside the Resource lifecycle. Their pose is the entity Transform.
+
+`Scene::Load` walks current mesh entities even when already Loaded, because their deformation snapshots can change. `Scene::Unload` **deliberately has no state guard**: the renderer can load meshes and materials without going through `Scene::Load`, so the scene state can be `Unloaded` while GPU data really exists. Unload has to walk down unconditionally.
 
 `Scene::Unload` cascades into materials, but **does not touch textures**. Textures are often shared by several scenes, so they are released by reference counting: the last owner reclaims them when it is destroyed.
 
@@ -132,7 +133,7 @@ Texture(path, ImageLoader loader, name = {}, core::JobSubmitter decode_submitter
 
 ## AssetManager
 
-`AssetManager` is a `core::RuntimeModule`. Its job is **identity** and **policy**, not ownership. It does not own `FileIOManager` or `JobSystem`. It holds references injected at construction, and it uses them to equip the textures it creates with capabilities (`ImageLoader` + `JobSubmitter`). `Scene` needs no service of its own: the executor is passed in at the call, through `Scene::Update(job_system)`.
+`AssetManager` is a `core::RuntimeModule`. Its job is **identity** and **policy**, not ownership. It does not own `FileIOManager` or `JobSystem`. It holds references injected at construction, and it uses them to equip the textures it creates with capabilities (`ImageLoader` + `JobSubmitter`). `Scene` needs no service of its own: the executor is passed in at the call, through `scene.GetWorld().Update(job_system)`.
 
 ```cpp
 class AssetManager final : public core::RuntimeModule {

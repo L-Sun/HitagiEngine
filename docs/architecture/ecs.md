@@ -3,6 +3,7 @@
 ## Public usage
 
 ```cpp
+core::JobSystem job_system;
 ecs::World world("game");
 world.RegisterSystem<MovementSystem, TransformSystem>();
 
@@ -10,13 +11,19 @@ ecs::Entity entity = world.GetEntityManager().Create();
 entity.Emplace<Transform>();
 Transform& transform = entity.Get<Transform>();
 
-world.Update();            // serial
-world.Update(job_system);  // parallel, waits for completion
+world.Update(job_system);  // waits for completion
 
 world.GetSystemManager().Disable<MovementSystem>();
 world.GetSystemManager().Enable<MovementSystem>();
 world.GetSystemManager().Unregister<MovementSystem>();
 ```
+
+`Update(job_system, delta_seconds)` accepts a frame duration in seconds. It
+defaults to zero and must be finite and nonnegative. Tasks read
+`schedule.GetDeltaSeconds()` during execution, not when declaring the cached
+schedule. The update waits for the supplied job system and propagates task
+exceptions. It does not roll back component writes made before an exception. [Skeletal animation](../assets/animation.md) uses this frame duration
+and explicit ordering for cross-entity animation and skinning bindings.
 
 Registration moved from `GetSystemManager().Register<T>()` to
 `World::RegisterSystem<T>()`. Entity access, bulk creation, dynamic components,
@@ -92,8 +99,8 @@ compiler issue without a separate implementation unit.
   are deduplicated for ordering.
 - Explicit order constraints are edges, not a single-successor map. Multiple
   successors and duplicate requests are supported. All implicit and explicit
-  edges are deduplicated and cycle-checked before generating either serial
-  order or Taskflow edges. Cycles throw invalid_argument before any task runs.
+  edges are deduplicated and cycle-checked before Taskflow edges are created.
+  Cycles throw invalid_argument before any task runs.
   Unknown task names retain their warning-and-ignore behavior.
 - Registering a system calls OnCreate once and enables it. Registering an
   existing system enables it without recreating it. Repeated enable, disable

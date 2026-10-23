@@ -12,10 +12,10 @@ $lldbPythonDir = Split-Path (uv python find 3.11)
 $env:PATH = "$lldbPythonDir;$env:PATH"
 ```
 
-Then run the already-built editor under LLDB. This example assumes the release output path; adjust it to the active build configuration:
+Then run an already-built test binary under LLDB. This example assumes the release output path; adjust it to the active build configuration and replace `SuiteName` with the suite to debug:
 
 ```powershell
-lldb --batch -o "run --frames 3 --exit-after-load" -o "bt" -- build\windows\x64\release\editor.exe
+lldb --batch -o "run --gtest_filter=SuiteName.*" -o "bt" -- build\windows\x64\release\unit_tests.exe
 ```
 
-The editor's launch arguments are handled in [editor.cpp](../../hitagi/editor/editor.cpp). Save debugger logs and crash artifacts under `temp/`.
+Save debugger logs and crash artifacts under `temp/`.
