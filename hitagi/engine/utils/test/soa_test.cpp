@@ -51,8 +51,8 @@ TEST(SoaTest, AccessElement) {
     debug_memory_resource res{"AccessElement"};
 
     SoA<int, float> data{&res};
-    data.push_back({3, 3.0f});
-    data.push_back({4, 4.0f});
+    data.emplace_back(3, 3.0f);
+    data.emplace_back(4, 4.0f);
 
     // No const
     {
@@ -122,7 +122,7 @@ TEST(SoaTest, ModifyElement) {
     debug_memory_resource res{"Init"};
 
     SoA<int, float> data{&res};
-    data.push_back({3, 3.0f});
+    data.emplace_back(3, 3.0f);
     EXPECT_EQ(data.size(), 1);
     EXPECT_EQ(data.element_at<0>(0), 3);
     EXPECT_FLOAT_EQ(data.element_at<1>(0), 3.0f);
@@ -142,7 +142,7 @@ TEST(SoaTest, ModifyElement) {
     EXPECT_EQ(data.size(), 0);
 
     SoA<int, float> data2{&res};
-    data2.push_back({1, 1.0f});
+    data2.emplace_back(1, 1.0f);
     data.emplace_back(2, 2.0f);
 }
 

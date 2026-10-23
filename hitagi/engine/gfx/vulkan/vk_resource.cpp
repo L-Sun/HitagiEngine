@@ -710,7 +710,7 @@ void VulkanSwapChain::CreateSwapChain() {
     if (old_swap_chain) {
         // Keep the displayed image and its present semaphores alive through
         // the replacement's first completed presentation, including rapid resizes.
-        m_RetiredSwapChains.push_back({std::move(old_swap_chain), std::move(m_SemaphorePairs)});
+        m_RetiredSwapChains.emplace_back(std::move(old_swap_chain), std::move(m_SemaphorePairs));
     }
     m_RetirementImage = -1;
     m_NumImages       = static_cast<std::uint32_t>(m_SwapChain->getImages().size());

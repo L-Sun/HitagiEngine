@@ -138,7 +138,7 @@ auto ShaderCompiler::LoadProgram(const ShaderProgramDesc& desc, ShaderTarget tar
         if (!module.path.empty()) paths.emplace_back(module.path.parent_path().string());
     }
     std::vector<const char*> search_paths;
-    for (const auto& path : paths) search_paths.push_back(path.c_str());
+    for (const auto& path : paths) search_paths.emplace_back(path.c_str());
     const sl::PreprocessorMacroDesc      macro{"HITAGI_SPIRV", target == ShaderTarget::SPIRV ? "1" : "0"};
     std::vector<sl::CompilerOptionEntry> options = {
         {sl::CompilerOptionName::VulkanUseEntryPointName, {sl::CompilerOptionValueKind::Int, 1}},
@@ -179,7 +179,7 @@ auto ShaderCompiler::LoadProgram(const ShaderProgramDesc& desc, ShaderTarget tar
             module          = program->m_Session->loadModuleFromSourceString(name.c_str(), path.c_str(), source.source_code.c_str(), diagnostics.writeRef());
         }
         m_State->Check(module ? 0 : -1, diagnostics, "load module " + name);
-        program->m_Modules.push_back(module);
+        program->m_Modules.emplace_back(module);
     }
     return program;
 }
@@ -198,7 +198,7 @@ auto ShaderProgram::Compile(std::string_view entry, ShaderType stage,
     auto                      status = m_Modules.back()->findAndCheckEntryPoint(entry_name.c_str(), SlangStage(stage), entry_point.writeRef(), diagnostics.writeRef());
     m_State->Check(status, diagnostics, "find entry " + entry_name);
     std::vector<sl::IComponentType*> components(m_Modules.begin(), m_Modules.end());
-    components.push_back(entry_point.get());
+    components.emplace_back(entry_point.get());
     SlangPtr<sl::IComponentType> composed;
     status = m_Session->createCompositeComponentType(components.data(), components.size(), composed.writeRef(), diagnostics.writeRef());
     m_State->Check(status, diagnostics, "compose " + entry_name);
@@ -208,7 +208,7 @@ auto ShaderProgram::Compile(std::string_view entry, ShaderType stage,
         for (const auto& name : specialization_types) {
             auto* type = layout->findTypeByName(name.c_str());
             if (!type) throw std::invalid_argument("Unknown shader specialization type: " + std::string(name));
-            args.push_back(sl::SpecializationArg::fromType(type));
+            args.emplace_back(sl::SpecializationArg::fromType(type));
         }
         SlangPtr<sl::IComponentType> specialized;
         status = composed->specialize(args.data(), args.size(), specialized.writeRef(), diagnostics.writeRef());

@@ -552,7 +552,7 @@ auto PassBuilder::AddGPUBufferEdge(GPUBufferHandle handle, GPUBufferEdge edge) n
     }
     edge.resource = node;
     const GPUBufferEdgeHandle result{.owner = pass_base->m_AccessOwner, .index = pass_base->m_GPUBufferEdges.size()};
-    pass_base->m_GPUBufferEdges.push_back(std::move(edge));
+    pass_base->m_GPUBufferEdges.emplace_back(std::move(edge));
     return result;
 }
 
@@ -566,14 +566,15 @@ auto PassBuilder::AddTextureEdge(TextureHandle handle, TextureEdge edge) noexcep
         Invalidate("Access descriptors must not contain a physical resource");
         return {};
     }
-    auto*      node     = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[handle.index].get());
-    const auto usages   = node->GetDesc().usages;
-    const auto required = edge.access == gfx::BarrierAccess::RenderTarget                                                                 ? gfx::TextureUsageFlags::RenderTarget
-                          : (edge.access == gfx::BarrierAccess::DepthStencilRead || edge.access == gfx::BarrierAccess::DepthStencilWrite) ? gfx::TextureUsageFlags::DepthStencil
-                          : edge.access == gfx::BarrierAccess::CopySrc                                                                    ? gfx::TextureUsageFlags::CopySrc
-                          : edge.access == gfx::BarrierAccess::CopyDst                                                                    ? gfx::TextureUsageFlags::CopyDst
-                          : edge.write                                                                                                    ? gfx::TextureUsageFlags::UAV
-                                                                                                                                          : gfx::TextureUsageFlags::SRV;
+    auto*      node   = static_cast<TextureNode*>(m_RenderGraph.m_Nodes[handle.index].get());
+    const auto usages = node->GetDesc().usages;
+    const auto required =
+        edge.access == gfx::BarrierAccess::RenderTarget                                                                 ? gfx::TextureUsageFlags::RenderTarget
+        : (edge.access == gfx::BarrierAccess::DepthStencilRead || edge.access == gfx::BarrierAccess::DepthStencilWrite) ? gfx::TextureUsageFlags::DepthStencil
+        : edge.access == gfx::BarrierAccess::CopySrc                                                                    ? gfx::TextureUsageFlags::CopySrc
+        : edge.access == gfx::BarrierAccess::CopyDst                                                                    ? gfx::TextureUsageFlags::CopyDst
+        : edge.write                                                                                                    ? gfx::TextureUsageFlags::UAV
+                                                                                                                        : gfx::TextureUsageFlags::SRV;
     if (!utils::has_flag(usages, required)) {
         Invalidate("texture usage does not support the declared access");
         return {};
@@ -596,7 +597,7 @@ auto PassBuilder::AddTextureEdge(TextureHandle handle, TextureEdge edge) noexcep
     }
     edge.resource = node;
     const TextureEdgeHandle result{.owner = pass_base->m_AccessOwner, .index = pass_base->m_TextureEdges.size()};
-    pass_base->m_TextureEdges.push_back(std::move(edge));
+    pass_base->m_TextureEdges.emplace_back(std::move(edge));
     return result;
 }
 
@@ -636,16 +637,16 @@ auto RenderPassBuilder::Read(std::shared_ptr<gfx::TextureView> view, gfx::Pipeli
         return {};
     }
     const auto texture = m_RenderGraph.Import(view->GetDesc().texture);
-    auto desc = view->GetDesc();
+    auto       desc    = view->GetDesc();
     desc.texture.reset();
     return AddTextureEdge(texture, {
-        .access      = gfx::BarrierAccess::ShaderRead,
-        .stage       = stage,
-        .layout      = gfx::TextureLayout::ShaderRead,
-        .view_desc   = std::move(desc),
-        .create_view = false,
-        .view        = std::move(view),
-    });
+                                       .access      = gfx::BarrierAccess::ShaderRead,
+                                       .stage       = stage,
+                                       .layout      = gfx::TextureLayout::ShaderRead,
+                                       .view_desc   = std::move(desc),
+                                       .create_view = false,
+                                       .view        = std::move(view),
+                                   });
 }
 
 auto RenderPassBuilder::Finish() noexcept -> RenderPassHandle {
@@ -1102,10 +1103,10 @@ bool RenderGraph::Compile() {
         }
 
         // we need keep all output resource node in essential pass node to avoid execution failure
-        auto write_resource_nodes = essential_nodes                                                                    //
-                                    | std::ranges::views::filter([](const auto& node) { return node->IsPassNode(); })  //
+        auto write_resource_nodes = essential_nodes                                                                                //
+                                    | std::ranges::views::filter([](const auto& node) { return node->IsPassNode(); })              //
                                     | std::ranges::views::transform([](auto node) -> const auto& { return node->m_OutputNodes; })  //
-                                    | std::ranges::views::join                                                         //
+                                    | std::ranges::views::join                                                                     //
                                     | std::ranges::to<std::pmr::unordered_set<RenderGraphNode*>>();
         essential_nodes.merge(write_resource_nodes);
     }
@@ -1317,7 +1318,7 @@ void RenderGraph::Reset() noexcept {
 
         if (node->IsResourceNode()) {
             const auto* resource = static_cast<ResourceNode*>(node.get());
-            const auto imported = m_ImportedResources.find(resource->m_Resource);
+            const auto  imported = m_ImportedResources.find(resource->m_Resource);
             // MoveFrom aliases share the imported resource, but only the
             // original Import node persists across executions.
             if (imported != m_ImportedResources.end() && imported->second == handle) {
@@ -1391,11 +1392,12 @@ void RenderGraph::RetireNodesFromPassNode(PassNode* pass_node, const FenceValue&
 
 void RenderGraph::RetireNodes() noexcept {
     ZoneScopedN("RenderGraph Retire Nodes");
-    const auto latest_fence_values = m_Fences  //
-                                     | std::ranges::views::transform([](const auto& fence_value) {
-                                           return std::make_pair(fence_value.fence, fence_value.fence->GetCurrentValue());
-                                       })  //
-                                     | std::ranges::to<std::pmr::unordered_map<std::shared_ptr<gfx::Fence>, std::uint64_t>>();
+    const auto latest_fence_values =
+        m_Fences  //
+        | std::ranges::views::transform([](const auto& fence_value) {
+              return std::make_pair(fence_value.fence, fence_value.fence->GetCurrentValue());
+          })  //
+        | std::ranges::to<std::pmr::unordered_map<std::shared_ptr<gfx::Fence>, std::uint64_t>>();
 
     while (!m_RetiredNodes.empty()) {
         const auto& retired_resource    = m_RetiredNodes.front();

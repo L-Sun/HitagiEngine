@@ -177,8 +177,8 @@ void PocketDrawDecoder::SyncResources(PocketApple* runtime, const PocketDrawList
 
 auto PocketDrawDecoder::Textures() const -> std::vector<std::shared_ptr<const GuiTextureData>> {
     std::vector<std::shared_ptr<const GuiTextureData>> result;
-    for (const auto& [_, image] : m_Images) result.push_back(image.data);
-    for (const auto& [_, font] : m_Fonts) result.push_back(font.data);
+    for (const auto& [_, image] : m_Images) result.emplace_back(image.data);
+    for (const auto& [_, font] : m_Fonts) result.emplace_back(font.data);
     std::ranges::sort(result, {}, [](const auto& p) { return p->id; });
     return result;
 }
@@ -298,7 +298,7 @@ auto PocketDrawDecoder::Build(PocketApple* runtime) -> GuiDrawList {
                     it->second.data->id);
             }
         } else if (op == pocket::DrawOp::Scissor) {
-            clips.push_back(clip);
+            clips.emplace_back(clip);
             const auto p = xy(w[1]), s = wh(w[2]);
             const auto min_point = math::max(math::vec2f{clip.x, clip.y}, p);
             const auto max_point = math::min(math::vec2f{clip.z, clip.w}, p + s);

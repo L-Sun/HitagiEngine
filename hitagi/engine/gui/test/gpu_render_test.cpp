@@ -45,16 +45,16 @@ TEST(PocketGpuRenderTest, SolidTextureAlphaClipAndResourceReplacement) {
                 pixels[i][3] = 128;
             }
         }
-        data.textures.push_back(image);
+        data.textures.emplace_back(image);
         auto&      list = data.draw_lists.emplace_back();
         const auto quad = [&](math::Color color, std::uint64_t resource, math::vec4f clip) {
             const auto base = static_cast<std::uint32_t>(list.vertices.size());
             list.commands.push_back({.element_count = 6, .index_offset = static_cast<std::uint32_t>(list.indices.size()), .clip_rect = clip, .texture = {.resource = resource}});
-            list.vertices.push_back({{0, 0}, {0, 0}, color});
-            list.vertices.push_back({{64, 0}, {1, 0}, color});
-            list.vertices.push_back({{64, 64}, {1, 1}, color});
-            list.vertices.push_back({{0, 64}, {0, 1}, color});
-            for (unsigned index : {0u, 1u, 2u, 0u, 2u, 3u}) list.indices.push_back(base + index);
+            list.vertices.emplace_back(math::vec2f{0, 0}, math::vec2f{0, 0}, color);
+            list.vertices.emplace_back(math::vec2f{64, 0}, math::vec2f{1, 0}, color);
+            list.vertices.emplace_back(math::vec2f{64, 64}, math::vec2f{1, 1}, color);
+            list.vertices.emplace_back(math::vec2f{0, 64}, math::vec2f{0, 1}, color);
+            for (unsigned index : {0u, 1u, 2u, 0u, 2u, 3u}) list.indices.emplace_back(base + index);
         };
         quad(math::Color::Red(), 0, {0, 0, 64, 64});
         quad(math::Color::White(), image->id, {16, 16, 48, 48});
