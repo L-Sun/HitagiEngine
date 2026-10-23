@@ -82,7 +82,7 @@ auto JobSystem::GetCurrentWorkerId() const noexcept -> int {
 }
 
 void JobSystem::RunTaskflow(interop::tf::Taskflow& taskflow) {
-    m_Executor.run(taskflow).wait();
+    m_Executor.run(taskflow).get();
 }
 
 void JobSystem::WaitForAll() {

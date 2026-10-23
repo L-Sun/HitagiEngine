@@ -65,7 +65,7 @@ public:
         : world(::testing::UnitTest::GetInstance()->current_test_info()->name()),
           em(world.GetEntityManager()),
           sm(world.GetSystemManager()) {}
-    core::JobSystem job_system;  // executor for the parallel Update(job_system) path
+    core::JobSystem job_system;
     World           world;
     EntityManager&  em;
     SystemManager&  sm;
@@ -203,13 +203,13 @@ TEST_F(EcsTest, CustomOrderSupportsMultipleSuccessorsAndDuplicateEdges) {
     world.RegisterSystem<System>();
     for (int index = 0; index < 8; ++index) {
         phase = 0;
-        world.Update();
+        world.Update(job_system);
         phase = 0;
         world.Update(job_system);
     }
 }
 
-TEST_F(EcsTest, CyclicSchedulesAreRejectedBeforeEitherExecutorRuns) {
+TEST_F(EcsTest, CyclicSchedulesAreRejectedBeforeTasksRun) {
     static int calls = 0;
     calls            = 0;
     struct Cyclic {
@@ -228,12 +228,12 @@ TEST_F(EcsTest, CyclicSchedulesAreRejectedBeforeEitherExecutorRuns) {
     };
     (void)em.CreateMany<Component_1>(1);
     world.RegisterSystem<Cyclic>();
-    EXPECT_THROW(world.Update(), std::invalid_argument);
+    EXPECT_THROW(world.Update(job_system), std::invalid_argument);
     EXPECT_THROW(world.Update(job_system), std::invalid_argument);
     EXPECT_EQ(calls, 0);
     sm.Unregister<Cyclic>();
     world.RegisterSystem<Valid>();
-    world.Update();
+    world.Update(job_system);
     world.Update(job_system);
     EXPECT_EQ(calls, 2);
 }
@@ -255,13 +255,13 @@ TEST_F(EcsTest, DynamicParameterCountAndAccessAliasesAreValidated) {
         }
     };
     world.RegisterSystem<TooFew>();
-    EXPECT_THROW(world.Update(), std::invalid_argument);
+    EXPECT_THROW(world.Update(job_system), std::invalid_argument);
     sm.Unregister<TooFew>();
     world.RegisterSystem<TooMany>();
-    EXPECT_THROW(world.Update(), std::invalid_argument);
+    EXPECT_THROW(world.Update(job_system), std::invalid_argument);
     sm.Unregister<TooMany>();
     world.RegisterSystem<Conflicting>();
-    EXPECT_THROW(world.Update(), std::invalid_argument);
+    EXPECT_THROW(world.Update(job_system), std::invalid_argument);
 }
 
 TEST_F(EcsTest, ChunkQueriesReevaluateFiltersAndSupportCallableOwnership) {
@@ -282,7 +282,7 @@ TEST_F(EcsTest, ChunkQueriesReevaluateFiltersAndSupportCallableOwnership) {
     auto small = em.CreateMany<Component_1>(100);
     auto large = em.CreateMany<Component_1, ContainerComponent>(320);
     world.RegisterSystem<System>();
-    world.Update();
+    world.Update(job_system);
     EXPECT_EQ(visited, 0);
     enabled = true;
     world.Update(job_system);
@@ -291,7 +291,7 @@ TEST_F(EcsTest, ChunkQueriesReevaluateFiltersAndSupportCallableOwnership) {
     for (const auto entity : large) EXPECT_EQ(entity.Get<Component_1>().value, 9);
     // The cached Schedule must discover newly-created archetypes and chunks.
     (void)em.CreateMany<Component_1, ContainerComponent, Component_2>(75);
-    world.Update();
+    world.Update(job_system);
     EXPECT_EQ(visited, 320 + 395);
 }
 
@@ -300,14 +300,14 @@ TEST_F(EcsTest, DynamicParameterTraitsPreserveReadWriteOrdering) {
     values.clear();
     struct System {
         static void OnUpdate(Schedule& schedule) {
-            schedule.Request("after", [](const std::byte* data) { values.push_back(*reinterpret_cast<const int*>(data)); }, {"raw"});
+            schedule.Request("after", [](const std::byte* data) { values.emplace_back(*reinterpret_cast<const int*>(data)); }, {"raw"});
             schedule.Request("writer", [](std::byte* first, std::byte* alias) {
                 EXPECT_EQ(first, alias);
                 ++*reinterpret_cast<int*>(first);
             },
                              {"raw", "raw"});
             schedule.Request("before", [](LastFrame<const std::byte*> data) {
-                values.push_back(*reinterpret_cast<const int*>(data.value));
+                values.emplace_back(*reinterpret_cast<const int*>(data.value));
             },
                              {"raw"});
         }
@@ -315,7 +315,7 @@ TEST_F(EcsTest, DynamicParameterTraitsPreserveReadWriteOrdering) {
     em.RegisterDynamicComponent({.name = "raw", .size = sizeof(int)});
     auto entity = em.CreateMany<>(1, {"raw"}).front();
     world.RegisterSystem<System>();
-    world.Update();
+    world.Update(job_system);
     world.Update(job_system);
     EXPECT_EQ(values, (std::vector<int>{0, 1, 1, 2}));
     EXPECT_EQ(*reinterpret_cast<int*>(entity.Get("raw")), 2);
@@ -334,7 +334,7 @@ TEST_F(EcsTest, ComponentSignaturesIgnoreDeclarationOrder) {
     (void)em.CreateMany<Component_1, Component_2>(2);
     (void)em.CreateMany<Component_2, Component_1>(3);
     world.RegisterSystem<System>();
-    world.Update();
+    world.Update(job_system);
     EXPECT_EQ(matches, 1);
     EXPECT_EQ(visits, 5);
 }
@@ -343,6 +343,27 @@ TEST_F(EcsTest, CreateEntity) {
     const auto entity = em.Create();
     EXPECT_TRUE(entity.Valid());
     EXPECT_TRUE(em.Has(entity));
+}
+
+TEST_F(EcsTest, EntitySnapshotsAreOrderedAndTrackLiveStorageWithoutUpdates) {
+    EXPECT_TRUE(em.GetEntities().empty());
+    auto first = em.Create();
+    auto removed = em.Create();
+    auto third = em.Create();
+    third.Emplace<Component_1>();
+    const auto snapshot = em.GetEntities();
+    ASSERT_EQ(snapshot.size(), 3u);
+    EXPECT_EQ(snapshot[0], first);
+    EXPECT_EQ(snapshot[1], removed);
+    EXPECT_EQ(snapshot[2], third);
+    em.Destroy(removed);
+    first.Emplace<Component_1>();
+    const auto current = em.GetEntities();
+    ASSERT_EQ(current.size(), 2u);
+    EXPECT_EQ(current[0], first);
+    EXPECT_EQ(current[1], third);
+    EXPECT_EQ(snapshot.size(), 3u);
+    EXPECT_FALSE(snapshot[1].Valid());
 }
 
 TEST_F(EcsTest, EntityHandlesAreScopedToTheirStorage) {
@@ -438,13 +459,13 @@ TEST_F(EcsTest, WorldBindsLifecycleAndRebuildsOnlyAfterSystemChanges) {
     auto entity = em.CreateMany<Component_1>(1).front();
     world.RegisterSystem<System>();
     world.RegisterSystem<System>();
-    world.Update();
+    world.Update(job_system);
     world.Update(job_system);
     EXPECT_EQ(builds, 1);
     EXPECT_COMPONENT_EQ(entity, Component_1, 3);
     sm.Disable<System>();
     sm.Disable<System>();
-    world.Update();
+    world.Update(job_system);
     EXPECT_COMPONENT_EQ(entity, Component_1, 3);
     sm.Enable<System>();
     world.Update(job_system);
@@ -452,7 +473,7 @@ TEST_F(EcsTest, WorldBindsLifecycleAndRebuildsOnlyAfterSystemChanges) {
     EXPECT_COMPONENT_EQ(entity, Component_1, 4);
     sm.Unregister<System>();
     sm.Unregister<System>();
-    world.Update();
+    world.Update(job_system);
     EXPECT_COMPONENT_EQ(entity, Component_1, 4);
     EXPECT_EQ(events, (std::vector<std::string>{"create", "enable", "disable", "enable", "disable", "destroy"}));
 }
@@ -477,11 +498,11 @@ TEST_F(EcsTest, DisablingDuringExecutionDoesNotDestroyRunningSchedule) {
     };
     auto entity = em.CreateMany<Component_1>(1).front();
     world.RegisterSystem<System>();
-    world.Update();
+    world.Update(job_system);
     EXPECT_TRUE(finished);
     EXPECT_COMPONENT_EQ(entity, Component_1, 42);
     EXPECT_FALSE(task_capture.expired());
-    world.Update();
+    world.Update(job_system);
     EXPECT_TRUE(task_capture.expired());
 }
 
@@ -501,9 +522,9 @@ TEST_F(EcsTest, RegistrationDuringScheduleBuildTakesEffectNextUpdate) {
     };
     auto entity = em.CreateMany<Component_1>(1).front();
     world.RegisterSystem<RegisteringSystem>();
-    world.Update();
+    world.Update(job_system);
     EXPECT_COMPONENT_EQ(entity, Component_1, 2);
-    world.Update();
+    world.Update(job_system);
     EXPECT_COMPONENT_EQ(entity, Component_1, 13);
     world.Update(job_system);
     EXPECT_COMPONENT_EQ(entity, Component_1, 24);
@@ -517,9 +538,9 @@ TEST_F(EcsTest, ShutdownCallbacksCanStillAccessEntityStorage) {
         static void OnCreate(World& context) {
             owned_entity = context.GetEntityManager().CreateMany<Component_1>(1).front();
         }
-        static void OnDisable(World&) { shutdown_values.push_back(owned_entity.Get<Component_1>().value); }
+        static void OnDisable(World&) { shutdown_values.emplace_back(owned_entity.Get<Component_1>().value); }
         static void OnDestroy(World& context) {
-            shutdown_values.push_back(owned_entity.Get<Component_1>().value);
+            shutdown_values.emplace_back(owned_entity.Get<Component_1>().value);
             context.GetEntityManager().Destroy(owned_entity);
         }
     };
@@ -532,20 +553,22 @@ TEST_F(EcsTest, ShutdownCallbacksCanStillAccessEntityStorage) {
 }
 
 TEST_F(EcsTest, RecursiveUpdateIsRejectedWithoutInvalidatingTheSchedule) {
-    static World* context = nullptr;
-    context               = &world;
+    static World*           context = nullptr;
+    static core::JobSystem* jobs    = nullptr;
+    context                         = &world;
+    jobs                            = &job_system;
     struct System {
         static void OnUpdate(Schedule& schedule) {
             schedule.Request("recursive-update", [](Component_1& value) {
-                EXPECT_THROW(context->Update(), std::logic_error);
+                EXPECT_THROW(context->Update(*jobs), std::logic_error);
                 ++value.value;
             });
         }
     };
     auto entity = em.CreateMany<Component_1>(1).front();
     world.RegisterSystem<System>();
-    world.Update();
-    world.Update();
+    world.Update(job_system);
+    world.Update(job_system);
     EXPECT_COMPONENT_EQ(entity, Component_1, 3);
 }
 
@@ -889,9 +912,9 @@ TEST_F(EcsTest, SystemUpdateOrder) {
         << "2(Write).  Execute all function request with Component sequentially in the order of requesting"
         << "3(ReadAfterWrite). Execute parallel all function request with const Component&";
 
-    // The serial path must honour the same dependency order.
+    // A later update keeps the same dependency order.
     order.clear();
-    world.Update();
+    world.Update(job_system);
     EXPECT_EQ(order, expected_order);
 }
 
@@ -920,7 +943,7 @@ TEST_F(EcsTest, SystemUpdateInCustomOrder) {
     EXPECT_EQ(order, expected_order);
 
     order.clear();
-    world.Update();
+    world.Update(job_system);
     EXPECT_EQ(order, expected_order);
 }
 
@@ -1013,4 +1036,33 @@ TEST_F(EcsTest, SystemFilterNone) {
 
     EXPECT_COMPONENT_EQ(entity_with_one, Component_1, 100) << "Component_1 should be updated";
     EXPECT_COMPONENT_EQ(entity_with_both, Component_1, 1) << "Component_1 should not be updated";
+}
+
+TEST_F(EcsTest, ComponentCompositionAndFilteredSnapshotsFollowStructuralChanges) {
+    auto first  = em.Create(Component_1{7}, ContainerComponent{"first"});
+    auto second = em.Create(Component_2{9});
+    EXPECT_EQ(first.Get<Component_1>().value, 7);
+    auto snapshot = em.GetEntities<Component_1>();
+    ASSERT_EQ(snapshot.size(), 1u);
+    EXPECT_EQ(snapshot.front(), first);
+    second.Emplace<Component_1>(11);
+    first.Remove<Component_1>();
+    snapshot = em.GetEntities<Component_1>();
+    ASSERT_EQ(snapshot.size(), 1u);
+    EXPECT_EQ(snapshot.front(), second);
+    EXPECT_TRUE((em.GetEntities<Component_1, ContainerComponent>().empty()));
+    em.Destroy(second);
+    EXPECT_TRUE(em.GetEntities<Component_1>().empty());
+}
+
+TEST_F(EcsTest, FailedCompositionDoesNotLeaveAPartialEntity) {
+    struct ThrowsOnCopy {
+        ThrowsOnCopy() = default;
+        ThrowsOnCopy(const ThrowsOnCopy&) { throw std::runtime_error("copy failed"); }
+    };
+    ThrowsOnCopy value;
+    const auto   count = em.NumEntities();
+    EXPECT_THROW((void)em.Create(Component_1{7}, value), std::runtime_error);
+    EXPECT_EQ(em.NumEntities(), count);
+    EXPECT_TRUE(em.GetEntities<Component_1>().empty());
 }

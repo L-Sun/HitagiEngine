@@ -11,14 +11,14 @@ TEST(TaskflowInteropTest, OrdersTasksAndRebuildsGraph) {
     interop::tf::Executor executor(2);
     interop::tf::Taskflow graph;
     std::vector<int>      order;
-    auto                  first  = graph.emplace([&] { order.push_back(1); });
-    auto                  second = graph.emplace([&] { order.push_back(2); });
+    auto                  first  = graph.emplace([&] { order.emplace_back(1); });
+    auto                  second = graph.emplace([&] { order.emplace_back(2); });
     first.name("first").precede(second);
     executor.run(graph).get();
     EXPECT_EQ(order, (std::vector<int>{1, 2}));
 
     graph.clear();
-    graph.emplace([&] { order.push_back(3); });
+    graph.emplace([&] { order.emplace_back(3); });
     executor.run(graph).get();
     EXPECT_EQ(order, (std::vector<int>{1, 2, 3}));
 }

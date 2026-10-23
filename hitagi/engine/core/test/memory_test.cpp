@@ -38,7 +38,7 @@ TEST(MemoryTest, PmrContainer) {
     std::pmr::vector<int> vec{std::pmr::polymorphic_allocator<int>{std::pmr::get_default_resource()}};
     EXPECT_NO_THROW({
         for (size_t i = 0; i < 10000; i++) {
-            vec.push_back(i);
+            vec.emplace_back(i);
         }
     });
     auto p = vec.data();

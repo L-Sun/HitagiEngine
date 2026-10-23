@@ -23,10 +23,10 @@ public:
     template <typename... Systems>
     void RegisterSystem() { (RegisterOne<Systems>(), ...); }
 
+    // Runs the cached schedule on the supplied job system and waits for it.
     // System-set changes are reflected in the next Update, never by destroying
     // a running schedule. Concurrent registry mutation is not supported.
-    void Update();
-    void Update(core::JobSystem& job_system);
+    void Update(core::JobSystem& job_system, double delta_seconds = 0.0);
 
     auto  GetName() const noexcept -> std::string_view { return m_Name; }
     auto& GetEntityManager() noexcept { return m_EntityManager; }
@@ -90,25 +90,15 @@ auto World::PrepareSchedule() -> Schedule& {
     return *m_Schedule;
 }
 
-void World::Update() {
+void World::Update(core::JobSystem& job_system, double delta_seconds) {
+    if (!std::isfinite(delta_seconds) || delta_seconds < 0.0) throw std::invalid_argument("Invalid frame duration");
     if (m_Updating) throw std::logic_error("World::Update cannot be called recursively");
     m_Updating = true;
     try {
         ZoneScopedN("ECS::World::Update");
-        PrepareSchedule().RunSerial();
-    } catch (...) {
-        m_Updating = false;
-        throw;
-    }
-    m_Updating = false;
-}
-
-void World::Update(core::JobSystem& job_system) {
-    if (m_Updating) throw std::logic_error("World::Update cannot be called recursively");
-    m_Updating = true;
-    try {
-        ZoneScopedN("ECS::World::Update");
-        PrepareSchedule().Run(job_system);
+        auto& schedule          = PrepareSchedule();
+        schedule.m_DeltaSeconds = delta_seconds;
+        schedule.Run(job_system);
     } catch (...) {
         m_Updating = false;
         throw;

@@ -107,18 +107,20 @@ class Schedule {
     };
 
 public:
+    // Seconds supplied by the host for the current update, including cached schedules.
+    auto GetDeltaSeconds() const noexcept -> double { return m_DeltaSeconds; }
     template <typename Func>
     Schedule& Request(std::string_view name, Func&& task, DynamicComponentList dynamic_components = {}, Filter filter = {});
     void      SetOrder(std::string_view first_task, std::string_view second_task);
 
 private:
     friend class World;
+    double m_DeltaSeconds = 0.0;
     Schedule(detail::EntityStorage& storage, std::shared_ptr<spdlog::logger> logger, std::string_view name)
         : m_Storage(storage), m_Logger(std::move(logger)), m_Name(name) {}
 
     void Request(std::shared_ptr<TaskBase> task, std::span<const detail::ParameterAccess> parameters);
     void Run(core::JobSystem& job_system);
-    void RunSerial();
     void BuildTaskflow();
 
     struct ComponentAccess {
@@ -135,10 +137,9 @@ private:
     std::pmr::unordered_map<utils::TypeID, ComponentAccess>         m_Accesses;
     std::pmr::vector<std::pair<std::pmr::string, std::pmr::string>> m_CustomOrder;
 
-    interop::tf::Taskflow         m_Taskflow;
-    std::pmr::vector<std::size_t> m_SerialOrder;
-    bool                          m_TaskflowDirty    = true;
-    core::JobSystem*              m_RunningJobSystem = nullptr;
+    interop::tf::Taskflow m_Taskflow;
+    bool                  m_TaskflowDirty    = true;
+    core::JobSystem*      m_RunningJobSystem = nullptr;
 };
 
 template <typename Func>
@@ -174,7 +175,7 @@ Schedule& Schedule::Request(std::string_view name, Func&& task, DynamicComponent
                 id = utils::TypeID(dynamic_components[dynamic_index++]);
             else
                 id = utils::TypeID::Create<typename parameter::component_type>();
-            components.push_back(id);
+            components.emplace_back(id);
             parameters[Index] = {id, parameter::access};
         };
         (append.template operator()<I>(), ...);
@@ -213,11 +214,11 @@ void Schedule::Request(std::shared_ptr<TaskBase> task, std::span<const detail::P
     }
     const auto index = m_Tasks.size();
     m_TaskNameToIndex.emplace(task->name, index);
-    m_Tasks.push_back(std::move(task));
+    m_Tasks.emplace_back(std::move(task));
     for (const auto& parameter : parameters) {
         auto& access = m_Accesses[parameter.component];
         auto  append = [index](auto& tasks) {
-            if (tasks.empty() || tasks.back() != index) tasks.push_back(index);
+            if (tasks.empty() || tasks.back() != index) tasks.emplace_back(index);
         };
         switch (parameter.mode) {
             case detail::AccessMode::ReadBeforeWrite:
@@ -252,31 +253,19 @@ void Schedule::Run(core::JobSystem& job_system) {
     m_RunningJobSystem = nullptr;
 }
 
-void Schedule::RunSerial() {
-    if (m_TaskflowDirty) BuildTaskflow();
-    ZoneScopedN("ECSFrame");
-    for (const auto index : m_SerialOrder) {
-        const auto& task = m_Tasks[index];
-        ZoneScoped;
-        ZoneName(task->name.data(), task->name.size());
-        task->Run(m_Storage);
-    }
-}
-
 void Schedule::BuildTaskflow() {
     m_Taskflow.clear();
-    m_SerialOrder.clear();
     std::pmr::vector<std::pmr::vector<std::size_t>> graph(m_Tasks.size());
     for (const auto& [component, access] : m_Accesses) {
         for (const auto before : access.read_before_write) {
-            for (const auto writer : access.write) graph[before].push_back(writer);
-            for (const auto after : access.read_after_write) graph[before].push_back(after);
+            for (const auto writer : access.write) graph[before].emplace_back(writer);
+            for (const auto after : access.read_after_write) graph[before].emplace_back(after);
         }
         // zip_view here crashes clang-cl 23.1.2 / MSVC STL 14.51 in importing consumers.
         for (std::size_t index = 1; index < access.write.size(); ++index)
-            graph[access.write[index - 1]].push_back(access.write[index]);
+            graph[access.write[index - 1]].emplace_back(access.write[index]);
         for (const auto writer : access.write) {
-            for (const auto after : access.read_after_write) graph[writer].push_back(after);
+            for (const auto after : access.read_after_write) graph[writer].emplace_back(after);
         }
     }
     for (const auto& [first, second] : m_CustomOrder) {
@@ -286,7 +275,7 @@ void Schedule::BuildTaskflow() {
             m_Logger->warn("Cannot order {} -> {}: task does not exist", first, second);
             continue;
         }
-        graph[from->second].push_back(to->second);
+        graph[from->second].emplace_back(to->second);
     }
 
     std::pmr::vector<std::size_t> in_degree(graph.size(), 0);
@@ -297,15 +286,15 @@ void Schedule::BuildTaskflow() {
     }
     std::pmr::vector<std::size_t> ready;
     for (std::size_t index = 0; index < graph.size(); ++index) {
-        if (in_degree[index] == 0) ready.push_back(index);
+        if (in_degree[index] == 0) ready.emplace_back(index);
     }
     std::pmr::vector<std::size_t> sorted;
     while (!ready.empty()) {
         const auto current = ready.back();
         ready.pop_back();
-        sorted.push_back(current);
+        sorted.emplace_back(current);
         for (const auto next : graph[current]) {
-            if (--in_degree[next] == 0) ready.push_back(next);
+            if (--in_degree[next] == 0) ready.emplace_back(next);
         }
     }
     if (sorted.size() != graph.size()) {
@@ -319,31 +308,30 @@ void Schedule::BuildTaskflow() {
         throw std::invalid_argument("Cycle in ECS task graph");
     }
 
-    // Both execution paths are derived from the same validated, deduplicated graph.
+    // Taskflow edges come from the same validated, deduplicated graph.
     std::pmr::vector<interop::tf::Task> tasks;
     tasks.reserve(m_Tasks.size());
     for (const auto& task : m_Tasks) {
-        tasks.push_back(m_Taskflow.emplace([this, task] {
-                                      thread_local bool tracy_thread_named = false;
-                                      if (!tracy_thread_named) {
-                                          if (const auto worker = m_RunningJobSystem->GetCurrentWorkerId(); worker >= 0) {
+        const auto execution = [this, task] {
+            thread_local bool tracy_thread_named = false;
+            if (!tracy_thread_named) {
+                if (const auto worker = m_RunningJobSystem->GetCurrentWorkerId(); worker >= 0) {
 #ifdef TRACY_ENABLE
-                                              const auto name = std::format("Hitagi/ECS/{}/Worker-{}", m_Name, worker);
-                                              tracy::SetThreadName(name.c_str());
+                    const auto name = std::format("Hitagi/ECS/{}/Worker-{}", m_Name, worker);
+                    tracy::SetThreadName(name.c_str());
 #endif
-                                              tracy_thread_named = true;
-                                          }
-                                      }
-                                      ZoneScoped;
-                                      ZoneName(task->name.data(), task->name.size());
-                                      task->Run(m_Storage);
-                                  })
-                            .name(task->name.data()));
+                    tracy_thread_named = true;
+                }
+            }
+            ZoneScoped;
+            ZoneName(task->name.data(), task->name.size());
+            task->Run(m_Storage);
+        };
+        tasks.emplace_back(m_Taskflow.emplace(std::move(execution)).name(task->name.data()));
     }
     for (std::size_t index = 0; index < graph.size(); ++index) {
         for (const auto next : graph[index]) tasks[index].precede(tasks[next]);
     }
-    m_SerialOrder   = std::move(sorted);
     m_TaskflowDirty = false;
 }
 

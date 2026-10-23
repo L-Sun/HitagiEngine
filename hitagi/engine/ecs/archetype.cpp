@@ -88,7 +88,7 @@ Archetype::Archetype(std::span<const ComponentInfo* const> components) {
             throw std::length_error("Archetype row is too large");
         row_size += info->size;
         m_Alignment = std::max(m_Alignment, info->alignment);
-        m_Columns.push_back({info, 0});
+        m_Columns.emplace_back(info, 0);
     }
     std::ranges::sort(m_Columns, {}, [](const Column& column) { return column.info->type_id; });
     m_Capacity  = std::max(std::size_t{1}, m_ChunkSize / row_size);
@@ -132,7 +132,7 @@ void Archetype::AllocateFor(entity_id_t entity) {
     const bool new_chunk = m_Entities.size() % m_Capacity == 0;
     if (new_chunk) m_Chunks.emplace_back(m_ChunkSize, m_Alignment);
     try {
-        m_Entities.push_back(entity);
+        m_Entities.emplace_back(entity);
         try {
             m_EntityRows.emplace(entity, m_Entities.size() - 1);
         } catch (...) {

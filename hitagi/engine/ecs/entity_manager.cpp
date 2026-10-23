@@ -19,7 +19,20 @@ public:
     bool Has(Entity entity) const noexcept { return entity.m_Storage == &m_Storage && m_Storage.Has(entity.GetId()); }
 
     [[nodiscard]] auto Create() -> Entity { return CreateMany(1).front(); }
-    void               Destroy(Entity& entity) {
+    template <typename... Components>
+        requires(sizeof...(Components) > 0 && ((Component<std::remove_cvref_t<Components>> && utils::not_same_as<std::remove_cvref_t<Components>, Entity>) && ...))
+    [[nodiscard]] auto Create(Components&&... components) -> Entity {
+        auto entity = Create();
+        try {
+            (entity.Emplace<std::remove_cvref_t<Components>>(std::forward<Components>(components)), ...);
+        } catch (...) {
+            Destroy(entity);
+            throw;
+        }
+        return entity;
+    }
+
+    void Destroy(Entity& entity) {
         if (!Has(entity)) throw std::out_of_range("Entity does not belong to this manager");
         m_Storage.Destroy(entity.GetId());
         entity = {};
@@ -40,6 +53,19 @@ public:
 
     auto NumEntities() const noexcept { return m_Storage.NumEntities(); }
 
+    // Read-only snapshot for serialization/inspection, without running systems.
+    // The host must serialize this call with structural mutation.
+    template <Component... Components>
+    auto GetEntities() const -> std::pmr::vector<Entity> {
+        std::pmr::vector<Entity> entities;
+        entities.reserve(NumEntities());
+        for (auto id : m_Storage.GetEntityIds()) {
+            auto entity = m_Storage.GetComponent<Entity>(id);
+            if ((entity.Has<Components>() && ...)) entities.emplace_back(entity);
+        }
+        return entities;
+    }
+
 private:
     friend World;
     explicit EntityManager(std::shared_ptr<spdlog::logger> logger) : m_Storage(std::move(logger)) {
@@ -55,7 +81,7 @@ auto EntityManager::CreateMany(std::size_t num, const std::pmr::set<std::string_
     (m_Storage.RegisterComponent<Components>(), ...);
     detail::ComponentIdList components{utils::TypeID::Create<Entity>(), utils::TypeID::Create<Components>()...};
     for (auto name : dynamic_components) {
-        components.push_back(m_Storage.GetDynamicComponentInfo(name).type_id);
+        components.emplace_back(m_Storage.GetDynamicComponentInfo(name).type_id);
     }
     std::pmr::vector<Entity> entities;
     entities.reserve(num);

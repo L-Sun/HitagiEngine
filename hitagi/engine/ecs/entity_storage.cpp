@@ -21,6 +21,8 @@ public:
     auto GetDynamicComponentInfo(std::string_view name) const -> const ComponentInfo&;
     bool Has(entity_id_t entity) const noexcept { return m_EntityMaps.contains(entity); }
     auto NumEntities() const noexcept { return m_EntityMaps.size(); }
+    auto GetEntityIds() const -> std::pmr::vector<entity_id_t>;
+
     auto CreateMany(std::size_t num, ComponentIdList components) -> entity_id_t;
     void Destroy(entity_id_t entity);
 
@@ -100,9 +102,9 @@ void EntityStorage::Migrate(entity_id_t entity, utils::TypeID changed, bool addi
     auto&           source = *m_EntityMaps.at(entity);
     ComponentIdList signature;
     for (const auto& column : source.GetColumns()) {
-        if (column.info->type_id != changed) signature.push_back(column.info->type_id);
+        if (column.info->type_id != changed) signature.emplace_back(column.info->type_id);
     }
-    if (adding) signature.push_back(changed);
+    if (adding) signature.emplace_back(changed);
     auto& target = GetOrCreateArchetype(std::move(signature));
     target.AllocateFor(entity);
     // Finish the only potentially throwing user construction before moving old data.
@@ -133,6 +135,15 @@ void EntityStorage::RegisterDynamicComponent(ComponentInfo component) {
     m_ComponentMap.emplace(component.type_id, std::move(component));
 }
 
+auto EntityStorage::GetEntityIds() const -> std::pmr::vector<entity_id_t> {
+    std::pmr::vector<entity_id_t> ids;
+    ids.reserve(m_EntityMaps.size());
+    for (const auto& [id, archetype] : m_EntityMaps)
+        ids.emplace_back(id);
+    std::ranges::sort(ids);
+    return ids;
+}
+
 auto EntityStorage::GetDynamicComponentInfo(std::string_view name) const -> const ComponentInfo& {
     const auto found = m_ComponentMap.find(utils::TypeID(name));
     if (found == m_ComponentMap.end()) {
@@ -149,7 +160,7 @@ auto EntityStorage::GetOrCreateArchetype(ComponentIdList components) -> Archetyp
     if (const auto found = m_Archetypes.find(components); found != m_Archetypes.end()) return *found->second;
     std::pmr::vector<const ComponentInfo*> descriptions;
     descriptions.reserve(components.size());
-    for (const auto id : components) descriptions.push_back(&m_ComponentMap.at(id));
+    for (const auto id : components) descriptions.emplace_back(&m_ComponentMap.at(id));
     auto  archetype = std::make_unique<Archetype>(descriptions);
     auto& result    = *archetype;
     m_Archetypes.emplace(std::move(components), std::move(archetype));

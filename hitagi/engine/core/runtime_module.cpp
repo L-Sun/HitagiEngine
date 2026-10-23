@@ -92,7 +92,7 @@ auto RuntimeModule::AddSubModule(std::unique_ptr<RuntimeModule> module, RuntimeM
         }
         return m_SubModules.insert(std::next(iter), std::move(module))->get();
     } else {
-        m_SubModules.push_back(std::move(module));
+        m_SubModules.emplace_back(std::move(module));
         return m_SubModules.back().get();
     }
 }
