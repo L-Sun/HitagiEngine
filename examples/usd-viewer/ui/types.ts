@@ -1,0 +1,40 @@
+export type SceneNode = {
+  id: string;
+  name: string;
+  depth: number;
+  mesh: boolean;
+  visible: boolean;
+};
+export type ViewerState = {
+  kind: "viewer";
+  path: string;
+  file: string;
+  renderer: string;
+  backend: string;
+  debug: number;
+  light: number;
+  selected: string;
+  nodes: SceneNode[];
+  inspector: null | {
+    name: string;
+    path: string;
+    type: string;
+    visible: boolean;
+    triangles: number;
+    materials: string;
+    position: number[];
+    scale: number[];
+  };
+  meshes: number;
+  visible: number;
+  triangles: number;
+  error: string;
+  status: string;
+  animations: number;
+  physicsBodies: number;
+  physicsBackend: string;
+  physics: boolean;
+  playing: boolean;
+  animationTime: number;
+  animationDuration: number;
+};

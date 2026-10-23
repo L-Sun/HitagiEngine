@@ -1,0 +1,97 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    startTimeCode = 24
+    endTimeCode = 48
+    timeCodesPerSecond = 24
+    framesPerSecond = 60
+    upAxis = "Y"
+)
+
+# The two native USD instances share geometry and skeleton definition, but bind
+# different animation sources. Animation and mesh palette orders differ.
+def SkelRoot "Character" (
+    prepend apiSchemas = ["SkelBindingAPI"]
+) {
+    rel skel:skeleton = <Skeleton>
+    def Skeleton "Skeleton" {
+        uniform token[] joints = ["Root", "Root/Tip"]
+        uniform matrix4d[] bindTransforms = [
+            ( (1,0,0,0), (0,1,0,0), (0,0,1,0), (0,0,0,1) ),
+            ( (1,0,0,0), (0,1,0,0), (0,0,1,0), (0,1,0,1) )
+        ]
+        uniform matrix4d[] restTransforms = [
+            ( (1,0,0,0), (0,1,0,0), (0,0,1,0), (0,0,0,1) ),
+            ( (1,0,0,0), (0,1,0,0), (0,0,1,0), (0,1,0,1) )
+        ]
+    }
+    def Mesh "Body" (
+        prepend apiSchemas = ["SkelBindingAPI"]
+    ) {
+        uniform token subdivisionScheme = "none"
+        point3f[] points = [(-0.35,0,0), (0.35,0,0), (0.35,2,0), (-0.35,2,0)]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        uniform token[] skel:joints = ["Root/Tip", "Root"]
+        int[] primvars:skel:jointIndices = [1,1,0,0] (
+            interpolation = "vertex"
+            elementSize = 1
+        )
+        float[] primvars:skel:jointWeights = [1,1,1,1] (
+            interpolation = "vertex"
+            elementSize = 1
+        )
+        matrix4d primvars:skel:geomBindTransform = ( (1,0,0,0), (0,1,0,0), (0,0,1,0), (0,0,0,1) )
+    }
+    def Mesh "Badge" (
+        prepend apiSchemas = ["SkelBindingAPI"]
+    ) {
+        uniform token subdivisionScheme = "none"
+        point3f[] points = [(-0.15,1.35,0.01), (0.15,1.35,0.01), (0,1.7,0.01)]
+        int[] faceVertexCounts = [3]
+        int[] faceVertexIndices = [0,1,2]
+        uniform token[] skel:joints = ["Root/Tip"]
+        int[] primvars:skel:jointIndices = [0] (interpolation = "constant"; elementSize = 1)
+        float[] primvars:skel:jointWeights = [1] (interpolation = "constant"; elementSize = 1)
+        matrix4d primvars:skel:geomBindTransform = ( (1,0,0,0), (0,1,0,0), (0,0,1,0), (0,0,0,1) )
+    }
+}
+
+def SkelAnimation "SwingLeft" {
+    uniform token[] joints = ["Root/Tip"]
+    float3[] translations = [(0,1,0)]
+    quatf[] rotations.timeSamples = {
+        24: [(1,0,0,0)],
+        36: [(0.70710678,0,0,0.70710678)],
+        48: [(1,0,0,0)]
+    }
+    half3[] scales = [(1,1,1)]
+}
+def SkelAnimation "SwingRight" {
+    uniform token[] joints = ["Root/Tip"]
+    float3[] translations = [(0,1,0)]
+    quatf[] rotations.timeSamples = {
+        24: [(1,0,0,0)],
+        36: [(0.70710678,0,0,-0.70710678)],
+        48: [(1,0,0,0)]
+    }
+    half3[] scales = [(1,1,1)]
+}
+def Xform "World" {
+    def SkelRoot "Left" (
+        prepend references = </Character>
+        instanceable = true
+    ) {
+        rel skel:animationSource = </SwingLeft>
+        double3 xformOp:translate = (-1.5,0,0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+    def SkelRoot "Right" (
+        prepend references = </Character>
+        instanceable = true
+    ) {
+        rel skel:animationSource = </SwingRight>
+        double3 xformOp:translate = (1.5,0,0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}

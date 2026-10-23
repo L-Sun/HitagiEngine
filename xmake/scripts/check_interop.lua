@@ -29,7 +29,7 @@ function main()
         ["bindless.slang"] = true -- embedded shader source, not a C++ include
     }
     local checked, bridges, failures = 0, 0, {}
-    for _, root in ipairs({"hitagi", "presets"}) do
+    for _, root in ipairs({"hitagi", "examples"}) do
         for _, extension in ipairs({"cpp", "cppm", "hpp", "h", "cc", "c", "inl"}) do
             for _, file in ipairs(os.files(root .. "/**." .. extension)) do
                 local normalized = file:gsub("\\", "/")
