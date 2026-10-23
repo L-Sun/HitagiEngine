@@ -8,6 +8,8 @@ export import :mesh;
 export import :camera;
 export import :light;
 export import :transform;
+export import :animation;
+export import :skin;
 export import :scene;
 export import :manager;
 export import :shader;

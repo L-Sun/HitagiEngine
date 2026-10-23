@@ -12,7 +12,6 @@ struct RelationShip {
     const auto& GetChildren() const noexcept { return children; }
 
 private:
-    friend class Scene;
     friend struct RelationShipSystem;
     friend struct TransformSystem;
 
@@ -47,6 +46,14 @@ struct Transform {
           cached_rotation(rotation),
           cached_scaling(scaling) {}
 
+    explicit Transform(const math::mat4f& matrix) : Transform() {
+        std::tie(position, rotation, scaling) = math::decompose(matrix);
+        local_matrix = world_matrix = ToMatrix();
+        cached_position             = position;
+        cached_rotation             = rotation;
+        cached_scaling              = scaling;
+    }
+
     math::vec3f position;
     math::quatf rotation;
     math::vec3f scaling;
@@ -58,7 +65,7 @@ struct Transform {
     inline void Translate(const math::vec3f& value) noexcept { position += value; }
     inline void Rotate(const math::quatf& value) noexcept { rotation = value * rotation; }
 
-    inline auto ToMatrix() const noexcept { return math::translate(position) * math::rotate(rotation) * math::scale(scaling); }
+    inline auto ToMatrix() const noexcept -> math::mat4f { return math::translate(position) * math::rotate(rotation) * math::scale(scaling); }
 
 private:
     friend struct TransformSystem;
@@ -85,6 +92,7 @@ struct TransformHierarchyCache {
 
     std::pmr::vector<ecs::Entity> hierarchy_entities;
     std::pmr::vector<ecs::Entity> hierarchy_order;
+    std::pmr::vector<ecs::Entity> previous_entities;
 };
 
 std::unordered_map<ecs::Schedule*, std::weak_ptr<TransformHierarchyCache>> g_TransformHierarchyCaches;
@@ -173,6 +181,15 @@ void TransformSystem::OnUpdate(ecs::Schedule& schedule) {
             [cache](Transform&) {
                 if (cache->update_finished) return;
 
+                // Top-level entities can now be created/deleted directly through ECS,
+                // without a parent-change event. Invalidate the cached traversal too.
+                if (cache->hierarchy_entities != cache->previous_entities) {
+                    cache->previous_entities = cache->hierarchy_entities;
+                    cache->hierarchy_dirty   = true;
+                    for (auto entity : cache->hierarchy_entities)
+                        entity.Get<RelationShip>().subtree_dirty = true;
+                }
+
                 // rebuild hierarchy order
                 if (cache->hierarchy_dirty) {
                     cache->hierarchy_order.clear();
@@ -214,7 +231,7 @@ void TransformSystem::OnUpdate(ecs::Schedule& schedule) {
                     for (auto entity : cache->hierarchy_entities) {
                         append_subtree(entity);
                     }
-                
+
                     cache->hierarchy_dirty = false;
                 }
 

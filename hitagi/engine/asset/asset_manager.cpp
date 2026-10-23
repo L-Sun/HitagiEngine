@@ -57,8 +57,8 @@ auto AssetManager::ImportTexture(const std::filesystem::path& path) -> std::shar
         }
     }
 
-    auto texture = codec->Decode(m_FileIO.SyncOpenAndReadBinary(path));
-    if (texture) texture->SetPath(path);  // record identity so the registry can deduplicate
+    auto image   = codec->DecodeImageData(m_FileIO.SyncOpenAndReadBinary(path));
+    auto texture = image ? std::make_shared<Texture>(std::move(image), path.string(), path) : nullptr;
     AddTexture(texture);
     return texture;
 }
@@ -84,6 +84,7 @@ auto AssetManager::LoadCookedScene(std::span<const std::byte> data, const std::f
     auto scene = ParseCookedScene(
         data,
         asset_root_path.empty() ? m_AssetRootPath : asset_root_path,
+        m_JobSystem,
         [this](const std::filesystem::path& path, std::string_view name) { return AcquireTexture(path, name); });
     AddScene(scene);
     return scene;

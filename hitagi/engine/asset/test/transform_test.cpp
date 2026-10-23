@@ -3,6 +3,7 @@ import interop.gtest;
 
 import std;
 import asset;
+import core;
 import math;
 import ecs;
 import test_utils;
@@ -15,6 +16,7 @@ class TransformTest : public Test {
 protected:
     TransformTest() : world("TransformTest"), em(world.GetEntityManager()), sm(world.GetSystemManager()) {}
 
+    core::JobSystem     job_system;
     ecs::World          world;
     ecs::EntityManager& em;
     ecs::SystemManager& sm;
@@ -34,7 +36,7 @@ TEST_F(RelationShipSystemTest, UpdateChildren) {
     entities[1].Emplace<RelationShip>(entities[0]);  // set parent of entities[1] to entities[0]
     entities[2].Emplace<RelationShip>(entities[1]);  // set parent of entities[2] to entities[1]
 
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_EQ(entities[1].Get<RelationShip>().parent, entities[0])
         << "the parent of entities[1] should be entities[0] after update";
@@ -55,7 +57,7 @@ TEST_F(RelationShipSystemTest, AutoAttachChildren) {
     entities[0].Emplace<RelationShip>();
     entities[1].Emplace<RelationShip>(entities[0]);  // set parent of entities[1] to entity_
 
-    world.Update();
+    world.Update(job_system);
 
     ASSERT_TRUE(entities[0].Has<RelationShip>())
         << "entities[0] should be attached with Children component after update";
@@ -75,7 +77,7 @@ public:
 TEST_F(LocalToWorldSystemTest, UpdateLocalMatrix) {
     auto individual_entity = em.Create();  // Individual entity with transform
     individual_entity.Emplace<Transform>(math::vec3f{1.0f, 0.0f, 0.0f}, math::quatf::identity(), math::vec3f{1.0f, 1.0f, 1.0f});
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_EQ(individual_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{1.0f, 0.0f, 0.0f}));
 }
@@ -98,13 +100,13 @@ TEST_F(LocalToWorldSystemTest, UpdateHierarchy) {
 
     child_entity.Emplace<RelationShip>(root_entity);  // Set parent of child_entity to root_entity
 
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_EQ(root_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{2.0f, 0.0f, 0.0f}));
     EXPECT_EQ(child_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{5.0f, 0.0f, 0.0f}));
 
     root_entity.Get<Transform>().Translate(math::vec3f{1.0f, 0.0f, 0.0f});
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_EQ(root_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{3.0f, 0.0f, 0.0f}));
     EXPECT_EQ(child_entity.Get<Transform>().world_matrix, math::translate(math::vec3f{6.0f, 0.0f, 0.0f}));
@@ -139,15 +141,39 @@ TEST_F(LocalToWorldSystemTest, ReparentRebuildsHierarchyOrder) {
         math::vec3f{1.0f, 1.0f, 1.0f});
     root_b.Emplace<RelationShip>();
 
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_EQ(child.Get<Transform>().world_matrix, math::translate(math::vec3f{3.0f, 0.0f, 0.0f}));
     EXPECT_EQ(grandchild.Get<Transform>().world_matrix, math::translate(math::vec3f{6.0f, 0.0f, 0.0f}));
 
     child.Get<RelationShip>().parent = root_b;
-    world.Update();
+    world.Update(job_system);
 
     EXPECT_EQ(root_a.Get<Transform>().world_matrix, math::translate(math::vec3f{1.0f, 0.0f, 0.0f}));
     EXPECT_EQ(child.Get<Transform>().world_matrix, math::translate(math::vec3f{12.0f, 0.0f, 0.0f}));
     EXPECT_EQ(grandchild.Get<Transform>().world_matrix, math::translate(math::vec3f{15.0f, 0.0f, 0.0f}));
+}
+
+TEST_F(LocalToWorldSystemTest, DirectRootCreationAndRemovalInvalidateTraversal) {
+    auto first = em.Create(Transform(math::vec3f(1, 0, 0)), RelationShip{});
+    world.Update(job_system);
+    auto second                        = em.Create(Transform(math::vec3f(2, 0, 0)), RelationShip{});
+    second.Get<Transform>().position.x = 7;
+    world.Update(job_system);
+    EXPECT_EQ(second.Get<Transform>().world_matrix, math::translate(math::vec3f(7, 0, 0)));
+
+    auto child = em.Create(Transform(math::vec3f(3, 0, 0)), RelationShip(second));
+    world.Update(job_system);
+    EXPECT_EQ(child.Get<Transform>().world_matrix, math::translate(math::vec3f(10, 0, 0)));
+    em.Destroy(second);
+    world.Update(job_system);
+    EXPECT_EQ(child.Get<Transform>().world_matrix, math::translate(math::vec3f(3, 0, 0)));
+
+    em.Destroy(first);
+    em.Destroy(child);
+    world.Update(job_system);
+    auto replacement                        = em.Create(Transform{}, RelationShip{});
+    replacement.Get<Transform>().position.x = 9;
+    world.Update(job_system);
+    EXPECT_EQ(replacement.Get<Transform>().world_matrix, math::translate(math::vec3f(9, 0, 0)));
 }

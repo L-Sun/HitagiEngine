@@ -131,11 +131,37 @@ TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
         std::pmr::vector<MaterialPass>{MaterialPass{.pass_contract = "Test", .bindings = {{"base_color", vec4f{1, 1, 1, 1}}}}},
         "SceneResidencyMaterial");
 
-    const auto mesh                = MeshFactory::Cube();
-    mesh->sub_meshes[0].material   = material;
+    VertexArray::Data vertex_data;
+    core::Buffer      index_data(3 * sizeof(std::uint16_t));
+    {
+        vertex_data[VertexAttribute::Position] = core::Buffer(3 * sizeof(VertexDataType<VertexAttribute::Position>));
+        auto p                                 = vertex_data[VertexAttribute::Position].Span<VertexDataType<VertexAttribute::Position>>();
+        p[0]                                   = {-0.5f, -0.5f, 0.5f};
+        p[1]                                   = {0.5f, -0.5f, 0.5f};
+        p[2]                                   = {0.5f, 0.5f, 0.5f};
+    }
+    {
+        vertex_data[VertexAttribute::Normal] = core::Buffer(3 * sizeof(VertexDataType<VertexAttribute::Normal>));
+        auto p                               = vertex_data[VertexAttribute::Normal].Span<VertexDataType<VertexAttribute::Normal>>();
+        std::ranges::fill(p, math::vec3f(0, 0, 1));
+    }
+    {
+        vertex_data[VertexAttribute::UV0] = core::Buffer(3 * sizeof(VertexDataType<VertexAttribute::UV0>));
+        auto p                            = vertex_data[VertexAttribute::UV0].Span<VertexDataType<VertexAttribute::UV0>>();
+        p[0]                              = {0, 0};
+        p[1]                              = {1, 0};
+        p[2]                              = {1, 1};
+    }
+    {
+        auto p = index_data.Span<IndexDataType<IndexType::UINT16>>();
+        p[0]   = 0;
+        p[1]   = 1;
+        p[2]   = 2;
+    }
+    const auto mesh = std::make_shared<Mesh>(std::make_shared<VertexArray>(3, std::move(vertex_data)), std::make_shared<IndexArray>(IndexType::UINT16, std::move(index_data)), std::pmr::vector<Mesh::SubMesh>{{.index_count = 3, .material = material}});
 
     const auto scene = std::make_shared<Scene>("SceneResidencyScene");
-    scene->CreateMeshEntity(mesh, mat4f::identity(), scene->GetRootEntity(), "cube");
+    (void)scene->GetWorld().GetEntityManager().Create(asset::Transform(mat4f::identity()), asset::RelationShip{}, asset::MetaInfo("cube"), asset::MeshComponent{mesh});
     assets.AddScene(scene);
 
     // Simulate the renderer loading resources directly (bypassing Scene::Load).
@@ -146,6 +172,12 @@ TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
     EXPECT_NE(mesh->vertices->GetAttributeData(VertexAttribute::Position)->get().gpu_buffer, nullptr);
     EXPECT_NE(mesh->indices->GetGPUData(), nullptr);
     EXPECT_FALSE(material->GetPasses()[0].material_data.Empty());
+
+    const auto position_buffer = mesh->vertices->GetAttributeData(VertexAttribute::Position)->get().gpu_buffer;
+    const auto index_buffer    = mesh->indices->GetGPUData();
+    mesh->Load({.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler});
+    EXPECT_EQ(mesh->vertices->GetAttributeData(VertexAttribute::Position)->get().gpu_buffer, position_buffer);
+    EXPECT_EQ(mesh->indices->GetGPUData(), index_buffer);
 
     assets.UnloadScene(scene);
 

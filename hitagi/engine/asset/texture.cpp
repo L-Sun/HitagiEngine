@@ -22,7 +22,7 @@ public:
             gfx::Format      format,
             core::Buffer     data = {},
             std::string_view name = "");
-    Texture(ImageData image_data, std::string_view name = "");
+    Texture(ImageData image_data, std::string_view name = "", std::filesystem::path path = {});
     // Lazily loaded texture: `path` is its identity, `loader` produces the pixels
     // on first Load(). An empty `decode_submitter` means Load() decodes synchronously.
     Texture(std::filesystem::path path,
@@ -30,22 +30,17 @@ public:
             std::string_view      name             = "",
             core::JobSubmitter    decode_submitter = {});
 
-    Texture(Texture&&) noexcept            = default;
-    Texture& operator=(Texture&&) noexcept = default;
-
     static auto DefaultTexture() -> std::shared_ptr<Texture>;
     static void DestroyDefaultTexture();
 
-    inline auto Empty() const noexcept { return m_ImageData.data.Empty() && m_Path.empty(); }
-    inline auto Width() const noexcept { return m_ImageData.width; }
-    inline auto Height() const noexcept { return m_ImageData.height; }
-    inline auto Format() const noexcept { return m_ImageData.format; }
-    inline auto GetData() const noexcept { return m_ImageData.data.Span<const std::byte>(); }
+    inline auto        Empty() const noexcept { return m_ImageData.data.Empty() && m_Path.empty(); }
+    inline auto        Width() const noexcept { return m_ImageData.width; }
+    inline auto        Height() const noexcept { return m_ImageData.height; }
+    inline auto        Format() const noexcept { return m_ImageData.format; }
+    inline auto        GetData() const noexcept { return m_ImageData.data.Span<const std::byte>(); }
     inline const auto& GetPath() const noexcept { return m_Path; }
-    inline auto GetGPUData() const noexcept { return m_GPUData; }
-    inline auto GetGPUView() const noexcept { return m_GPUView; }
-
-    bool SetPath(const std::filesystem::path& path);
+    inline auto        GetGPUData() const noexcept { return m_GPUData; }
+    inline auto        GetGPUView() const noexcept { return m_GPUView; }
 
     void Load(const ResourceLoadContext& context) final;
     void Unload() final;
@@ -56,10 +51,10 @@ private:
     void DecodeCPU() noexcept;
     void Upload(const ResourceLoadContext& context);
 
-    ImageData                    m_ImageData;
-    std::filesystem::path        m_Path;
-    ImageLoader                  m_Loader;
-    core::JobSubmitter           m_DecodeSubmitter;
+    ImageData                         m_ImageData;
+    const std::filesystem::path       m_Path;
+    ImageLoader                       m_Loader;
+    core::JobSubmitter                m_DecodeSubmitter;
     std::shared_ptr<gfx::Texture>     m_GPUData = nullptr;
     std::shared_ptr<gfx::TextureView> m_GPUView = nullptr;
 
@@ -98,9 +93,10 @@ Texture::Texture(std::uint32_t width, std::uint32_t height, gfx::Format format, 
           .data   = std::move(data),
       } {}
 
-Texture::Texture(ImageData image_data, std::string_view name)
+Texture::Texture(ImageData image_data, std::string_view name, std::filesystem::path path)
     : Resource(Type::Texture, name),
-      m_ImageData(std::move(image_data)) {}
+      m_ImageData(std::move(image_data)),
+      m_Path(std::move(path)) {}
 
 auto MakeFileImageLoader(core::FileIOManager& file_io, std::filesystem::path path) -> ImageLoader {
     return [&file_io, path = std::move(path)]() -> ImageData {
@@ -154,12 +150,6 @@ void Texture::DestroyDefaultTexture() {
     m_DefaultTexture = nullptr;
 }
 
-bool Texture::SetPath(const std::filesystem::path& path) {
-    if (create_image_codec_for(path.extension()) == nullptr) return false;
-    m_Path = path;
-    return true;
-}
-
 void Texture::DecodeCPU() noexcept {
     try {
         if (m_ImageData.data.Empty() && m_Loader) {
@@ -173,20 +163,24 @@ void Texture::DecodeCPU() noexcept {
 }
 
 void Texture::Upload(const ResourceLoadContext& context) {
-    m_GPUData = hitagi::gfx::Texture::Create(context.device, context.queues, context.bindings,
-                                             {
-                                                 .name   = m_Name,
-                                                 .width  = m_ImageData.width,
-                                                 .height = m_ImageData.height,
-                                                 .format = m_ImageData.format,
-                                                 .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
-                                             },
-                                             m_ImageData.data.Span<const std::byte>());
-    m_GPUView = hitagi::gfx::TextureView::Create(context.device, context.bindings, {
-                                                                                       .name    = std::pmr::string(std::format("{}-srv", m_Name)),
-                                                                                       .texture = m_GPUData,
-                                                                                       .type    = gfx::TextureViewType::ShaderRead,
-                                                                                   });
+    m_GPUData = hitagi::gfx::Texture::Create(
+        context.device, context.queues, context.bindings,
+        {
+            .name   = m_Name,
+            .width  = m_ImageData.width,
+            .height = m_ImageData.height,
+            .format = m_ImageData.format,
+            .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst,
+        },
+        m_ImageData.data.Span<const std::byte>());
+    m_GPUView = hitagi::gfx::TextureView::Create(
+        context.device,
+        context.bindings,
+        {
+            .name    = std::pmr::string(std::format("{}-srv", m_Name)),
+            .texture = m_GPUData,
+            .type    = gfx::TextureViewType::ShaderRead,
+        });
     SetLoadState(ResourceLoadState::Loaded);
 }
 

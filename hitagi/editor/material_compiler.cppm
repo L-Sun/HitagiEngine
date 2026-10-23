@@ -1,5 +1,6 @@
 export module editor:material_compiler;
 import engine;
+import :pipeline;
 import :material_graph;
 
 export namespace hitagi {
@@ -159,7 +160,7 @@ auto CompileMaterialGraph(
 
     MaterialGraphCompileResult result{.validation = graph.Validate()};
     const auto fail = [&](MaterialGraphValidationErrorCode code, std::string message) {
-        result.validation.errors.push_back({code, std::pmr::string(message)});
+        result.validation.errors.emplace_back(code, std::pmr::string(std::move(message)));
     };
     if (!result.validation) return result;
 
@@ -299,6 +300,7 @@ auto CompileMaterialGraph(
     auto pipeline_desc = pass_template.pipeline;
     pipeline_desc.name = std::format("{}Pipeline", options.name);
 
+    pipeline_desc             = CompilePipelineLayout(std::move(pipeline_desc), shaders);
     result.pass.pass_contract = pass_template.contract;
     result.pass.pipeline      = std::make_shared<asset::RenderPipeline>(std::move(pipeline_desc), std::move(shaders));
     return result;

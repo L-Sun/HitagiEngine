@@ -39,12 +39,8 @@ int main(int argc, char** argv) {
 
 TEST_F(AssetPipelineTest, MaterialDebugDataExposesSourceAndPassBindings) {
     auto base_color_texture = std::make_shared<asset::Texture>(
-        1,
-        1,
-        gfx::Format::R8G8B8A8_UNORM,
-        core::Buffer{},
-        "base-color-debug");
-    base_color_texture->SetPath("assets/test/base_color.png");
+        asset::ImageData{.width = 1, .height = 1, .format = gfx::Format::R8G8B8A8_UNORM},
+        "base-color-debug", "assets/test/base_color.png");
 
     auto material = std::make_shared<asset::Material>(
         asset::MaterialParameters{
@@ -95,12 +91,13 @@ TEST_F(AssetPipelineTest, ImportsUsdSceneWithoutEditorWindow) {
     asset::AssetManager asset_manager(file_io, job_system, "assets");
     auto                scene = ImportEditorScene(
         asset_manager,
+        job_system,
         "assets/test/test.usda",
         "assets/test",
         [&asset_manager](std::string_view name) { return asset_manager.GetMaterial(name); });
 
     ASSERT_TRUE(scene);
-    EXPECT_TRUE(scene->GetRootEntity());
+    EXPECT_FALSE(scene->GetWorld().GetEntityManager().GetEntities().empty());
     EXPECT_EQ(GetEditorSceneFormat(".usda"), EditorSceneFormat::USDA);
 }
 
@@ -124,11 +121,11 @@ def Xform "Root" {
 }
 )USD";
     }
-    const auto scene = UsdSceneImporter{}.Import(path);
+    const auto scene = UsdSceneImporter{}.Import(job_system, path);
     ASSERT_TRUE(scene);
-    ASSERT_EQ(scene->GetMeshEntities().size(), 1u);
-    scene->Update();
-    const auto& transform = scene->GetMeshEntities().front().Get<asset::Transform>();
+    ASSERT_EQ(scene->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().size(), 1u);
+    scene->GetWorld().Update(job_system);
+    const auto& transform = scene->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().front().Get<asset::Transform>();
     EXPECT_EQ(math::get_translation(transform.local_matrix), (math::vec3f{0, 2, 3}));
     EXPECT_EQ(math::get_translation(transform.world_matrix), (math::vec3f{10, 2, 3}));
 }

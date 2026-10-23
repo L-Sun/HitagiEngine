@@ -2,6 +2,8 @@ module;
 #include "usd_count_compat.hpp"
 #include <pxr/base/gf/camera.h>
 #include <pxr/base/gf/matrix4d.h>
+#include <pxr/base/gf/quatf.h>
+#include <pxr/base/gf/vec3h.h>
 #include <pxr/base/gf/vec2f.h>
 #include <pxr/base/gf/vec3f.h>
 #include <pxr/base/gf/vec4f.h>
@@ -30,6 +32,14 @@ module;
 #include <pxr/usd/usdShade/materialBindingAPI.h>
 #include <pxr/usd/usdShade/shader.h>
 #include <pxr/usd/usdShade/tokens.h>
+#include <pxr/usd/usdSkel/cache.h>
+#include <pxr/usd/usdSkel/skeletonQuery.h>
+#include <pxr/usd/usdSkel/skinningQuery.h>
+#include <pxr/usd/usdSkel/animQuery.h>
+#include <pxr/usd/usdSkel/bindingAPI.h>
+#include <pxr/usd/usdSkel/root.h>
+#include <pxr/usd/usdSkel/skeleton.h>
+#include <pxr/usd/usdSkel/animation.h>
 
 export module interop.usd;
 
@@ -39,10 +49,13 @@ using ::PXR_INTERNAL_NS::ArResolvedPath;
 using ::PXR_INTERNAL_NS::ArResolverContextBinder;
 using ::PXR_INTERNAL_NS::GfCamera;
 using ::PXR_INTERNAL_NS::GfMatrix4d;
+using ::PXR_INTERNAL_NS::GfQuatf;
 using ::PXR_INTERNAL_NS::GfVec2f;
 using ::PXR_INTERNAL_NS::GfVec3f;
+using ::PXR_INTERNAL_NS::GfVec3h;
 using ::PXR_INTERNAL_NS::GfVec4f;
 using ::PXR_INTERNAL_NS::SdfAssetPath;
+using ::PXR_INTERNAL_NS::SdfPath;
 using ::PXR_INTERNAL_NS::TfToken;
 using ::PXR_INTERNAL_NS::TfTokenVector;
 using ::PXR_INTERNAL_NS::UsdGeomCamera;
@@ -50,6 +63,7 @@ using ::PXR_INTERNAL_NS::UsdGeomMesh;
 using ::PXR_INTERNAL_NS::UsdGeomPrimvarsAPI;
 using ::PXR_INTERNAL_NS::UsdGeomTokens;
 using ::PXR_INTERNAL_NS::UsdGeomXformable;
+using ::PXR_INTERNAL_NS::UsdInterpolationTypeHeld;
 using ::PXR_INTERNAL_NS::UsdLuxBoundableLightBase;
 using ::PXR_INTERNAL_NS::UsdLuxDistantLight;
 using ::PXR_INTERNAL_NS::UsdLuxLightAPI;
@@ -63,7 +77,16 @@ using ::PXR_INTERNAL_NS::UsdShadeMaterial;
 using ::PXR_INTERNAL_NS::UsdShadeMaterialBindingAPI;
 using ::PXR_INTERNAL_NS::UsdShadeShader;
 using ::PXR_INTERNAL_NS::UsdShadeTokens;
+using ::PXR_INTERNAL_NS::UsdSkelAnimation;
+using ::PXR_INTERNAL_NS::UsdSkelAnimQuery;
+using ::PXR_INTERNAL_NS::UsdSkelBindingAPI;
+using ::PXR_INTERNAL_NS::UsdSkelCache;
+using ::PXR_INTERNAL_NS::UsdSkelRoot;
+using ::PXR_INTERNAL_NS::UsdSkelSkeleton;
+using ::PXR_INTERNAL_NS::UsdSkelSkeletonQuery;
+using ::PXR_INTERNAL_NS::UsdSkelSkinningQuery;
 using ::PXR_INTERNAL_NS::UsdStage;
 using ::PXR_INTERNAL_NS::UsdTimeCode;
+using ::PXR_INTERNAL_NS::UsdTraverseInstanceProxies;
 using ::PXR_INTERNAL_NS::VtArray;
 }  // namespace pxr

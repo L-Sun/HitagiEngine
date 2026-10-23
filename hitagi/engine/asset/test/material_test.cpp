@@ -43,9 +43,6 @@ TEST(MaterialTest, MissingAndMistypedBindingsUseContractDefaultsWithoutShifting)
     EXPECT_FLOAT_EQ(values[3], 0.75f);
     EXPECT_FLOAT_EQ(values[4], 0.9f);
     EXPECT_EQ(material.GetLoadState(), ResourceLoadState::Loaded);
-    material.DefineParameter("roughness", 0.6f);
-    material.Load(context);
-    EXPECT_FLOAT_EQ(pass->material_data.Span<const float>()[1], 0.6f);
 }
 
 namespace hitagi::testing {
@@ -85,7 +82,6 @@ TEST(MaterialTest, InitMaterial) {
     MaterialParameters parameters{
         {.name = "param1", .value = vec2f{0.0f, 1.0f}},
         {.name = "param2", .value = vec4f{0.0f, 1.0f, 2.0f, 3.0f}},
-        {.name = "param2", .value = vec3f{0.0f, 1.0f, 2.0f}},  // no effect
         {.name = "param3", .value = vec2f{0.0f, 1.0f}},
         {.name = "texture", .value = texture},
     };
@@ -95,7 +91,6 @@ TEST(MaterialTest, InitMaterial) {
     const auto material_parameters = mat->GetParameters();
     ASSERT_EQ(material_parameters.size(), 4);
 
-    parameters.erase(std::next(parameters.begin(), 2));
 
     for (std::size_t i = 0; i < material_parameters.size(); ++i) {
         EXPECT_EQ(material_parameters[i], parameters[i]);
@@ -136,14 +131,11 @@ TEST(MaterialTest, SetAndGetParameter) {
     EXPECT_FALSE(mat->GetParameter<vec3f>("param1").has_value());
 }
 
-TEST(MaterialTest, DefineParameterFixesType) {
-    Material material;
-    material.DefineParameter<float>("roughness", 0.5f);
+TEST(MaterialTest, ConstructionFixesParameterType) {
+    Material material({{.name = "roughness", .value = 0.5f}});
     material.SetParameter("roughness", 0.8f);
     EXPECT_FLOAT_EQ(material.GetParameter<float>("roughness").value(), 0.8f);
 
-    EXPECT_THROW(material.DefineParameter("roughness", 0.2f), std::invalid_argument);
-    EXPECT_THROW(material.DefineParameter("roughness", vec3f{1, 0, 0}), std::invalid_argument);
     EXPECT_THROW(material.SetParameter("roughness", vec3f{1, 0, 0}), std::invalid_argument);
     EXPECT_THROW(material.SetParameter("unknown", 1.0f), std::invalid_argument);
 
@@ -160,7 +152,6 @@ TEST(MaterialTest, RejectedAssignmentPreservesLoadedData) {
 
     EXPECT_THROW(material.SetParameter("roughness", vec3f{1, 0, 0}), std::invalid_argument);
     EXPECT_THROW(material.SetParameter("unknown", 1.0f), std::invalid_argument);
-    EXPECT_THROW(material.DefineParameter("roughness", 0.2f), std::invalid_argument);
     EXPECT_EQ(material.GetLoadState(), ResourceLoadState::Loaded);
     EXPECT_EQ(pass.material_data.GetDataSize(), size);
     EXPECT_FLOAT_EQ(*reinterpret_cast<const float*>(pass.material_data.GetData()), 0.5f);
@@ -171,9 +162,6 @@ TEST(MaterialTest, RejectedAssignmentPreservesLoadedData) {
     const auto& updated = LoadMaterialPass(material, "Forward");
     EXPECT_FLOAT_EQ(*reinterpret_cast<const float*>(updated.material_data.GetData()), 0.8f);
 
-    material.DefineParameter("metallic", 1.0f);
-    EXPECT_EQ(material.GetLoadState(), ResourceLoadState::Unloaded);
-    EXPECT_TRUE(updated.material_data.Empty());
 }
 
 TEST(MaterialTest, MaterialBuffer_TightLayout) {
@@ -389,4 +377,29 @@ TEST(MaterialTest, MaterialLoad_WritesTextureViewBindlessHandle) {
     ASSERT_NE(default_texture->GetGPUView(), nullptr);
     EXPECT_EQ(fallback_handle.index, default_texture->GetGPUView()->GetBindlessHandle().index);
     EXPECT_FLOAT_EQ(*reinterpret_cast<const float*>(fallback_pass->material_data.GetData() + sizeof(hitagi::gfx::BindlessHandle)), 0.75f);
+}
+
+TEST(MaterialTest, CloneIsolatesStateAndDropsResidentData) {
+    auto     texture = std::make_shared<Texture>(1, 1, hitagi::gfx::Format::R8G8B8A8_UNORM);
+    Material source({{.name = "roughness", .value = 0.5f}, {.name = "albedo", .value = texture}},
+                    {{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "source");
+    LoadMaterialPass(source, "Forward");
+    auto clone = source.Clone("clone");
+    EXPECT_NE(source.GetUUID(), clone->GetUUID());
+    EXPECT_EQ(clone->GetName(), "clone");
+    EXPECT_EQ(clone->GetLoadState(), ResourceLoadState::Unloaded);
+    EXPECT_TRUE(clone->FindPass("Forward")->material_data.Empty());
+    EXPECT_EQ(clone->GetParameter<std::shared_ptr<Texture>>("albedo").value(), texture);
+    clone->SetParameter("roughness", 0.8f);
+    EXPECT_FLOAT_EQ(source.GetParameter<float>("roughness").value(), 0.5f);
+    EXPECT_EQ(source.GetLoadState(), ResourceLoadState::Loaded);
+    EXPECT_FLOAT_EQ(source.FindPass("Forward")->material_data.Span<const float>()[0], 0.5f);
+    EXPECT_FLOAT_EQ(LoadMaterialPass(*clone, "Forward").material_data.Span<const float>()[0], 0.8f);
+    clone->Unload();
+    EXPECT_FALSE(source.FindPass("Forward")->material_data.Empty());
+}
+
+TEST(MaterialTest, DuplicateParameterNamesAreRejectedAtConstruction) {
+    MaterialParameters parameters{{.name = "value", .value = 1.0f}, {.name = "value", .value = 2.0f}};
+    EXPECT_THROW((Material(parameters)), std::invalid_argument);
 }

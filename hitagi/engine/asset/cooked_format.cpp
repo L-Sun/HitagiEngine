@@ -18,7 +18,7 @@ import math;
 export namespace hitagi::asset {
 
 inline constexpr std::array<char, 4> kCookedMagic{'H', 'T', 'G', 'C'};
-inline constexpr std::uint32_t       kCookedVersion         = 3;
+inline constexpr std::uint32_t       kCookedVersion         = 8;
 inline constexpr std::uint32_t       kCookedInvalidIndex    = 0xFFFF'FFFFu;
 inline constexpr std::size_t         kCookedBlobAlignment   = 16;
 inline constexpr std::size_t         kCookedRecordAlignment = 8;
@@ -70,13 +70,13 @@ enum CookedParameterFlags : std::uint32_t {
 };
 
 struct ParameterRecord {
-    StringRef                                             name{};
-    StringRef                                             type{};  // e.g. "Float", "Vec3f", "Texture2D"
-    StringRef                                             texture_name{};
-    StringRef                                             texture_path{};
-    std::uint32_t                                         flags    = kCookedParameterNone;
-    std::uint32_t                                         _padding = 0;
-    std::array<std::byte, kCookedParameterPayloadSize>    payload{};
+    StringRef                                          name{};
+    StringRef                                          type{};  // e.g. "Float", "Vec3f", "Texture2D"
+    StringRef                                          texture_name{};
+    StringRef                                          texture_path{};
+    std::uint32_t                                      flags    = kCookedParameterNone;
+    std::uint32_t                                      _padding = 0;
+    std::array<std::byte, kCookedParameterPayloadSize> payload{};
 };
 
 struct ShaderModuleRecord {
@@ -89,12 +89,23 @@ struct ShaderRecord {
     StringRef name{};
     StringRef type{};  // gfx::ShaderType name
     StringRef entry{};
-    ArrayRef modules{}; // ShaderModuleRecord[], in dependency order
-    ArrayRef specialization_types{}; // StringRef[]
+    ArrayRef  modules{};               // ShaderModuleRecord[], in dependency order
+    ArrayRef  specialization_types{};  // StringRef[]
 };
 
 // Enums are stored as strings (restored via magic_enum) so that reordering the
 // C++ enums can never silently corrupt cooked files.
+struct VertexInputRecord {
+    StringRef     semantic{};
+    StringRef     format{};
+    std::uint32_t binding      = 0;
+    std::uint32_t location     = 0;
+    std::uint64_t offset       = 0;
+    std::uint64_t stride       = 0;
+    std::uint32_t per_instance = 0;
+    std::uint32_t _padding     = 0;
+};
+
 struct PipelineRecord {
     StringRef     name{};
     StringRef     primitive{};
@@ -102,10 +113,46 @@ struct PipelineRecord {
     StringRef     depth_compare{};
     StringRef     render_format{};
     StringRef     depth_stencil_format{};
+    ArrayRef      vertex_input_layout{};
     std::uint32_t front_counter_clockwise = 0;
     std::uint32_t depth_test              = 0;
     std::uint32_t depth_write             = 0;
     std::uint32_t _padding                = 0;
+    std::uint32_t restart_enable{};
+    StringRef     fill_mode{};
+    std::uint32_t depth_clamp_enable{};
+    std::uint32_t depth_bias_enable{};
+    float         depth_bias{};
+    float         depth_bias_clamp{};
+    float         depth_bias_slope_factor{};
+    std::uint32_t stencil_test_enable{};
+    StringRef     front_fail_op{};
+    StringRef     front_pass_op{};
+    StringRef     front_depth_fail_op{};
+    StringRef     front_compare_op{};
+    std::uint32_t front_compare_mask{};
+    std::uint32_t front_write_mask{};
+    std::uint32_t front_reference{};
+    StringRef     back_fail_op{};
+    StringRef     back_pass_op{};
+    StringRef     back_depth_fail_op{};
+    StringRef     back_compare_op{};
+    std::uint32_t back_compare_mask{};
+    std::uint32_t back_write_mask{};
+    std::uint32_t back_reference{};
+    std::uint32_t depth_bounds_test_enable{};
+    math::vec2f   depth_bounds{};
+    std::uint32_t blend_enable{};
+    StringRef     src_color_blend_factor{};
+    StringRef     dst_color_blend_factor{};
+    StringRef     color_blend_op{};
+    StringRef     src_alpha_blend_factor{};
+    StringRef     dst_alpha_blend_factor{};
+    StringRef     alpha_blend_op{};
+    math::vec4f   blend_constants{};
+    std::uint32_t color_write_mask{};
+    std::uint32_t logic_operation_enable{};
+    StringRef     logic_op{};
 };
 
 struct PassRecord {
@@ -139,58 +186,101 @@ struct SubMeshRecord {
 };
 
 struct MeshRecord {
-    StringRef            name{};
-    std::uint64_t        vertex_count = 0;
-    ArrayRef             attributes{};  // -> VertexAttributeRecord[]
-    StringRef            index_type{};  // asset::IndexType name
-    std::uint64_t        index_count = 0;
-    BufferView           indices{};
+    StringRef     name{};
+    std::uint64_t vertex_count = 0;
+    ArrayRef      attributes{};  // -> VertexAttributeRecord[]
+    StringRef     index_type{};  // asset::IndexType name
+    std::uint64_t index_count = 0;
+    BufferView    indices{};
     ArrayRef      sub_meshes{};  // -> SubMeshRecord[]
-    math::vec3f   aabb_min{};    // cooked at build time; the loader skips ComputeAABB
-    math::vec3f   aabb_max{};
 };
 
 // --- scene records ----------------------------------------------------------
 
-struct MeshInstanceRecord {
+// Float32 TRS (40 bytes), preserving signed scales and quaternion components.
+struct NodeRecord {
     StringRef     name{};
+    std::uint32_t parent   = kCookedInvalidIndex;
+    std::uint32_t reserved = 0;
+    math::vec3f   translation{};
+    math::quatf   rotation = math::quatf::identity();
+    math::vec3f   scale    = math::vec3f(1.0f);
+};
+struct MeshInstanceRecord {
+    std::uint32_t node       = kCookedInvalidIndex;
     std::uint32_t mesh_index = kCookedInvalidIndex;
-    std::uint32_t _padding   = 0;
-    math::mat4f   transform{};
+    ArrayRef      material_overrides{};    // uint32 material indices; invalid means mesh default
 };
-
 struct CameraRecord {
-    StringRef   name{};
-    math::mat4f transform{};
-    float       aspect         = 16.0f / 9.0f;
-    float       near_clip      = 1.0f;
-    float       far_clip       = 1000.0f;
-    float       horizontal_fov = 0.0f;
-    math::vec3f eye{};
-    math::vec3f look_dir{};
-    math::vec3f up{};
+    std::uint32_t node           = kCookedInvalidIndex;
+    float         aspect         = 16.0f / 9.0f;
+    float         near_clip      = 1.0f;
+    float         far_clip       = 1000.0f;
+    float         horizontal_fov = 0.0f;
 };
-
 struct LightRecord {
-    StringRef   name{};
-    StringRef   type{};  // asset::Light::Type name
-    math::mat4f transform{};
-    float       intensity = 1.0f;
-    math::Color color{};
-    math::vec3f position{};
-    math::vec3f direction{};
-    math::vec3f up{};
-    float       inner_cone_angle = 0.0f;
-    float       outer_cone_angle = 0.0f;
+    StringRef     type{};
+    std::uint32_t node      = kCookedInvalidIndex;
+    float         intensity = 1.0f;
+    math::Color   color{};
+    float         inner_cone_angle = 0.0f, outer_cone_angle = 0.0f;
 };
-
-struct SceneRecord {
+// Row-major first three rows; the fourth is implicitly (0,0,0,1).
+// Only affine transforms use this encoding. Material Mat4f remains unrestricted.
+struct AffineMatrixRecord {
+    std::array<float, 12> values{};
+};
+struct SkinRecord {
+    StringRef  name{};
+    BufferView inverse_bind_matrices{};  // tightly packed AffineMatrixRecord[]
+};
+// Explicit wire values, independent of runtime enum order.
+enum class CurveProperty : std::uint32_t { Translation = 0,
+                                           Rotation    = 1,
+                                           Scale       = 2 };
+enum class CurveInterpolation : std::uint32_t { Step   = 0,
+                                                Linear = 1 };
+enum class CurveTimeEncoding : std::uint32_t { Uniform  = 0,
+                                               Explicit = 1 };
+struct CurveRecord {
+    CurveProperty      property{};
+    CurveInterpolation interpolation{};
+    std::uint32_t      key_count = 0;
+    CurveTimeEncoding  time_encoding{};
+    double             start = 0, step = 0;
+    BufferView         times{};   // float64[], absent for uniform/single-key curves
+    BufferView         values{};  // packed float32 xyz or xyzw, with no per-key padding
+};
+struct AnimationTrackRecord {
+    std::uint32_t target   = 0;
+    std::uint32_t reserved = 0;
+    ArrayRef      curves{};  // sparse CurveRecord[], absent channels retain node defaults
+};
+struct AnimationClipRecord {
     StringRef name{};
-    ArrayRef  materials{};  // -> MaterialRecord[]
-    ArrayRef  meshes{};     // -> MeshRecord[]
-    ArrayRef  instances{};  // -> MeshInstanceRecord[]
-    ArrayRef  cameras{};    // -> CameraRecord[]
-    ArrayRef  lights{};     // -> LightRecord[]
+    double    duration = 0;
+    ArrayRef  tracks{};
+};
+struct AnimationPlayerRecord {
+    std::uint32_t node = kCookedInvalidIndex;
+    std::uint32_t clip = kCookedInvalidIndex;
+    double        time = 0, speed = 1;
+    std::uint32_t looping = 1, playing = 1;
+};
+struct AnimationTargetRecord {
+    std::uint32_t node        = kCookedInvalidIndex;
+    std::uint32_t player_node = kCookedInvalidIndex;
+    std::uint32_t target      = 0;
+};
+struct SkinnedMeshRecord {
+    std::uint32_t node = kCookedInvalidIndex;
+    std::uint32_t skin = kCookedInvalidIndex;
+    ArrayRef      joints{};  // uint32 node indices in skin palette order, NOT track order
+};
+struct SceneRecord {
+    StringRef     name{};
+    ArrayRef      materials{}, meshes{}, nodes{}, instances{}, cameras{}, lights{};
+    ArrayRef      skins{}, clips{}, players{}, targets{}, skinned_meshes{};
 };
 
 inline auto IsCookedBinary(std::span<const std::byte> data) noexcept -> bool {
@@ -210,6 +300,7 @@ static_assert(std::endian::native == std::endian::little, "HTGC is a little-endi
 
 // math types are embedded in records; lock their byte layout too.
 static_assert(sizeof(math::vec3f) == 12 && alignof(math::vec3f) == 4);
+static_assert(sizeof(math::quatf) == 16 && alignof(math::quatf) == 4);
 static_assert(sizeof(math::Color) == 16 && alignof(math::Color) == 4);
 static_assert(sizeof(math::mat4f) == 64 && alignof(math::mat4f) == 4);
 
@@ -220,22 +311,35 @@ static_assert(sizeof(CookedFileHeader) == 80);
 static_assert(sizeof(ParameterRecord) == 104);
 static_assert(sizeof(ShaderModuleRecord) == 24);
 static_assert(sizeof(ShaderRecord) == 56);
-static_assert(sizeof(PipelineRecord) == 64);
-static_assert(sizeof(PassRecord) == 112);
+static_assert(sizeof(VertexInputRecord) == 48);
+static_assert(sizeof(PipelineRecord) == 304);
+static_assert(sizeof(PassRecord) == 352);
 static_assert(sizeof(MaterialRecord) == 40);
 static_assert(sizeof(VertexAttributeRecord) == 24);
 static_assert(sizeof(SubMeshRecord) == 32);
-static_assert(sizeof(MeshRecord) == 104);
-static_assert(sizeof(MeshInstanceRecord) == 80);
-static_assert(sizeof(CameraRecord) == 124);
-static_assert(sizeof(LightRecord) == 144);
-static_assert(sizeof(SceneRecord) == 88);
+static_assert(sizeof(MeshRecord) == 80);
+static_assert(sizeof(MeshInstanceRecord) == 24);
+static_assert(sizeof(CameraRecord) == 20);
+static_assert(sizeof(LightRecord) == 40);
+static_assert(sizeof(NodeRecord) == 56);
+static_assert(sizeof(AffineMatrixRecord) == 48);
+static_assert(sizeof(SkinRecord) == 24);
+static_assert(sizeof(CurveRecord) == 64);
+static_assert(sizeof(AnimationTrackRecord) == 24);
+static_assert(sizeof(AnimationClipRecord) == 32);
+static_assert(sizeof(AnimationPlayerRecord) == 32);
+static_assert(sizeof(AnimationTargetRecord) == 12);
+static_assert(sizeof(SkinnedMeshRecord) == 24);
+static_assert(sizeof(SceneRecord) == 184);
 
 static_assert(
     CookedRecord<CookedFileHeader> && CookedRecord<ParameterRecord> && CookedRecord<ShaderRecord> &&
     CookedRecord<PipelineRecord> && CookedRecord<PassRecord> && CookedRecord<MaterialRecord> &&
     CookedRecord<VertexAttributeRecord> && CookedRecord<SubMeshRecord> && CookedRecord<MeshRecord> &&
     CookedRecord<MeshInstanceRecord> && CookedRecord<CameraRecord> && CookedRecord<LightRecord> &&
-    CookedRecord<SceneRecord>);
+    CookedRecord<SceneRecord> && CookedRecord<NodeRecord> && CookedRecord<AffineMatrixRecord> &&
+    CookedRecord<SkinRecord> && CookedRecord<CurveRecord> && CookedRecord<AnimationTrackRecord> &&
+    CookedRecord<AnimationClipRecord> && CookedRecord<AnimationPlayerRecord> &&
+    CookedRecord<AnimationTargetRecord> && CookedRecord<SkinnedMeshRecord>);
 
 }  // namespace hitagi::asset

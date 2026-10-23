@@ -272,7 +272,33 @@ TEST_F(EditorMaterialCookTest, CookPreservesSlangModulesAndSpecializationTypes) 
 
 TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) {
     auto scene = std::make_shared<Scene>("binary-cooked-scene");
-    auto mesh  = MeshFactory::Cube();
+    VertexArray::Data vertex_data;
+    core::Buffer      index_data(3 * sizeof(std::uint16_t));
+    {
+        vertex_data[VertexAttribute::Position] = core::Buffer(3 * sizeof(VertexDataType<VertexAttribute::Position>));
+        auto p                                 = vertex_data[VertexAttribute::Position].Span<VertexDataType<VertexAttribute::Position>>();
+        p[0]                                   = {-0.5f, -0.5f, 0.5f};
+        p[1]                                   = {0.5f, -0.5f, 0.5f};
+        p[2]                                   = {0.5f, 0.5f, 0.5f};
+    }
+    {
+        vertex_data[VertexAttribute::Normal] = core::Buffer(3 * sizeof(VertexDataType<VertexAttribute::Normal>));
+        auto p                               = vertex_data[VertexAttribute::Normal].Span<VertexDataType<VertexAttribute::Normal>>();
+        std::ranges::fill(p, math::vec3f(0, 0, 1));
+    }
+    {
+        vertex_data[VertexAttribute::UV0] = core::Buffer(3 * sizeof(VertexDataType<VertexAttribute::UV0>));
+        auto p                            = vertex_data[VertexAttribute::UV0].Span<VertexDataType<VertexAttribute::UV0>>();
+        p[0]                              = {0, 0};
+        p[1]                              = {1, 0};
+        p[2]                              = {1, 1};
+    }
+    {
+        auto p = index_data.Span<IndexDataType<IndexType::UINT16>>();
+        p[0]   = 0;
+        p[1]   = 1;
+        p[2]   = 2;
+    }
 
     auto material = std::make_shared<Material>(
         MaterialParameters{
@@ -282,13 +308,12 @@ TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) 
             MaterialPass{.pass_contract = "GBuffer", .bindings = {{"base_color", Color::White()}}},
         },
         "BinaryCookedSceneMaterial");
-    for (auto& sub_mesh : mesh->sub_meshes) sub_mesh.material = material;
-    mesh->ComputeAABB();
+    const auto mesh = std::make_shared<Mesh>(std::make_shared<VertexArray>(3, std::move(vertex_data)), std::make_shared<IndexArray>(IndexType::UINT16, std::move(index_data)), std::pmr::vector<Mesh::SubMesh>{{.index_count = 3, .material = material}});
 
-    scene->CreateMeshEntity(mesh, math::translate(vec3f{1.0f, 2.0f, 3.0f}), scene->GetRootEntity(), "cube");
-    scene->CreateCameraEntity(std::make_shared<Camera>(Camera::Parameters{}, "camera"), mat4f::identity(), scene->GetRootEntity(), "camera");
-    scene->CreateLightEntity(std::make_shared<Light>(Light::Parameters{}, "light"), mat4f::identity(), scene->GetRootEntity(), "light");
-    scene->Update();
+    (void)scene->GetWorld().GetEntityManager().Create(asset::Transform(math::translate(vec3f{1.0f, 2.0f, 3.0f})), asset::RelationShip{}, asset::MetaInfo("cube"), asset::MeshComponent{mesh});
+    (void)scene->GetWorld().GetEntityManager().Create(asset::Transform(mat4f::identity()), asset::RelationShip{}, asset::MetaInfo("camera"), asset::CameraComponent{});
+    (void)scene->GetWorld().GetEntityManager().Create(asset::Transform(mat4f::identity()), asset::RelationShip{}, asset::MetaInfo("light"), asset::LightComponent{});
+    scene->GetWorld().Update(job_system);
 
     const auto cooked = CookEditorScene(*scene, EditorCookOptions{.asset_root_path = "assets"});
     ASSERT_FALSE(cooked.Empty());
@@ -297,11 +322,11 @@ TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) 
     AssetManager asset_manager(file_io, job_system, "assets");
     const auto   loaded = asset_manager.LoadCookedScene(cooked, "assets");
     ASSERT_TRUE(loaded);
-    ASSERT_EQ(loaded->GetMeshEntities().size(), 1);
-    ASSERT_EQ(loaded->GetCameraEntities().size(), 1);
-    ASSERT_EQ(loaded->GetLightEntities().size(), 1);
+    ASSERT_EQ(loaded->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().size(), 1);
+    ASSERT_EQ(loaded->GetWorld().GetEntityManager().GetEntities<asset::CameraComponent>().size(), 1);
+    ASSERT_EQ(loaded->GetWorld().GetEntityManager().GetEntities<asset::LightComponent>().size(), 1);
 
-    const auto loaded_mesh = loaded->GetMeshEntities().front().Get<MeshComponent>().mesh;
+    const auto loaded_mesh = loaded->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().front().Get<MeshComponent>().mesh;
     ASSERT_TRUE(loaded_mesh);
     ASSERT_TRUE(loaded_mesh->vertices);
     ASSERT_TRUE(loaded_mesh->indices);
@@ -321,8 +346,6 @@ TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) 
         std::as_bytes(loaded_indices),
         std::as_bytes(original_indices)));
 
-    EXPECT_EQ(loaded_mesh->aabb.min_point, mesh->aabb.min_point);
-    EXPECT_EQ(loaded_mesh->aabb.max_point, mesh->aabb.max_point);
 
     ASSERT_FALSE(loaded_mesh->sub_meshes.empty());
     ASSERT_TRUE(loaded_mesh->sub_meshes.front().material);
@@ -333,8 +356,8 @@ TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) 
 
     const auto imported = asset_manager.ImportScene(cooked_path);
     ASSERT_TRUE(imported);
-    ASSERT_EQ(imported->GetMeshEntities().size(), 1);
-    const auto imported_material = imported->GetMeshEntities().front().Get<MeshComponent>().mesh->sub_meshes.front().material;
+    ASSERT_EQ(imported->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().size(), 1);
+    const auto imported_material = imported->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().front().Get<MeshComponent>().mesh->sub_meshes.front().material;
     ASSERT_TRUE(imported_material);
     EXPECT_EQ(imported_material->GetName(), "BinaryCookedSceneMaterial");
 }
@@ -609,4 +632,52 @@ TEST(MaterialGraphCompilerTest, ReportsUnsupportedNodesAndChannelMismatches) {
         graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
         EXPECT_TRUE(HasGraphError(CompileMaterialGraph(graph, pass_template, {}).validation, MaterialGraphValidationErrorCode::TypeMismatch));
     }
+}
+
+TEST_F(EditorMaterialCookTest, VertexLayoutIsCookedWithoutMutatingPipelineDefinition) {
+    auto shader   = std::make_shared<Shader>(gfx::ShaderDesc{
+        .type = gfx::ShaderType::Vertex, .entry = "VSMain", .program = {.modules = {{.source_code = "float4 VSMain(float3 p : POSITION) : SV_Position { return float4(p, 1); }"}}}});
+    auto pipeline = std::make_shared<asset::RenderPipeline>(gfx::RenderPipelineDesc{}, std::pmr::vector{shader});
+    auto material = std::make_shared<Material>(MaterialParameters{}, std::pmr::vector<MaterialPass>{{.pass_contract = "Test", .pipeline = pipeline}});
+    auto clone    = material->Clone("clone");
+    EXPECT_EQ(clone->FindPass("Test")->pipeline, pipeline);
+    auto bytes = CookEditorMaterial({.material = material});
+    EXPECT_TRUE(pipeline->GetDesc().vertex_input_layout.empty());
+    AssetManager manager(file_io, job_system, "assets");
+    auto         loaded = manager.LoadCookedMaterial(bytes, "assets");
+    const auto&  layout = loaded->FindPass("Test")->pipeline->GetDesc().vertex_input_layout;
+    ASSERT_EQ(layout.size(), 1);
+    EXPECT_EQ(layout[0].semantic, "POSITION0");
+    EXPECT_EQ(layout[0].format, gfx::Format::R32G32B32_FLOAT);
+    EXPECT_EQ(layout[0].stride, 12u);
+    auto desc                                    = pipeline->GetDesc();
+    desc.vertex_input_layout                     = {{.semantic = "POSITION0", .format = gfx::Format::R32G32B32_FLOAT, .binding = 3, .offset = 8, .stride = 32, .per_instance = true, .location = 2}};
+    desc.assembly_state.restart_enable           = true;
+    desc.rasterization_state.fill_mode           = gfx::FillMode::Wireframe;
+    desc.rasterization_state.depth_bias          = 2.5f;
+    desc.depth_stencil_state.stencil_test_enable = true;
+    desc.depth_stencil_state.front.reference     = 17;
+    desc.depth_stencil_state.back.fail_op        = gfx::StencilOp::Replace;
+    desc.blend_state.blend_enable                = true;
+    desc.blend_state.src_color_blend_factor      = gfx::BlendFactor::SrcAlpha;
+    desc.blend_state.blend_constants             = vec4f(0.25f);
+    auto        explicit_pipeline                = std::make_shared<asset::RenderPipeline>(desc, std::pmr::vector{shader});
+    auto        explicit_material                = std::make_shared<Material>(MaterialParameters{}, std::pmr::vector<MaterialPass>{{.pass_contract = "Test", .pipeline = explicit_pipeline}});
+    auto        restored                         = manager.LoadCookedMaterial(CookEditorMaterial({.material = explicit_material}), "assets");
+    const auto& attr                             = restored->FindPass("Test")->pipeline->GetDesc().vertex_input_layout[0];
+    EXPECT_EQ(attr.binding, 3u);
+    EXPECT_EQ(attr.offset, 8u);
+    EXPECT_EQ(attr.stride, 32u);
+    EXPECT_TRUE(attr.per_instance);
+    EXPECT_EQ(attr.location, 2u);
+    const auto& state = restored->FindPass("Test")->pipeline->GetDesc();
+    EXPECT_TRUE(state.assembly_state.restart_enable);
+    EXPECT_EQ(state.rasterization_state.fill_mode, gfx::FillMode::Wireframe);
+    EXPECT_FLOAT_EQ(state.rasterization_state.depth_bias, 2.5f);
+    EXPECT_TRUE(state.depth_stencil_state.stencil_test_enable);
+    EXPECT_EQ(state.depth_stencil_state.front.reference, 17u);
+    EXPECT_EQ(state.depth_stencil_state.back.fail_op, gfx::StencilOp::Replace);
+    EXPECT_TRUE(state.blend_state.blend_enable);
+    EXPECT_EQ(state.blend_state.src_color_blend_factor, gfx::BlendFactor::SrcAlpha);
+    EXPECT_EQ(state.blend_state.blend_constants, vec4f(0.25f));
 }

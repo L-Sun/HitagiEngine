@@ -106,7 +106,7 @@ inline auto MaterialDataFields(std::span<const MaterialBinding> bindings) -> std
     std::pmr::vector<gfx::ShaderField> fields;
     std::size_t                        offset = 0;
     for (const MaterialBinding& binding : bindings) {
-        fields.push_back(std::visit([&]<typename T>(const T&) -> gfx::ShaderField {
+        fields.emplace_back(std::visit([&]<typename T>(const T&) -> gfx::ShaderField {
             if constexpr (std::is_same_v<T, std::shared_ptr<Texture>>)
                 return gfx::MakeShaderResourceField(binding.name, offset, gfx::BindlessHandleType::Texture);
             else
@@ -158,10 +158,12 @@ public:
 
     auto FindPass(std::string_view pass_contract) const noexcept -> const MaterialPass*;
 
+    // Clone parameter state and pass definitions, sharing shader/pipeline/texture
+    // dependencies. The clone has a new identity and no derived resident data.
+    auto Clone(std::string_view name) const -> std::shared_ptr<Material>;
+
     // Definition fixes the parameter type. Duplicate definitions and invalid
     // assignments throw std::invalid_argument without changing the material.
-    template <MaterialParametric T>
-    void DefineParameter(std::string_view name, T value);
     template <MaterialParametric T>
     void SetParameter(std::string_view name, T value);
     template <MaterialParametric T>
@@ -178,15 +180,6 @@ private:
     bool m_HasPendingTextures      = false;
     bool m_ReportedBindingWarnings = false;
 };
-
-template <MaterialParametric T>
-void Material::DefineParameter(std::string_view name, T value) {
-    if (std::ranges::any_of(m_Parameters, [name](const auto& parameter) { return parameter.name == name; })) {
-        throw std::invalid_argument(std::format("Material parameter '{}' is already defined", name));
-    }
-    m_Parameters.emplace_back(MaterialParameter{.name = std::pmr::string(name), .value = std::move(value)});
-    InvalidatePassData();
-}
 
 template <MaterialParametric T>
 void Material::SetParameter(std::string_view name, T value) {
@@ -218,10 +211,17 @@ Material::Material(MaterialParameters parameters, std::pmr::vector<MaterialPass>
     : Resource(Type::Material, name), m_Passes(std::move(passes)) {
     m_Parameters.reserve(parameters.size());
     for (auto& parameter : parameters) {
-        if (std::ranges::none_of(m_Parameters, [&](const auto& existing) { return existing.name == parameter.name; })) {
-            m_Parameters.emplace_back(std::move(parameter));
-        }
+        if (std::ranges::any_of(m_Parameters, [&](const auto& existing) { return existing.name == parameter.name; }))
+            throw std::invalid_argument("Duplicate material parameter: " + std::string(parameter.name));
+        m_Parameters.emplace_back(std::move(parameter));
     }
+}
+
+auto Material::Clone(std::string_view name) const -> std::shared_ptr<Material> {
+    std::pmr::vector<MaterialPass> passes;
+    for (const auto& pass : m_Passes)
+        passes.push_back({.pass_contract = pass.pass_contract, .pipeline = pass.pipeline, .bindings = pass.bindings});
+    return std::make_shared<Material>(m_Parameters, std::move(passes), name);
 }
 
 auto Material::FindPass(std::string_view pass_contract) const noexcept -> const MaterialPass* {

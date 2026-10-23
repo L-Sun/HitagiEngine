@@ -41,12 +41,12 @@ public:
         Vertex,
         Index,
         Mesh,
-        Camera,
-        Light,
         Scene,
         Shader,
         RenderPipeline,
         ComputePipeline,
+        AnimationClip,
+        Skin,
     };
 
     Resource(Type type, std::string_view name = "") : m_Name(name), m_Type(type), m_UUID(utils::UUID::Create()) {}
@@ -54,22 +54,9 @@ public:
     Resource& operator=(const Resource& other) = delete;
     virtual ~Resource()                        = default;
 
-    // Manual moves: std::atomic is not movable. Only unowned (not yet shared)
-    // resources are ever moved, so a relaxed state transfer is sufficient.
-    Resource(Resource&& other) noexcept
-        : m_Name(std::move(other.m_Name)),
-          m_Type(other.m_Type),
-          m_UUID(std::move(other.m_UUID)),
-          m_State(other.m_State.load(std::memory_order_relaxed)) {}
-    Resource& operator=(Resource&& other) noexcept {
-        if (this != std::addressof(other)) {
-            m_Name = std::move(other.m_Name);
-            m_Type = other.m_Type;
-            m_UUID = std::move(other.m_UUID);
-            m_State.store(other.m_State.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        }
-        return *this;
-    }
+    // A registered resource keeps its identity and address for its entire lifetime.
+    Resource(Resource&&)            = delete;
+    Resource& operator=(Resource&&) = delete;
 
     // The caller supplies services that outlive the loaded GPU resources.
     virtual void Load(const ResourceLoadContext& context) = 0;
@@ -78,7 +65,6 @@ public:
     inline auto        GetType() const noexcept -> Type { return m_Type; }
     inline auto        GetName() const noexcept -> std::string_view { return m_Name; }
     inline const auto& GetUUID() const noexcept { return m_UUID; }
-    inline void        SetName(std::string_view name) noexcept { m_Name = name; }
 
     inline auto GetLoadState() const noexcept -> ResourceLoadState { return m_State.load(std::memory_order_acquire); }
     // Settled means Load() has nothing left to do: either usable or permanently failed.
@@ -92,9 +78,9 @@ protected:
     // image data) to threads that read the state with acquire.
     inline void SetLoadState(ResourceLoadState state) noexcept { m_State.store(state, std::memory_order_release); }
 
-    std::pmr::string m_Name;
-    Type             m_Type;
-    utils::UUID      m_UUID;
+    const std::pmr::string m_Name;
+    const Type             m_Type;
+    const utils::UUID      m_UUID;
 
 private:
     std::atomic<ResourceLoadState> m_State{ResourceLoadState::Unloaded};

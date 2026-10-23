@@ -17,7 +17,7 @@ public:
     inline auto GetBuiltPipeline() const noexcept -> std::shared_ptr<gfx::RenderPipeline> { return m_Pipeline; }
 
 private:
-    gfx::RenderPipelineDesc                          m_Desc;
+    const gfx::RenderPipelineDesc                    m_Desc;
     std::shared_ptr<gfx::RenderPipeline>             m_Pipeline;
     std::pmr::vector<std::shared_ptr<asset::Shader>> m_Shaders;
 };
@@ -35,7 +35,7 @@ public:
     inline auto GetBuiltPipeline() const noexcept -> std::shared_ptr<gfx::ComputePipeline> { return m_Pipeline; }
 
 private:
-    gfx::ComputePipelineDesc             m_Desc;
+    const gfx::ComputePipelineDesc        m_Desc;
     std::shared_ptr<Shader>              m_Shader;
     std::shared_ptr<gfx::ComputePipeline> m_Pipeline;
 };
@@ -53,16 +53,17 @@ void RenderPipeline::Load(const ResourceLoadContext& context) {
             return shader->GetBuiltShader(); })  //
         | std::ranges::to<std::pmr::vector<std::shared_ptr<gfx::Shader>>>();
 
-    if (m_Desc.vertex_input_layout.empty()) {
+    auto resolved_desc = m_Desc;
+    if (resolved_desc.vertex_input_layout.empty()) {
         const auto vertex_shader = std::ranges::find_if(m_Shaders, [](const auto& shader) {
             return shader && shader->GetDesc().type == gfx::ShaderType::Vertex;
         });
         if (vertex_shader != m_Shaders.end()) {
-            m_Desc.vertex_input_layout = (*vertex_shader)->GetBuiltShader()->GetVertexLayout();
+            resolved_desc.vertex_input_layout = (*vertex_shader)->GetBuiltShader()->GetVertexLayout();
         }
     }
 
-    m_Pipeline = hitagi::gfx::RenderPipeline::Create(device, context.bindings, m_Desc, shaders);
+    m_Pipeline = hitagi::gfx::RenderPipeline::Create(device, context.bindings, std::move(resolved_desc), shaders);
     SetLoadState(ResourceLoadState::Loaded);
 }
 
