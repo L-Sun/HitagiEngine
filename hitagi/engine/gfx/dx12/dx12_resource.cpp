@@ -291,14 +291,28 @@ DX12Texture::DX12Texture(D3D12MA::Allocator& allocator, const std::shared_ptr<sp
         resource_flag |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
     }
     if (utils::has_flag(desc.usages, TextureUsageFlags::DepthStencil)) {
-        resource_flag |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+        resource_flag |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+        if (!utils::has_flag(desc.usages, TextureUsageFlags::SRV))
+            resource_flag |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+    }
+
+    auto resource_format = to_dxgi_format(desc.format);
+    if (utils::has_flag(desc.usages, TextureUsageFlags::DepthStencil) &&
+        utils::has_flag(desc.usages, TextureUsageFlags::SRV)) {
+        switch (desc.format) {
+            case Format::D16_UNORM: resource_format = DXGI_FORMAT_R16_TYPELESS; break;
+            case Format::D32_FLOAT: resource_format = DXGI_FORMAT_R32_TYPELESS; break;
+            case Format::D24_UNORM_S8_UINT: resource_format = DXGI_FORMAT_R24G8_TYPELESS; break;
+            case Format::D32_FLOAT_S8X24_UINT: resource_format = DXGI_FORMAT_R32G8X24_TYPELESS; break;
+            default: break;
+        }
     }
 
     CD3DX12_RESOURCE_DESC resource_desc;
     // 1D Texture
     if (desc.height == 1 && desc.depth == 1) {
         resource_desc = CD3DX12_RESOURCE_DESC::Tex1D(
-            to_dxgi_format(desc.format),
+            resource_format,
             desc.width,
             desc.array_size,
             desc.mip_levels,
@@ -307,7 +321,7 @@ DX12Texture::DX12Texture(D3D12MA::Allocator& allocator, const std::shared_ptr<sp
     // 2D Texture
     else if (desc.depth == 1) {
         resource_desc = CD3DX12_RESOURCE_DESC::Tex2D(
-            to_dxgi_format(desc.format),
+            resource_format,
             desc.width,
             desc.height,
             desc.array_size,
@@ -319,7 +333,7 @@ DX12Texture::DX12Texture(D3D12MA::Allocator& allocator, const std::shared_ptr<sp
     // 3D Texture
     else {
         resource_desc = CD3DX12_RESOURCE_DESC::Tex3D(
-            to_dxgi_format(desc.format),
+            resource_format,
             desc.width,
             desc.height,
             desc.depth,

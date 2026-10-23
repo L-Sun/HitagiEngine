@@ -239,7 +239,16 @@ auto DX12BindlessUtils::CreateBindlessHandle(ID3D12Resource& resource, const Tex
                 handle.index,
                 descriptor_increment_size));
     } else {
-        const auto srv_desc = to_d3d_srv_desc(view_desc);
+        auto srv_desc = to_d3d_srv_desc(view_desc);
+        // Depth SRVs read the depth plane through a compatible color format;
+        // the texture's DSV still uses the original typed depth format.
+        switch (srv_desc.Format) {
+            case DXGI_FORMAT_D16_UNORM: srv_desc.Format = DXGI_FORMAT_R16_UNORM; break;
+            case DXGI_FORMAT_D32_FLOAT: srv_desc.Format = DXGI_FORMAT_R32_FLOAT; break;
+            case DXGI_FORMAT_D24_UNORM_S8_UINT: srv_desc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS; break;
+            case DXGI_FORMAT_D32_FLOAT_S8X24_UINT: srv_desc.Format = DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS; break;
+            default: break;
+        }
         m_Device.CreateShaderResourceView(
             &resource,
             &srv_desc,
