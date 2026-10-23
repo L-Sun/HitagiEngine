@@ -104,4 +104,32 @@ struct PhysicsWorldDesc {
     std::size_t   temp_allocator_size     = 10 * 1024 * 1024;
 };
 
+// Authored rigid-body character rigs. Shapes and distances share one rig unit.
+// The importer owns conversion from its source format; no parameters are guessed.
+struct RigBody {
+    int joint = -1;
+    int mode = 0; // 0: animation, 1: full dynamics, 2: dynamic rotation
+    int shape = 0; // sphere, box, Y capsule
+    math::vec3f size{1.0f};
+    math::mat4f bind = math::mat4f::identity();
+    math::mat4f bone_offset = math::mat4f::identity();
+    float mass = 1.0f, linear_damping = 0.0f, angular_damping = 0.0f;
+    float friction = 0.5f, restitution = 0.0f;
+    unsigned group = 1, mask = 65535;
+};
+
+struct RigJoint {
+    unsigned a = 0, b = 0;
+    math::mat4f bind = math::mat4f::identity();
+    math::vec3f linear_min{0.0f}, linear_max{0.0f};
+    math::vec3f angular_min{0.0f}, angular_max{0.0f};
+    math::vec3f linear_spring{0.0f}, angular_spring{0.0f};
+};
+struct RigContact {
+    float penetration = 0;
+    int body_a = -1, body_b = -1;
+};
+
+enum class RigBackend { Bullet, Jolt };
+
 }  // namespace hitagi::physics

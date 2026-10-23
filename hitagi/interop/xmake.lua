@@ -33,12 +33,15 @@ if has_config("benchmarks") then
 end
 
 add_requires("usd")
+add_requires("bullet3 3.25", {configs = {shared = false}})
 add_requires("pocketjs 0.14.0", {system = false})
 
 target("hitagi_interop")
     set_kind("static")
     add_files("fmt.cppm", "spdlog.cppm", "vulkan.cppm", "magic_enum.cppm", "vma.cppm", "tracy.cppm", "tracy_vulkan.cppm", {public = true})
     add_files("vma.cpp")
+    add_files("bullet.cppm", {public = true})
+    add_packages("bullet3", {public = true})
     add_files("slang.cppm", {public = true})
     add_packages("directx-shader-compiler", {public = true})
     add_files("taskflow.cppm", "sdl.cppm", "jolt.cppm", "png.cppm", "jpeg.cppm", {public = true})

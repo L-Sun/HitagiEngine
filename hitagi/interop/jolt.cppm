@@ -15,6 +15,12 @@ module;
 #include <Jolt/Physics/EPhysicsUpdateError.h>
 #include <Jolt/Physics/PhysicsSettings.h>
 #include <Jolt/Physics/PhysicsSystem.h>
+#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
+#include <Jolt/Physics/Collision/GroupFilterTable.h>
+#include <Jolt/Physics/Constraints/SixDOFConstraint.h>
+#include <Jolt/Physics/Body/Body.h>
+#include <Jolt/Physics/Body/MotionProperties.h>
+#include <Jolt/Physics/Collision/ContactListener.h>
 
 export module interop.jolt;
 
@@ -24,6 +30,21 @@ inline constexpr int max_physics_barriers = static_cast<int>(JPH::cMaxPhysicsBar
 }
 
 export namespace JPH {
+using ::JPH::CapsuleShapeSettings;
+using ::JPH::GroupFilterTable;
+using ::JPH::CollisionGroup;
+using ::JPH::SixDOFConstraintSettings;
+using ::JPH::SixDOFConstraint;
+using ::JPH::EConstraintSpace;
+using ::JPH::ESwingType;
+using ::JPH::ESpringMode;
+using ::JPH::EMotorState;
+using ::JPH::EOverrideMassProperties;
+using ::JPH::Body;
+using ::JPH::Ref;
+using ::JPH::ContactListener;
+using ::JPH::ContactManifold;
+using ::JPH::ContactSettings;
 using ::JPH::BodyCreationSettings;
 using ::JPH::BodyID;
 using ::JPH::BoxShapeSettings;

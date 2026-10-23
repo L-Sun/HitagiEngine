@@ -53,6 +53,21 @@ public:
     auto GetGravity() const -> math::vec3f;
 
 private:
+    friend class JoltRigWorld;
+    struct Impl;
+    std::unique_ptr<Impl> m_Impl;
+};
+
+class JoltRigWorld {
+public:
+    JoltRigWorld(std::span<const RigBody>, std::span<const RigJoint>, math::vec3f gravity);
+    ~JoltRigWorld();
+    void Reset(std::span<const math::mat4f> poses);
+    void Step(std::span<const math::mat4f> anchors, float seconds);
+    auto Pose(unsigned body) const -> math::mat4f;
+    void SetPosition(unsigned body, math::vec3f position);
+    auto DeepestContact() const -> RigContact;
+private:
     struct Impl;
     std::unique_ptr<Impl> m_Impl;
 };
@@ -444,6 +459,188 @@ void PhysicsWorld::SetGravity(math::vec3f gravity) {
 
 auto PhysicsWorld::GetGravity() const -> math::vec3f {
     return FromJolt(m_Impl->physics_system.GetGravity());
+}
+
+
+struct JoltRigWorld::Impl {
+    // Reuse the engine's Jolt lifetime, broadphase and task adapter.
+    core::JobSystem jobs{1};
+    PhysicsWorld world;
+    std::vector<RigBody> descriptions;
+    std::vector<JPH::Body*> bodies;
+    std::vector<JPH::Ref<JPH::SixDOFConstraint>> joints;
+    JPH::Ref<JPH::GroupFilterTable> filter;
+    struct Contacts final : JPH::ContactListener {
+        struct Witness { unsigned a, b; JPH::Vec3 local_a, local_b, normal; };
+        std::mutex mutex;
+        std::vector<Witness> witnesses;
+        void Capture(const JPH::Body& a, const JPH::Body& b,
+                     const JPH::ContactManifold& m, JPH::ContactSettings& settings) {
+            settings.mCombinedFriction = std::clamp(a.GetFriction() * b.GetFriction(), 0.0f, 10.0f);
+            settings.mCombinedRestitution = a.GetRestitution() * b.GetRestitution();
+            const std::scoped_lock lock(mutex);
+            for (unsigned i = 0; i < m.mRelativeContactPointsOn1.size(); ++i)
+                witnesses.emplace_back(unsigned(a.GetUserData()), unsigned(b.GetUserData()),
+                                       JPH::Vec3(a.GetInverseCenterOfMassTransform() * m.GetWorldSpaceContactPointOn1(i)),
+                                       JPH::Vec3(b.GetInverseCenterOfMassTransform() * m.GetWorldSpaceContactPointOn2(i)),
+                                       m.mWorldSpaceNormal);
+        }
+        void OnContactAdded(const JPH::Body& a, const JPH::Body& b,
+                            const JPH::ContactManifold& m, JPH::ContactSettings& s) override { Capture(a,b,m,s); }
+        void OnContactPersisted(const JPH::Body& a, const JPH::Body& b,
+                                const JPH::ContactManifold& m, JPH::ContactSettings& s) override { Capture(a,b,m,s); }
+    } contacts;
+    explicit Impl(math::vec3f gravity) : world(jobs, PhysicsWorldDesc{
+        .name="Character Jolt", .gravity=gravity, .max_body_pairs=4096, .max_contact_constraints=4096}) {}
+    ~Impl() {
+        auto& system = world.m_Impl->physics_system;
+        system.SetContactListener(nullptr);
+        for (auto& joint : joints) system.RemoveConstraint(joint.GetPtr());
+        joints.clear();
+        for (auto* body : bodies) {
+            const auto id = body->GetID();
+            system.GetBodyInterface().RemoveBody(id);
+            system.GetBodyInterface().DestroyBody(id);
+        }
+    }
+};
+
+JoltRigWorld::JoltRigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> joints, math::vec3f gravity)
+    : m_Impl(std::make_unique<Impl>(gravity)) {
+    auto& d = *m_Impl;
+    auto& system = d.world.m_Impl->physics_system;
+    auto settings = system.GetPhysicsSettings();
+    settings.mNumVelocitySteps = 20;
+    system.SetPhysicsSettings(settings);
+    system.SetContactListener(&d.contacts);
+    d.descriptions.assign(bodies.begin(), bodies.end());
+    d.filter = new JPH::GroupFilterTable(static_cast<unsigned>(bodies.size()));
+    for (unsigned a = 0; a < bodies.size(); ++a)
+        for (unsigned b = a + 1; b < bodies.size(); ++b)
+            if (!(bodies[a].group & bodies[b].mask) || !(bodies[b].group & bodies[a].mask))
+                d.filter->DisableCollision(a,b);
+    for (const auto& joint : joints) {
+        if (joint.a >= bodies.size() || joint.b >= bodies.size() || joint.a == joint.b)
+            throw std::invalid_argument("Invalid rigid rig joint pair");
+        d.filter->DisableCollision(joint.a,joint.b);
+    }
+    for (unsigned i = 0; i < bodies.size(); ++i) {
+        const auto& desc = bodies[i];
+        if (desc.mode < 0 || desc.mode > 2 || desc.shape < 0 || desc.shape > 2 ||
+            !std::isfinite(desc.mass) || desc.mass < 0 || !std::isfinite(desc.size.norm()) ||
+            desc.size.x <= 0 || (desc.shape != 0 && desc.size.y <= 0) || (desc.shape == 1 && desc.size.z <= 0))
+            throw std::invalid_argument("Invalid rigid rig body");
+        JPH::RefConst<JPH::Shape> shape;
+        if (desc.shape == 0) shape = JPH::SphereShapeSettings(desc.size.x).Create().Get();
+        else if (desc.shape == 1) shape = JPH::BoxShapeSettings(ToJolt(desc.size),
+            std::min({0.04f, desc.size.x, desc.size.y, desc.size.z})).Create().Get();
+        else shape = JPH::CapsuleShapeSettings(desc.size.y * 0.5f, desc.size.x).Create().Get();
+        const auto [p,q,s] = math::decompose(desc.bind);
+        const bool dynamic = desc.mode != 0 && desc.mass > 0;
+        JPH::BodyCreationSettings creation(shape.GetPtr(), ToJoltPosition(p), ToJolt(q),
+            dynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Kinematic,
+            dynamic ? ObjectLayers::Moving : ObjectLayers::NonMoving);
+        creation.mAllowSleeping = false;
+        creation.mFriction = desc.friction;
+        creation.mRestitution = desc.restitution;
+        creation.mLinearDamping = creation.mAngularDamping = 0;
+        creation.mUserData = i;
+        creation.mCollisionGroup = JPH::CollisionGroup(d.filter.GetPtr(), 0, i);
+        if (dynamic) {
+            creation.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+            creation.mMassPropertiesOverride.mMass = desc.mass;
+        }
+        auto* body = system.GetBodyInterface().CreateBody(creation);
+        if (!body) throw std::runtime_error("Jolt rig body allocation failed");
+        d.bodies.emplace_back(body);
+        system.GetBodyInterface().AddBody(body->GetID(), JPH::EActivation::Activate);
+    }
+    for (const auto& desc : joints) {
+        JPH::SixDOFConstraintSettings c;
+        c.mSpace = JPH::EConstraintSpace::WorldSpace;
+        c.mSwingType = JPH::ESwingType::Pyramid;
+        const auto [p,q,s] = math::decompose(desc.bind);
+        c.mPosition1 = c.mPosition2 = ToJoltPosition(p);
+        c.mAxisX1 = c.mAxisX2 = ToJolt(q) * JPH::Vec3::sAxisX();
+        c.mAxisY1 = c.mAxisY2 = ToJolt(q) * JPH::Vec3::sAxisY();
+        for (unsigned axis = 0; axis < 6; ++axis) {
+            const auto a = static_cast<JPH::SixDOFConstraintSettings::EAxis>(axis);
+            // Bullet Generic6Dof's Euler extraction has the opposite sign to
+            // Jolt's physical twist/swing angle. Preserve asymmetric intervals.
+            const float lo = axis < 3 ? desc.linear_min[axis] : -desc.angular_max[axis-3];
+            const float hi = axis < 3 ? desc.linear_max[axis] : -desc.angular_min[axis-3];
+            if (lo > hi) c.MakeFreeAxis(a);
+            else if (lo == hi) {
+                if (lo != 0) throw std::invalid_argument("Nonzero locked Jolt axis requires a shifted frame");
+                c.MakeFixedAxis(a);
+            } else c.SetLimitedAxis(a, lo, hi);
+            auto& spring = c.mMotorSettings[axis].mSpringSettings;
+            spring.mMode = JPH::ESpringMode::StiffnessAndDamping;
+            spring.mStiffness = axis < 3 ? desc.linear_spring[axis] : desc.angular_spring[axis-3];
+            spring.mDamping = 0; // PMX has no SI joint viscous damping parameter.
+        }
+        JPH::Ref<JPH::SixDOFConstraint> joint = static_cast<JPH::SixDOFConstraint*>(
+            c.Create(*d.bodies[desc.a], *d.bodies[desc.b]));
+        for (unsigned axis = 0; axis < 6; ++axis)
+            if (c.mMotorSettings[axis].mSpringSettings.mStiffness > 0 && c.mLimitMin[axis] < c.mLimitMax[axis])
+                joint->SetMotorState(static_cast<JPH::SixDOFConstraintSettings::EAxis>(axis), JPH::EMotorState::Position);
+        system.AddConstraint(joint.GetPtr());
+        d.joints.emplace_back(joint);
+    }
+    d.world.OptimizeBroadPhase();
+}
+JoltRigWorld::~JoltRigWorld() = default;
+void JoltRigWorld::Reset(std::span<const math::mat4f> poses) {
+    auto& d = *m_Impl;
+    if (poses.size() != d.bodies.size()) throw std::invalid_argument("Rig pose count mismatch");
+    auto& bi = d.world.m_Impl->physics_system.GetBodyInterface();
+    for (unsigned i = 0; i < poses.size(); ++i) {
+        const auto [p,q,s] = math::decompose(poses[i]);
+        const auto id = d.bodies[i]->GetID();
+        bi.SetPositionAndRotation(id,ToJoltPosition(p),ToJolt(q),JPH::EActivation::Activate);
+        bi.SetLinearAndAngularVelocity(id,JPH::Vec3::sZero(),JPH::Vec3::sZero());
+        bi.InvalidateContactCache(id);
+    }
+    for (auto& joint : d.joints) joint->ResetWarmStart();
+    d.contacts.witnesses.clear();
+}
+void JoltRigWorld::Step(std::span<const math::mat4f> anchors, float seconds) {
+    auto& d = *m_Impl;
+    if (anchors.size() != d.bodies.size() || !std::isfinite(seconds) || seconds <= 0)
+        throw std::invalid_argument("Invalid rigid rig step");
+    auto& bi = d.world.m_Impl->physics_system.GetBodyInterface();
+    for (unsigned i = 0; i < anchors.size(); ++i) {
+        auto* body = d.bodies[i];
+        if (d.descriptions[i].mode == 0) {
+            const auto [p,q,s] = math::decompose(anchors[i]);
+            bi.MoveKinematic(body->GetID(),ToJoltPosition(p),ToJolt(q),seconds);
+        } else if (body->IsDynamic()) {
+            auto coefficient = [seconds](float v) { return (1.0f-std::pow(1.0f-std::clamp(v,0.0f,1.0f),seconds))/seconds; };
+            body->GetMotionProperties()->SetLinearDamping(coefficient(d.descriptions[i].linear_damping));
+            body->GetMotionProperties()->SetAngularDamping(coefficient(d.descriptions[i].angular_damping));
+        }
+    }
+    d.contacts.witnesses.clear();
+    if (d.world.Step(seconds) != PhysicsUpdateError::None)
+        throw std::runtime_error("Jolt rig exceeded simulation capacity");
+}
+auto JoltRigWorld::Pose(unsigned index) const -> math::mat4f {
+    const auto* body = m_Impl->bodies.at(index);
+    return math::translate(FromJoltPosition(body->GetPosition())) * math::rotate(FromJolt(body->GetRotation()));
+}
+void JoltRigWorld::SetPosition(unsigned index, math::vec3f position) {
+    m_Impl->world.m_Impl->physics_system.GetBodyInterface().SetPosition(
+        m_Impl->bodies.at(index)->GetID(),ToJoltPosition(position),JPH::EActivation::Activate);
+}
+auto JoltRigWorld::DeepestContact() const -> RigContact {
+    RigContact result;
+    for (const auto& w : m_Impl->contacts.witnesses) {
+        const auto a = m_Impl->bodies[w.a]->GetCenterOfMassTransform() * w.local_a;
+        const auto b = m_Impl->bodies[w.b]->GetCenterOfMassTransform() * w.local_b;
+        const float depth = JPH::Vec3(a-b).Dot(w.normal);
+        if (depth > result.penetration) result = {depth, int(w.a), int(w.b)};
+    }
+    return result;
 }
 
 }  // namespace hitagi::physics
