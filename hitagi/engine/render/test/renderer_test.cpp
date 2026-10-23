@@ -11,7 +11,7 @@ namespace renderer_test {
 class SceneUpdate final : public core::RuntimeModule {
 public:
     explicit SceneUpdate(std::vector<int>& events) : RuntimeModule("Scene"), m_Events(events) {}
-    ~SceneUpdate() final { m_Events.push_back(-1); }
+    ~SceneUpdate() final { m_Events.emplace_back(-1); }
     void Tick() final { ++frame; }
 
     int frame = 0;
@@ -25,7 +25,7 @@ public:
     OffscreenRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings,
                       const SceneUpdate& scene, std::vector<int>& events)
         : RuntimeModule("OffscreenRenderer"), m_Scene(scene), m_Events(events), m_Graph(device, queues, bindings) {}
-    ~OffscreenRenderer() final { m_Events.push_back(-2); }
+    ~OffscreenRenderer() final { m_Events.emplace_back(-2); }
 
     void Tick() final {
         const auto            target = m_Graph.Create(gfx::TextureDesc{
@@ -40,7 +40,7 @@ public:
         builder.SetRenderTarget(target, true);
         builder.AllowPassCulling(false);
         builder.SetExecutor([this, frame = m_Scene.frame](const rg::RenderGraph&, const rg::RenderPassNode&) {
-            m_Events.push_back(frame);
+            m_Events.emplace_back(frame);
         });
         builder.Finish();
         ASSERT_TRUE(m_Graph.Compile());

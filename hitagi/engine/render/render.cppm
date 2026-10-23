@@ -6,3 +6,5 @@ export import :deferred_lighting;
 export import :deferred_gbuffer_debug;
 export import :deferred_renderer;
 export import :pbr_renderer;
+export import :scene;
+export import :toon_renderer;

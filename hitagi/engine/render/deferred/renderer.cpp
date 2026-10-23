@@ -51,7 +51,7 @@ public:
 private:
     auto BuildFrame(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult;
     void RecordMaterial(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Material>& material);
-    void RecordMesh(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Mesh>& mesh);
+    void RecordMesh(rg::RenderGraph& render_graph, const RenderDrawItem& item);
     void RecordInstance(rg::RenderGraph& render_graph, const RenderDrawItem& item);
     // this function must invoke after all instance are finished, it will:
     // 1. update index of material in the constant buffer of material,
@@ -479,17 +479,27 @@ void DeferredRenderer::RecordMaterial(rg::RenderGraph&, const std::shared_ptr<as
     m_DrawState.active_materials.emplace(material.get());
 }
 
-void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Mesh>& mesh) {
+void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const RenderDrawItem& item) {
+    const auto& mesh = item.mesh;
     if (!mesh || mesh->Empty()) return;
 
-    auto [it, inserted] = m_DrawState.mesh_infos.try_emplace(mesh.get(), MeshInfo{.mesh = mesh});
-    auto& info          = it->second;
+    auto [it, inserted] = m_DrawState.mesh_infos.try_emplace(
+        std::pair{mesh.get(), item.deformed_vertices.get()},
+        MeshInfo{.mesh = mesh, .deformed_vertices = item.deformed_vertices});
+    auto& info = it->second;
 
     if (inserted) {
         mesh->Load(m_LoadContext);
+        if (item.deformed_vertices) {
+            if (item.deformed_vertices->Size() != mesh->vertices->Size()) throw std::invalid_argument("Deformed vertex count mismatch");
+            item.deformed_vertices->Load(m_LoadContext);
+        }
 
         magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
             auto attr_data = mesh->vertices->GetAttributeData(attr);
+            if (item.deformed_vertices) {
+                if (auto deformed = item.deformed_vertices->GetAttributeData(attr)) attr_data = deformed;
+            }
             if (!attr_data.has_value()) return;
             info.vertices[attr] = render_graph.Import(attr_data->get().gpu_buffer);
         });
@@ -498,7 +508,7 @@ void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const std::shar
         info.index_format = ToIndexFormat(mesh->indices->Type());
     }
 
-    for (const auto& sub_mesh : mesh->sub_meshes) {
+    for (const auto& sub_mesh : item.SubMeshes()) {
         RecordMaterial(render_graph, sub_mesh.material);
     }
 }
@@ -506,10 +516,12 @@ void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const std::shar
 void DeferredRenderer::RecordInstance(rg::RenderGraph& render_graph, const RenderDrawItem& item) {
     if (!item.mesh || item.mesh->Empty()) return;
 
-    RecordMesh(render_graph, item.mesh);
+    RecordMesh(render_graph, item);
     m_DrawState.instance_infos.emplace_back(InstanceInfo{
-        .mesh          = item.mesh,
-        .instance_data = {
+        .material_overrides = item.material_overrides,
+        .mesh               = item.mesh,
+        .deformed_vertices  = item.deformed_vertices,
+        .instance_data      = {
             .model = item.transform,
         },
         .instance_index = m_DrawState.instance_infos.size(),

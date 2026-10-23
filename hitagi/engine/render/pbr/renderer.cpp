@@ -2,11 +2,13 @@ export module render:pbr_renderer;
 import core;
 import app;
 import asset;
+import ecs;
 import gfx;
 import math;
 import utils;
 import std;
 import :execution;
+export import :scene;
 
 export namespace hitagi::render::pbr {
 using namespace hitagi;
@@ -35,16 +37,8 @@ auto PbrMaterialDefaults() -> asset::MaterialParameters;
 // Forward pass shell `pbr_forward.slang`, specialized by material compilers.
 auto PbrForwardPassTemplate() -> asset::MaterialPassTemplate;
 
-struct RenderView {
-    math::vec3f camera_position = {};
-    math::mat4f view            = math::mat4f::identity();
-    math::mat4f projection      = math::mat4f::identity();
-};
-
-struct RenderDrawItem {
-    std::shared_ptr<asset::Mesh> mesh;
-    math::mat4f                  transform = math::mat4f::identity();
-};
+using render::RenderView;
+using render::RenderDrawItem;
 
 struct RenderLight {
     math::vec3f position;
@@ -209,6 +203,7 @@ struct PbrDrawRecord {
     rg::GPUBufferEdgeHandle                                        material_access;
     std::pmr::vector<std::pair<std::uint8_t, rg::GPUBufferHandle>> vertex_buffers;
     rg::GPUBufferHandle                                            indices;
+    gfx::Format                                                    index_format = gfx::Format::R32_UINT;
     rg::GPUBufferHandle                                            material_data_handle;
     std::shared_ptr<gfx::RenderPipeline>                           pipeline;
     std::size_t                                                    instance_index = 0;
@@ -331,7 +326,7 @@ auto PbrRenderer::CountRenderableSubMeshes(const RenderRequest& request) const -
     std::size_t count = 0;
     for (const auto& item : request.frame.draw_items) {
         if (!item.mesh || item.mesh->Empty()) continue;
-        for (const auto& sub_mesh : item.mesh->sub_meshes) {
+        for (const auto& sub_mesh : item.SubMeshes()) {
             if (IsRenderablePbrMaterial(sub_mesh.material)) ++count;
         }
     }
@@ -356,9 +351,13 @@ auto PbrRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) ->
     }
 
     for (const auto& item : request.frame.draw_items) {
-        if (item.mesh) item.mesh->Load(m_LoadContext);
-        if (!item.mesh) continue;
-        for (const auto& sub_mesh : item.mesh->sub_meshes) {
+        if (!item.mesh || item.mesh->Empty()) continue;
+        item.mesh->Load(m_LoadContext);
+        if (item.deformed_vertices) {
+            if (item.deformed_vertices->Size() != item.mesh->vertices->Size()) throw std::invalid_argument("Deformed vertex count mismatch");
+            item.deformed_vertices->Load(m_LoadContext);
+        }
+        for (const auto& sub_mesh : item.SubMeshes()) {
             if (sub_mesh.material) sub_mesh.material->Load(m_LoadContext);
         }
     }
@@ -387,7 +386,7 @@ auto PbrRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) ->
             ++instance_index;
             continue;
         }
-        for (const auto& sub_mesh : item.mesh->sub_meshes) {
+        for (const auto& sub_mesh : item.SubMeshes()) {
             if (!IsRenderablePbrMaterial(sub_mesh.material)) continue;
 
             sub_mesh.material->Load(m_LoadContext);
@@ -418,11 +417,16 @@ auto PbrRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) ->
 
             for (const auto& vertex_attr : record.pipeline->GetDesc().vertex_input_layout) {
                 const auto mesh_attr = asset::semantic_to_vertex_attribute(vertex_attr.semantic);
-                if (const auto attr = item.mesh->vertices->GetAttributeData(mesh_attr); attr && attr->get().gpu_buffer) {
+                auto       attr      = item.mesh->vertices->GetAttributeData(mesh_attr);
+                if (item.deformed_vertices) {
+                    if (auto deformed = item.deformed_vertices->GetAttributeData(mesh_attr)) attr = deformed;
+                }
+                if (attr && attr->get().gpu_buffer) {
                     record.vertex_buffers.emplace_back(vertex_attr.binding, graph.Import(attr->get().gpu_buffer));
                 }
             }
-            record.indices = graph.Import(item.mesh->indices->GetGPUData());
+            record.indices      = graph.Import(item.mesh->indices->GetGPUData());
+            record.index_format = item.mesh->indices->Type() == asset::IndexType::UINT16 ? gfx::Format::R16_UINT : gfx::Format::R32_UINT;
         }
         ++instance_index;
     }
@@ -522,7 +526,7 @@ auto PbrRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) ->
             for (const auto [binding, vertex_buffer] : record.vertex_buffers) {
                 cmd.SetVertexBuffers(binding, {{pass.Resolve(vertex_buffer)}}, {{0}});
             }
-            cmd.SetIndexBuffer(pass.Resolve(record.indices), 0);
+            cmd.SetIndexBuffer(pass.Resolve(record.indices), 0, record.index_format);
             cmd.DrawIndexed(record.sub_mesh.index_count, 1, record.sub_mesh.index_offset, record.sub_mesh.vertex_offset);
         }
     });

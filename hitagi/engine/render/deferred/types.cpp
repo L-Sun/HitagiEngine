@@ -5,6 +5,7 @@ export module render:deferred_types;
 import std;
 import core;
 import asset;
+import ecs;
 import gfx;
 import math;
 import utils;
@@ -17,9 +18,25 @@ struct RenderView {
 };
 
 struct RenderDrawItem {
-    std::shared_ptr<asset::Mesh> mesh;
-    math::mat4f                  transform = math::mat4f::identity();
-    std::uint32_t                object_id = 0;
+    std::shared_ptr<asset::Mesh>        mesh;
+    math::mat4f                         transform = math::mat4f::identity();
+    std::uint32_t                       object_id = 0;
+    std::shared_ptr<asset::VertexArray> deformed_vertices;
+
+    std::vector<std::shared_ptr<asset::Material>> material_overrides;
+    auto                                          SubMeshes() const { return asset::ResolveSubMeshes(*mesh, material_overrides); }
+
+    static auto FromEntity(ecs::Entity entity, std::uint32_t object_id = 0) -> RenderDrawItem {
+        RenderDrawItem item{.mesh      = entity.Get<asset::MeshComponent>().mesh,
+                            .transform = entity.Get<asset::Transform>().world_matrix,
+                            .object_id = object_id};
+        item.material_overrides = entity.Get<asset::MeshComponent>().material_overrides;
+        if (entity.Has<asset::SkinnedMesh>()) {
+            item.deformed_vertices = entity.Get<asset::SkinnedMesh>().deformed_vertices;
+            if (!item.deformed_vertices) throw std::logic_error("Update the skinned scene before extracting draws");
+        }
+        return item;
+    }
 };
 
 struct RenderLight {
@@ -96,21 +113,25 @@ constexpr auto RenderGraphDebugViewName(RenderGraphDebugView view) noexcept -> s
 
 struct MeshInfo {
     std::shared_ptr<asset::Mesh>                                  mesh;
+    std::shared_ptr<asset::VertexArray>                           deformed_vertices;
     utils::EnumArray<rg::GPUBufferHandle, asset::VertexAttribute> vertices;
     rg::GPUBufferHandle                                           indices;
     gfx::Format                                                   index_format = gfx::Format::R32_UINT;
 };
 
 struct InstanceInfo {
-    std::shared_ptr<asset::Mesh> mesh;
-    InstanceConstant             instance_data;
-    std::size_t                  instance_index;
-    std::uint32_t                object_id = 0;
+    std::vector<std::shared_ptr<asset::Material>> material_overrides;
+    auto                                          SubMeshes() const { return asset::ResolveSubMeshes(*mesh, material_overrides); }
+    std::shared_ptr<asset::Mesh>        mesh;
+    std::shared_ptr<asset::VertexArray> deformed_vertices;
+    InstanceConstant                    instance_data;
+    std::size_t                         instance_index;
+    std::uint32_t                       object_id = 0;
 };
 
 struct RenderGeometry {
-    std::pmr::unordered_map<asset::Mesh*, MeshInfo> mesh_infos;
-    std::pmr::vector<InstanceInfo>                  instance_infos;
+    std::pmr::map<std::pair<asset::Mesh*, asset::VertexArray*>, MeshInfo> mesh_infos;
+    std::pmr::vector<InstanceInfo>                                        instance_infos;
 };
 
 // Shader source text together with the path it was read from. Passes receive

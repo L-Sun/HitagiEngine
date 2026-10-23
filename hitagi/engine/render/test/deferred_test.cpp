@@ -45,7 +45,7 @@ class DeferredSnapshotProbe final : public IDeferredRenderExtension {
 public:
     void AfterGBuffer(rg::RenderGraph&, const RenderView& view, const DeferredRenderResources&, const DeferredDrawData&) final {
         if (fail) throw std::runtime_error("Injected extension failure");
-        camera_positions.push_back(view.camera_position.x);
+        camera_positions.emplace_back(view.camera_position.x);
     }
     bool               fail = false;
     std::vector<float> camera_positions;
