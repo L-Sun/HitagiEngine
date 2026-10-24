@@ -63,7 +63,8 @@ jobs:
       # Headers/Loader alone are insufficient: the engine also links Slang and
       # SPIRV-Cross. Install the complete prebuilt SDK, including those libraries.
       - name: Install Vulkan SDK
-        uses: humbletim/install-vulkan-sdk@v1.2
+        # v1.2 predates the vulkansdk-macOS-<version>.app installer layout.
+        uses: humbletim/install-vulkan-sdk@e7d6e7b937bde4503c7ba5c9584c9dc68f44c4b8
         with:
           version: ${{ env.VULKAN_SDK_VERSION }}
           cache: true
