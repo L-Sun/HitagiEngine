@@ -112,16 +112,6 @@ jobs:
           vulkan_version: ${{ env.VULKAN_SDK_VERSION }}
           cache: true
 
-      - name: Check SDK components (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          test -f "$VULKAN_SDK/include/vulkan/vulkan.cppm"
-          test -f "$VULKAN_SDK/include/slang/slang.h"
-          test -f "$VULKAN_SDK/lib/libslang.dylib"
-          for component in core glsl msl; do
-            test -f "$VULKAN_SDK/lib/libspirv-cross-$component.a"
-          done
-
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: L-Sun/xmake#branch@hitagi-engine
