@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1890" viewBox="0 0 1920 1890" role="img" aria-labelledby="title desc">
+<title id="title">Metal Bindless · 生命周期与提交</title><desc id="desc">当前实现 · 每次 Push 保存不可变快照；CPU 表更新、对象寿命、GPU 驻留与执行完成分别管理。</desc>
+<metadata>Current implementation: hitagi/engine/gfx/metal/metal_bindless.cpp, metal_configs.cpp, metal_command_buffer.cpp, metal_command_queue.cpp, metal_resource.cpp; gfx/base/bindless.cpp; assets/shaders/bindless.slang. Layout follows docs/assets/asset_module_design.svg and di_texture_decode.svg. Native 1920×1890, PNG export 1:1.</metadata>
+<defs><style>
+text { font-family:'Segoe UI','Microsoft YaHei','Noto Sans CJK SC','PingFang SC',sans-serif; fill:#263443; }
+.title {font-size:38px;font-weight:700} .section {font-size:24px;font-weight:700}
+.label {font-size:21px;font-weight:600} .body {font-size:20px} .small {font-size:18px;fill:#596878}
+.code {font-family:Consolas,'Microsoft YaHei','PingFang SC',monospace;font-size:20px}
+.mini {font-family:Consolas,'Microsoft YaHei','PingFang SC',monospace;font-size:18px;fill:#596878}
+.panel {fill:#fff;stroke:#c6d1dc;stroke-width:1.5} .blue {fill:#e1eef9;stroke:#8db3d3;stroke-width:1.5}
+.green {fill:#e2f1e7;stroke:#91b69b;stroke-width:1.5} .orange {fill:#fbead8;stroke:#d6ac7a;stroke-width:1.5}
+.purple {fill:#eee6f5;stroke:#b19acb;stroke-width:1.5} .gray {fill:#edf0f4;stroke:#b1bdca;stroke-width:1.5}
+.arrow {fill:none;stroke:#738293;stroke-width:2;marker-end:url(#arrow)}
+.ref {fill:none;stroke:#a07b4d;stroke-width:2;stroke-dasharray:6 5;marker-end:url(#amber)}
+.own {fill:none;stroke:#659276;stroke-width:2;marker-end:url(#greenArrow)}
+.line {fill:none;stroke:#b1bdca;stroke-width:1.5}
+</style>
+<marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#738293"/></marker>
+<marker id="amber" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#a07b4d"/></marker>
+<marker id="greenArrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#659276"/></marker></defs>
+<rect width="1920" height="1890" fill="#f8fafc"/>
+<rect x="56" y="47" width="6" height="70" rx="3" fill="#608db4"/>
+<text x="80" y="78" class="title" data-max-width="1760">Metal Bindless · 生命周期与提交</text>
+<text x="80" y="113" class="small" data-max-width="1760">当前实现 · 每次 Push 保存不可变快照；CPU 表更新、对象寿命、GPU 驻留与执行完成分别管理。</text>
+<rect x="56" y="150" width="580" height="120" rx="9" class="green"/>
+<text x="80" y="191" class="section" data-max-width="532">①  对象存活</text>
+<text x="80" y="235" class="body" data-max-width="532">native retain 保留引用，避免提前销毁</text>
+<rect x="670" y="150" width="580" height="120" rx="9" class="blue"/>
+<text x="694" y="191" class="section" data-max-width="532">②  GPU 可访问</text>
+<text x="694" y="235" class="body" data-max-width="532">ResidencySet 声明间接访问的 allocation</text>
+<rect x="1284" y="150" width="580" height="120" rx="9" class="purple"/>
+<text x="1308" y="191" class="section" data-max-width="532">③  执行完成</text>
+<text x="1308" y="235" class="body" data-max-width="532">SharedEvent / WaitIdle 等待 GPU 完成</text>
+<text x="80" y="316" class="section">CPU 绑定表 · 可更新</text>
+<text x="560" y="316" class="section">命令录制 · 保留快照与对象</text>
+<text x="1284" y="316" class="section">驻留声明与 GPU 执行</text>
+<rect x="56" y="342" width="1808" height="170" rx="9" class="panel"/>
+<text x="80" y="382" class="label" data-max-width="430">创建 View / Sampler</text>
+<text x="80" y="420" class="code" data-max-width="430">CreateBindlessHandle()</text>
+<text x="80" y="460" class="small" data-max-width="430">分配索引；写地址 / resource ID</text>
+<path d="M495 423H550" class="arrow"/>
+<text x="574" y="382" class="label" data-max-width="640">CPU 表与 native 引用集合</text>
+<rect x="574" y="401" width="104" height="44" rx="0" class="blue"/>
+<text x="586" y="429" class="mini" data-max-width="82">slot 0</text>
+<rect x="678" y="401" width="104" height="44" rx="0" class="blue"/>
+<text x="690" y="429" class="mini" data-max-width="82">slot 1</text>
+<rect x="782" y="401" width="104" height="44" rx="0" class="blue"/>
+<text x="794" y="429" class="mini" data-max-width="82">…</text>
+<rect x="886" y="401" width="104" height="44" rx="0" class="blue"/>
+<text x="898" y="429" class="mini" data-max-width="82">slot i</text>
+<rect x="990" y="401" width="104" height="44" rx="0" class="blue"/>
+<text x="1002" y="429" class="mini" data-max-width="82">…</text>
+<text x="574" y="482" class="code" data-max-width="640">m_Resources / m_Samplers 持有 native 引用</text>
+<path d="M1160 423H1250" class="arrow"/>
+<text x="1284" y="384" class="body" data-max-width="532">此时只登记 CPU 表。</text>
+<text x="1284" y="423" class="body" data-max-width="532">尚未生成本次录制的快照，</text>
+<text x="1284" y="462" class="body" data-max-width="532">也不等于已经声明 GPU 驻留。</text>
+<path d="M900 512V560" class="arrow"/>
+<text x="925" y="544" class="code" data-max-width="260">Begin()</text>
+<rect x="536" y="560" width="704" height="190" rx="9" class="orange"/>
+<text x="560" y="600" class="label" data-max-width="656">BeginRecording() · 新建本次录制对象</text>
+<rect x="560" y="622" width="306" height="98" rx="5" class="panel"/>
+<text x="576" y="654" class="mini" data-max-width="278">MTL4::CommandAllocator</text>
+<text x="576" y="689" class="mini" data-max-width="278">MTL4::CommandBuffer</text>
+<rect x="890" y="622" width="326" height="98" rx="5" class="panel"/>
+<text x="906" y="654" class="mini" data-max-width="294">MTL4::ArgumentTable</text>
+<text x="906" y="689" class="mini" data-max-width="294">清理上次录制的保留集合</text>
+<rect x="1260" y="560" width="604" height="190" rx="9" class="blue"/>
+<text x="1284" y="600" class="label" data-max-width="556">新建 MTL::ResidencySet</text>
+<text x="1284" y="644" class="body" data-max-width="556">当前集合为空，随后逐项 addAllocation。</text>
+<text x="1284" y="690" class="small" data-max-width="556">已完成的上次录制才可被清理或替换。</text>
+<path d="M1240 654H1260" class="arrow"/>
+<rect x="56" y="560" width="450" height="190" rx="9" class="blue"/>
+<text x="80" y="600" class="label" data-max-width="402">m_ArgumentBuffer</text>
+<rect x="80" y="622" width="74" height="44" rx="0" class="panel"/>
+<text x="92" y="650" class="mini" data-max-width="52">地址</text>
+<rect x="154" y="622" width="74" height="44" rx="0" class="panel"/>
+<text x="166" y="650" class="mini" data-max-width="52">ID</text>
+<rect x="228" y="622" width="74" height="44" rx="0" class="panel"/>
+<text x="240" y="650" class="mini" data-max-width="52">…</text>
+<rect x="302" y="622" width="74" height="44" rx="0" class="panel"/>
+<text x="314" y="650" class="mini" data-max-width="52">ID</text>
+<rect x="376" y="622" width="74" height="44" rx="0" class="panel"/>
+<text x="388" y="650" class="mini" data-max-width="52">…</text>
+<text x="80" y="705" class="small" data-max-width="402">Create / Discard 均在 mutex 内更新。</text>
+<path d="M900 750V810" class="arrow"/>
+<text x="925" y="786" class="code" data-max-width="850">每次 PushBindlessMetaInfo(info)</text>
+<rect x="536" y="810" width="704" height="330" rx="9" class="orange"/>
+<text x="560" y="850" class="label" data-max-width="656">BindArgumentBuffer() · 锁住 CPU 表</text>
+<rect x="574" y="872" width="610" height="54" rx="3" class="panel"/>
+<rect x="584" y="882" width="610" height="54" rx="3" class="panel"/>
+<rect x="594" y="892" width="610" height="54" rx="3" class="blue"/>
+<text x="610" y="927" class="code" data-max-width="570">新建完整快照 · 4,163,840 字节 / 次</text>
+<text x="560" y="989" class="mini" data-max-width="656">m_ArgumentBufferSnapshots 保存所有快照</text>
+<text x="560" y="1020" class="mini" data-max-width="656">m_RetainedResources 保留全表 buffer / texture</text>
+<text x="560" y="1051" class="mini" data-max-width="656">m_RetainedSamplers 保留全表 sampler</text>
+<text x="560" y="1107" class="small" data-max-width="656">新建 metadata buffer → index 1；快照地址 → index 0</text>
+<path d="M506 672H520V888H536" class="ref"/>
+<text x="80" y="791" class="small" data-max-width="420">虚线：从 CPU 表复制当时内容</text>
+<rect x="1260" y="810" width="604" height="330" rx="9" class="blue"/>
+<text x="1284" y="850" class="label" data-max-width="556">RetainResource(resource)</text>
+<text x="1284" y="896" class="small" data-max-width="556">① native retain：加入保留集合</text>
+<text x="1284" y="934" class="small" data-max-width="556">② ResidencySet.addAllocation(resource)</text>
+<text x="1284" y="972" class="small" data-max-width="556">包含全表 buffer / texture、快照和 metadata</text>
+<text x="1284" y="1022" class="small" data-max-width="556">sampler 单独 retain，不走 addAllocation。</text>
+<text x="1284" y="1062" class="code" data-max-width="556">encoder.setArgumentTable(...)</text>
+<text x="1284" y="1106" class="small" data-max-width="556">后续 draw / compute 使用本次绑定。</text>
+<path d="M1240 973H1260" class="own"/>
+<rect x="56" y="850" width="450" height="290" rx="9" class="green"/>
+<text x="80" y="892" class="label" data-max-width="402">销毁 View / Sampler</text>
+<text x="80" y="934" class="code" data-max-width="402">DiscardBindlessHandle()</text>
+<text x="80" y="976" class="small" data-max-width="402">核对 version → 清零当前表项</text>
+<text x="80" y="1010" class="small" data-max-width="402">移除表的引用 → version++</text>
+<text x="80" y="1044" class="small" data-max-width="402">索引压回 free list</text>
+<text x="80" y="1107" class="small" data-max-width="402">已录制快照与其保留引用不受影响。</text>
+<path d="M900 1140V1200" class="arrow"/>
+<text x="925" y="1178" class="code" data-max-width="260">End()</text>
+<rect x="536" y="1200" width="704" height="170" rx="9" class="orange"/>
+<text x="560" y="1240" class="label" data-max-width="656">EndRecording()</text>
+<text x="560" y="1281" class="code" data-max-width="656">m_Residency-&gt;commit()</text>
+<text x="560" y="1313" class="code" data-max-width="656">command_buffer-&gt;useResidencySet(...)</text>
+<text x="560" y="1345" class="code" data-max-width="656">command_buffer-&gt;endCommandBuffer()</text>
+<rect x="1260" y="1200" width="604" height="170" rx="9" class="blue"/>
+<text x="1284" y="1240" class="label" data-max-width="556">② 资源驻留声明随 command buffer 生效</text>
+<text x="1284" y="1288" class="body" data-max-width="556">此处 commit 是 ResidencySet 更新，</text>
+<text x="1284" y="1324" class="body" data-max-width="556">尚未向 command queue 提交 GPU 工作。</text>
+<path d="M1240 1286H1260" class="arrow"/>
+<path d="M900 1370V1430" class="arrow"/>
+<text x="925" y="1408" class="code" data-max-width="260">Submit()</text>
+<rect x="536" y="1430" width="704" height="210" rx="9" class="purple"/>
+<text x="560" y="1470" class="label" data-max-width="656">队列提交与完成等待</text>
+<text x="560" y="1510" class="mini" data-max-width="656">等待传入 CPU fence → queue.commit(command_buffer)</text>
+<text x="560" y="1548" class="mini" data-max-width="656">signalEvent(SharedEvent, ++m_Submission)</text>
+<text x="560" y="1586" class="mini" data-max-width="656">WaitIdle() → GPU 完成后 signal CPU fence</text>
+<rect x="1260" y="1430" width="604" height="210" rx="9" class="purple"/>
+<text x="1284" y="1470" class="label" data-max-width="556">GPU · 读快照，再间接访问资源</text>
+<rect x="1284" y="1492" width="106" height="46" rx="0" class="panel"/>
+<text x="1296" y="1520" class="mini" data-max-width="84">表地址</text>
+<rect x="1390" y="1492" width="106" height="46" rx="0" class="panel"/>
+<text x="1402" y="1520" class="mini" data-max-width="84">资源 ID</text>
+<rect x="1496" y="1492" width="106" height="46" rx="0" class="panel"/>
+<text x="1508" y="1520" class="mini" data-max-width="84">对象数据</text>
+<rect x="1602" y="1492" width="106" height="46" rx="0" class="panel"/>
+<text x="1614" y="1520" class="mini" data-max-width="84">…</text>
+<text x="1284" y="1575" class="body" data-max-width="556">③ SharedEvent 达到提交值 → 执行完成</text>
+<text x="1284" y="1613" class="small" data-max-width="556">Submit 对每个 command buffer 同步等待。</text>
+<path d="M1240 1512H1260" class="arrow"/>
+<rect x="56" y="1200" width="450" height="440" rx="9" class="panel"/>
+<text x="80" y="1240" class="label" data-max-width="402">快照与回收的边界</text>
+<text x="80" y="1285" class="small" data-max-width="402">旧快照保留旧 native 对象；</text>
+<text x="80" y="1321" class="small" data-max-width="402">新 Push 才看到回收或复用后的表。</text>
+<text x="80" y="1357" class="small" data-max-width="402"></text>
+<text x="80" y="1393" class="small" data-max-width="402">同一录制中可能有多个快照，</text>
+<text x="80" y="1429" class="small" data-max-width="402">不是按帧双缓冲。</text>
+<text x="80" y="1465" class="small" data-max-width="402"></text>
+<text x="80" y="1501" class="small" data-max-width="402">引用与快照保留到下一次 Begin</text>
+<text x="80" y="1537" class="small" data-max-width="402">或录制对象销毁；前提是 GPU 已完成。</text>
+<rect x="56" y="1690" width="1808" height="160" rx="9" class="panel"/>
+<text x="80" y="1731" class="label" data-max-width="430">完成后才能重录 / 销毁</text>
+<text x="560" y="1731" class="body" data-max-width="1260">对象寿命与驻留不等于读写同步；CPU 表 mutex 也不是队列同步。</text>
+<text x="80" y="1774" class="small" data-max-width="1760">没有 MTLHeap / useHeap / useResource；使用 ResidencySet + native 引用保留。</text>
+<text x="80" y="1816" class="small" data-max-width="1760">当前以 encoder 起点 barrier、同步 Submit 与 fence 建立顺序；不提供任意 encoder 内 barrier 或异步多队列重叠保证。</text>
+</svg>

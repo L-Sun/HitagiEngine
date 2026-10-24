@@ -75,12 +75,12 @@ auto USDViewer::Snapshot() const -> std::string {
     }
     const auto& eye = m_Orbit.Eye();
     return std::format(
-        R"({{"kind":"viewer","path":{},"file":{},"renderer":"{}","backend":{},"debug":{},"light":{},"selected":{},"nodes":{},"inspector":{},"meshes":{},"visible":{},"triangles":{},"error":{},"status":{},"eye":[{},{},{}],"animations":{},"playing":{},"animationTime":{},"animationDuration":{},"physicsBodies":{},"physics":{},"physicsBackend":{}}})",
+        R"({{"kind":"viewer","path":{},"file":{},"renderer":"{}","backend":{},"debug":{},"light":{},"selected":{},"nodes":{},"inspector":{},"meshes":{},"visible":{},"triangles":{},"error":{},"status":{},"eye":[{},{},{}],"animations":{},"playing":{},"animationTime":{},"animationDuration":{},"physicsBodies":{},"physics":{},"physicsBackend":{},"fps":{:.1f}}})",
         JsonString(m_Path.generic_string()), JsonString(m_Path.filename().string()),
         RendererName(m_Renderer), JsonString(m_App.GetConfig().gfx_backend),
         static_cast<unsigned>(m_Debug), m_Light, JsonString(m_Selected), nodes, inspector, meshes, visible,
         triangles, JsonString(m_Error), JsonString(m_Status), eye.x, eye.y, eye.z,
-        m_AnimationPlayers.size(), m_Playing, animation_time, animation_duration, physics_bodies, physics, JsonString(solver));
+        m_AnimationPlayers.size(), m_Playing, animation_time, animation_duration, physics_bodies, physics, JsonString(solver), m_Fps);
 }
 
 void USDViewer::PublishState() {

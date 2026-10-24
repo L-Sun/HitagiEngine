@@ -112,7 +112,7 @@ using PresentPassHandle = RenderGraphHandle<RenderGraphNode::Type::PresentPass>;
 export namespace std {
 template <hitagi::rg::RenderGraphNode::Type T>
 struct hash<hitagi::rg::RenderGraphHandle<T>> {
-    constexpr inline size_t operator()(const hitagi::rg::RenderGraphHandle<T>& handle) const noexcept {
+    constexpr inline std::size_t operator()(const hitagi::rg::RenderGraphHandle<T>& handle) const noexcept {
         return hash<std::size_t>()(handle.index);
     }
 };

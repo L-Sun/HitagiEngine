@@ -79,6 +79,9 @@ private:
     float                                 m_Light = 1.0f;
     std::uint64_t                         m_Frame = 0;
     std::array<double, 4>                 m_FrameTimings{};
+    std::chrono::steady_clock::time_point m_FpsSampleStart{};
+    unsigned                             m_FpsSampleFrames = 0;
+    double                               m_Fps = 0.0;
     std::vector<ecs::Entity>              m_AnimationPlayers;
     bool                                  m_Playing           = true;
     bool                                  m_Deterministic     = false;
@@ -184,6 +187,22 @@ void USDViewer::Tick() {
     RuntimeModule::Tick();
     RenderFrame();
     measure(2);
+    // Average completed frame intervals, including event pumping and present waits.
+    // Wall-clock metrics stay unavailable during deterministic replay.
+    if (!m_Deterministic) {
+        const auto completed = std::chrono::steady_clock::now();
+        if (m_FpsSampleStart == std::chrono::steady_clock::time_point{}) {
+            m_FpsSampleStart = completed;
+        } else {
+            ++m_FpsSampleFrames;
+            const double seconds = std::chrono::duration<double>(completed - m_FpsSampleStart).count();
+            if (seconds >= 0.5) {
+                m_Fps = m_FpsSampleFrames / seconds;
+                m_FpsSampleFrames = 0;
+                m_FpsSampleStart = completed;
+            }
+        }
+    }
     PublishState();
     measure(3);
 }

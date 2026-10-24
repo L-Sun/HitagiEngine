@@ -14,6 +14,7 @@ import utils;
 import math;
 import gfx.base;
 import :types;
+import :command_queue;
 import :utils;
 import :configs;
 
@@ -30,7 +31,20 @@ public:
     inline auto& GetCustomAllocator() const noexcept { return m_CustomAllocator; }
     inline auto& GetPhysicalDevice() const noexcept { return *m_PhysicalDevice; }
     inline auto& GetDevice() const noexcept { return *m_Device; }
+    bool         UsesDescriptorHeap() const noexcept { return m_UsesDescriptorHeap; }
     inline auto  GetQueueFamilyIndex() const noexcept { return m_QueueFamilyIndex; }
+    auto GetNativeQueues() const noexcept -> std::span<const std::shared_ptr<VulkanNativeQueue>> { return m_NativeQueues; }
+    auto GetNativeQueue(CommandType type) const -> std::shared_ptr<VulkanNativeQueue> {
+        switch (type) {
+            case CommandType::Graphics:
+                return m_NativeQueues[0];
+            case CommandType::Compute:
+                return m_NativeQueues[m_NativeQueues.size() > 1 ? 1 : 0];
+            case CommandType::Copy:
+                return m_NativeQueues[m_NativeQueues.size() > 2 ? 2 : 0];
+        }
+        throw std::invalid_argument("Invalid command type");
+    }
     inline auto& GetVmaAllocator() const noexcept { return m_VmaAllocator; }
 
 private:
@@ -51,10 +65,12 @@ private:
     std::unique_ptr<vk::raii::DebugUtilsMessengerEXT> m_DebugUtilsMessenger;
 #endif
 
-    std::unique_ptr<vk::raii::PhysicalDevice> m_PhysicalDevice;
-    std::unique_ptr<vk::raii::Device>         m_Device;
-    StorageViewRequirements m_StorageViewRequirements;
+    std::unique_ptr<vk::raii::PhysicalDevice>            m_PhysicalDevice;
+    std::unique_ptr<vk::raii::Device>                    m_Device;
+    StorageViewRequirements                              m_StorageViewRequirements;
+    std::pmr::vector<std::shared_ptr<VulkanNativeQueue>> m_NativeQueues;
 
+    bool          m_UsesDescriptorHeap = false;
     VmaAllocator  m_VmaAllocator;
     std::uint32_t m_QueueFamilyIndex;
 };
@@ -87,14 +103,17 @@ VulkanDevice::VulkanDevice(std::string_view name)
                         vk::versionMinor(app_info.apiVersion),
                         vk::versionPatch(app_info.apiVersion));
 
+        const auto instance_layers     = get_instance_layers();
+        const auto instance_extensions = get_instance_extensions();
+
         m_Instance = std::make_unique<vk::raii::Instance>(
             m_Context,
             vk::InstanceCreateInfo{
                 .pApplicationInfo        = &app_info,
-                .enabledLayerCount       = static_cast<std::uint32_t>(required_instance_layers.size()),
-                .ppEnabledLayerNames     = required_instance_layers.data(),
-                .enabledExtensionCount   = static_cast<std::uint32_t>(required_instance_extensions.size()),
-                .ppEnabledExtensionNames = required_instance_extensions.data(),
+                .enabledLayerCount       = static_cast<std::uint32_t>(instance_layers.size()),
+                .ppEnabledLayerNames     = instance_layers.data(),
+                .enabledExtensionCount   = static_cast<std::uint32_t>(instance_extensions.size()),
+                .ppEnabledExtensionNames = instance_extensions.data(),
             },
             GetCustomAllocator());
     }
@@ -131,13 +150,13 @@ VulkanDevice::VulkanDevice(std::string_view name)
         std::erase_if(physical_devices, [](const auto& device) { return !is_physical_suitable(device); });
         std::ranges::sort(physical_devices, std::ranges::greater(), compute_physical_device_score);
         if (physical_devices.empty()) {
-            throw std::runtime_error("No Vulkan device supports the required Descriptor Heap, shader draw parameters and queues");
+            throw std::runtime_error("No suitable Vulkan device: requires bindless features, shader draw parameters and queues (KosmicKrisp only on Apple)");
         }
-        m_PhysicalDevice = std::make_unique<vk::raii::PhysicalDevice>(std::move(physical_devices.front()));
-        const auto properties = m_PhysicalDevice->getProperties();
+        m_PhysicalDevice          = std::make_unique<vk::raii::PhysicalDevice>(std::move(physical_devices.front()));
+        const auto properties     = m_PhysicalDevice->getProperties();
         m_StorageViewRequirements = {
             .offset_alignment = std::max(std::uint64_t{4}, properties.limits.minStorageBufferOffsetAlignment),
-            .size_alignment = 4,
+            .size_alignment   = 4,
         };
         m_Logger->trace(
             "Pick physical device: {}",
@@ -148,23 +167,32 @@ VulkanDevice::VulkanDevice(std::string_view name)
     {
         const auto queue_create_info = get_queue_create_info(*m_PhysicalDevice).value();
 
-        const vk::StructureChain device_create_info = {
+        m_UsesDescriptorHeap = supports_descriptor_heap(*m_PhysicalDevice);
+        std::pmr::vector<const char*> device_extensions(required_device_extensions.begin(), required_device_extensions.end());
+        if (m_UsesDescriptorHeap) device_extensions.push_back(vk::EXTDescriptorHeapExtensionName);
+        m_Logger->info("Vulkan bindless: {}", m_UsesDescriptorHeap ? "descriptor heap" : "descriptor indexing");
+        vk::StructureChain device_create_info = {
             vk::DeviceCreateInfo{
                 .queueCreateInfoCount    = 1,
                 .pQueueCreateInfos       = &queue_create_info,
-                .enabledExtensionCount   = static_cast<std::uint32_t>(required_device_extensions.size()),
-                .ppEnabledExtensionNames = required_device_extensions.data(),
+                .enabledExtensionCount   = static_cast<std::uint32_t>(device_extensions.size()),
+                .ppEnabledExtensionNames = device_extensions.data(),
             },
             vk::PhysicalDeviceVulkan11Features{
                 .shaderDrawParameters = true,
             },
             vk::PhysicalDeviceVulkan12Features{
-                .shaderSampledImageArrayNonUniformIndexing  = true,
-                .shaderStorageBufferArrayNonUniformIndexing = true,
-                .shaderStorageImageArrayNonUniformIndexing  = true,
-                .runtimeDescriptorArray                     = true,
-                .timelineSemaphore                          = true,
-                .bufferDeviceAddress                        = true,
+                .shaderSampledImageArrayNonUniformIndexing     = true,
+                .shaderStorageBufferArrayNonUniformIndexing    = true,
+                .shaderStorageImageArrayNonUniformIndexing     = true,
+                .descriptorBindingSampledImageUpdateAfterBind  = !m_UsesDescriptorHeap,
+                .descriptorBindingStorageImageUpdateAfterBind  = !m_UsesDescriptorHeap,
+                .descriptorBindingStorageBufferUpdateAfterBind = !m_UsesDescriptorHeap,
+                .descriptorBindingUpdateUnusedWhilePending     = !m_UsesDescriptorHeap,
+                .descriptorBindingPartiallyBound               = !m_UsesDescriptorHeap,
+                .runtimeDescriptorArray                        = true,
+                .timelineSemaphore                             = true,
+                .bufferDeviceAddress                           = true,
             },
             vk::PhysicalDeviceDescriptorHeapFeaturesEXT{
                 .descriptorHeap = true,
@@ -178,9 +206,13 @@ VulkanDevice::VulkanDevice(std::string_view name)
             },
         };
 
+        if (!m_UsesDescriptorHeap) device_create_info.unlink<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>();
         m_Device = std::make_unique<vk::raii::Device>(m_PhysicalDevice->createDevice(device_create_info.get(), GetCustomAllocator()));
 
         m_QueueFamilyIndex = queue_create_info.queueFamilyIndex;
+        for (std::uint32_t index = 0; index < queue_create_info.queueCount; ++index) {
+            m_NativeQueues.emplace_back(std::make_shared<VulkanNativeQueue>(*m_Device, m_QueueFamilyIndex, index));
+        }
     }
 
     m_Logger->trace("Create VMA Allocator...");
@@ -200,7 +232,7 @@ VulkanDevice::VulkanDevice(std::string_view name)
 }
 
 VulkanDevice::~VulkanDevice() {
-    m_Device->waitIdle();
+    wait_vulkan_device_idle(*m_Device, m_NativeQueues);
     vmaDestroyAllocator(m_VmaAllocator);
 }
 

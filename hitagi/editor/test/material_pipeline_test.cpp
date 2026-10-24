@@ -26,12 +26,23 @@ void WriteTextFile(const std::filesystem::path& path, std::string_view content) 
     file.write(content.data(), static_cast<std::streamsize>(content.size()));
 }
 
-void ExpectCompilesForBothBackends(const MaterialPass& pass) {
+void ExpectCompilesForAvailableBackends(const MaterialPass& pass) {
     ASSERT_TRUE(pass.pipeline);
     gfx::ShaderCompiler compiler("MaterialGraphCompilerTest");
+#ifdef __APPLE__
+    // Exercise native Metal lowering too; DXIL's downstream compiler is not
+    // available on this host. Other hosts retain their existing offline checks.
+    auto device = gfx::create_device(gfx::Device::Type::Metal);
+    constexpr std::array targets{gfx::ShaderTarget::SPIRV};
+#else
+    constexpr std::array targets{gfx::ShaderTarget::DXIL, gfx::ShaderTarget::SPIRV};
+#endif
     for (const auto& shader : pass.pipeline->GetShaders()) {
         const auto& desc = shader->GetDesc();
-        for (const auto target : {gfx::ShaderTarget::DXIL, gfx::ShaderTarget::SPIRV}) {
+#ifdef __APPLE__
+        EXPECT_NE(gfx::Shader::Create(*device, compiler, desc), nullptr);
+#endif
+        for (const auto target : targets) {
             EXPECT_FALSE(compiler.LoadProgram(desc.program, target)->Compile(desc.entry, desc.type, desc.specialization_types).bytecode.Empty());
         }
     }
@@ -560,7 +571,7 @@ TEST(MaterialGraphCompilerTest, SpecializesPbrForwardTemplate) {
     EXPECT_NE(result.slang.find("surface.metallic = material_data.metallic;"), std::pmr::string::npos);
     EXPECT_NE(result.slang.find("surface.roughness = 0.25f;"), std::pmr::string::npos);
     EXPECT_EQ(result.slang.find("DistributionGGX"), std::pmr::string::npos);
-    ExpectCompilesForBothBackends(result.pass);
+    ExpectCompilesForAvailableBackends(result.pass);
 }
 
 TEST(MaterialGraphCompilerTest, CompilesBaseNodeKindsAgainstAnyShell) {
@@ -608,7 +619,7 @@ TEST(MaterialGraphCompilerTest, CompilesBaseNodeKindsAgainstAnyShell) {
     EXPECT_NE(result.slang.find("lerp(input.color, material_data.tint, (material_data.tint).a)"), std::pmr::string::npos);
     EXPECT_NE(result.slang.find("float4 sample_normal_rgba = float4(0.5f, 0.5f, 1.0f, 1.0f);"), std::pmr::string::npos);
     EXPECT_NE(result.slang.find("surface.normal = normalize(sample_normal_rgba.xyz * 2.0f - 1.0f);"), std::pmr::string::npos);
-    ExpectCompilesForBothBackends(result.pass);
+    ExpectCompilesForAvailableBackends(result.pass);
 }
 
 TEST(MaterialGraphCompilerTest, ReportsUnsupportedNodesAndChannelMismatches) {

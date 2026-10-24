@@ -25,6 +25,9 @@ INSTANTIATE_TEST_SUITE_P(Backends, DeferredRendererTest, Values(
 #ifdef _WIN32
                                                              gfx::Device::Type::DX12,
 #endif
+#ifdef __APPLE__
+                                                             gfx::Device::Type::Metal,
+#endif
                                                              gfx::Device::Type::Vulkan));
 
 class DeferredExtensionProbe final : public IDeferredRenderExtension {
@@ -314,4 +317,59 @@ TEST(RendererPassBuilderTest, RenderGraphDebugViewNamesMapToGBufferViews) {
     EXPECT_EQ(RenderGraphDebugViewName(RenderGraphDebugView::Normal), "normal");
     EXPECT_EQ(RenderGraphDebugViewName(RenderGraphDebugView::MaterialId), "material_id");
     EXPECT_EQ(RenderGraphDebugViewName(RenderGraphDebugView::Emissive), "emissive");
+}
+
+TEST_P(DeferredRendererTest, LightingReadsFirstAndLastLightFromTheExistingFrameBuffer) {
+    auto                     device = gfx::create_device(GetParam());
+    gfx::CommandQueues       queues(*device);
+    auto                     bindings = gfx::BindlessUtils::Create(*device);
+    gfx::ShaderCompiler      compiler("Deferred light array layout");
+    core::FileIOManager      file_io;
+    passes::DeferredLighting lighting(*device, *bindings, compiler, LoadShaderSource(file_io, "assets/shaders/deferred_lighting.slang"));
+    const auto               make_texture = [&](math::vec4f pixel) {
+        return gfx::Texture::Create(*device, queues, *bindings,
+                                    {.width = 1, .height = 1, .format = gfx::Format::R32G32B32A32_FLOAT, .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst},
+                                    std::as_bytes(std::span(&pixel, 1)));
+    };
+    const auto                  albedo   = make_texture({0.5f, 0.5f, 0.5f, 1.0f});
+    const auto                  normal   = make_texture({0.5f, 0.5f, 1.0f, 1.0f});
+    const auto                  material = make_texture({0.0f, 0.5f, 0.0f, 0.0f});
+    const auto                  emissive = make_texture({0.0f, 0.0f, 0.0f, 0.0f});
+    const auto                  sampler  = gfx::Sampler::Create(*device, *bindings, {});
+    const auto                  output   = gfx::Texture::Create(*device, queues, *bindings,
+                                                                {.width = 4, .height = 4, .format = gfx::Format::R8G8B8A8_UNORM, .usages = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc});
+    const auto                  pipeline = lighting.GetPipeline(output->GetDesc().format);
+    std::array<core::Buffer, 4> images;
+    const std::array            counts{0u, 1u, MaxDeferredLights, MaxDeferredLights + 1};
+    for (std::size_t run = 0; run < counts.size(); ++run) {
+        FrameConstant frame{};
+        frame.inv_projection                                              = math::inverse(math::perspective(1.0f, 1.0f, 0.1f, 100.0f));
+        frame.light_count                                                 = counts[run];
+        frame.exposure                                                    = 1.0f;
+        frame.viewport                                                    = {4.0f, 4.0f, 0.25f, 0.25f};
+        frame.lights[run < 2 ? 0 : MaxDeferredLights - 1].color_intensity = {1.0f, 1.0f, 1.0f, 1.0f};
+        auto            frame_buffer                                      = gfx::GPUBuffer::Create(*device,
+                                                                                                   {.size = sizeof(frame), .usages = gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::MapWrite},
+                                                                                                   std::as_bytes(std::span(&frame, 1)));
+        rg::RenderGraph graph(*device, queues, *bindings);
+        const auto      target = graph.Import(output);
+        lighting.Build(graph,
+                       {.albedo = graph.Import(albedo), .normal = graph.Import(normal), .material = graph.Import(material), .emissive = graph.Import(emissive)},
+                       graph.Import(frame_buffer),
+                       graph.Create(gfx::GPUBufferDesc{.size   = sizeof(passes::DeferredLighting::BindlessInfo),
+                                                       .usages = gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::MapWrite}),
+                       graph.Import(sampler), pipeline, target);
+        rg::RenderPassBuilder retain(graph);
+        retain.SetRenderTarget(graph.MoveFrom(target), false);
+        retain.AllowPassCulling(false);
+        retain.SetExecutor([](const rg::RenderGraph&, const rg::RenderPassNode&) {});
+        retain.Finish();
+        ASSERT_TRUE(graph.Compile());
+        graph.Execute();
+        graph.ClearImportedResources();
+        images[run] = gfx::readback_texture(*device, queues, *bindings, *output);
+    }
+    EXPECT_FALSE(std::ranges::equal(images[0].Span<const std::byte>(), images[1].Span<const std::byte>()));
+    EXPECT_TRUE(std::ranges::equal(images[1].Span<const std::byte>(), images[2].Span<const std::byte>()));
+    EXPECT_TRUE(std::ranges::equal(images[2].Span<const std::byte>(), images[3].Span<const std::byte>()));
 }

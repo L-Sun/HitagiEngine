@@ -11,6 +11,7 @@ export type ViewerState = {
   file: string;
   renderer: string;
   backend: string;
+  fps: number;
   debug: number;
   light: number;
   selected: string;

@@ -46,8 +46,8 @@ auto ParseOptions(int argc, char** argv) -> ViewerOptions {
                 throw std::invalid_argument("--renderer must be pbr, toon or deferred");
         } else if (argument.starts_with("--backend=")) {
             const auto name = argument.substr(10);
-            if (name != "Vulkan" && name != "DX12")
-                throw std::invalid_argument("--backend must be Vulkan or DX12");
+            if (name != "Vulkan" && name != "DX12" && name != "Metal")
+                throw std::invalid_argument("--backend must be Vulkan, DX12 or Metal");
             options.app.gfx_backend = name;
         } else if (argument.starts_with("--frames=")) {
             const auto value = argument.substr(9);
@@ -67,7 +67,7 @@ auto ParseOptions(int argc, char** argv) -> ViewerOptions {
 
 void PrintUsage() {
     std::println("Usage: xmake r usd-viewer [scene.usd] [--renderer=pbr|toon|deferred]");
-    std::println("       [--backend=Vulkan|DX12] [--headless] [--frames=N]");
+    std::println("       [--backend=Vulkan|DX12|Metal] [--headless] [--frames=N]");
     std::println(
         "Tab: switch renderer | LMB: orbit | MMB: pan | Wheel: zoom | F: frame | Esc: clear selection");
 }

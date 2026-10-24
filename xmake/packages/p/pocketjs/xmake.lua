@@ -6,21 +6,31 @@ package("pocketjs")
     add_versions("0.14.0", "3e64f85c5a55e651dcf5f9831aa38c69741d1834b5c4c427760aa9e46a6a89fb")
     add_configs("shared", {description = "Build shared libraries", default = false, type = "boolean", readonly = true})
     add_links("pocket_apple")
-    add_syslinks("advapi32", "bcrypt", "ntdll", "userenv", "ws2_32")
+    if is_plat("windows") then
+        add_syslinks("advapi32", "bcrypt", "ntdll", "userenv", "ws2_32")
+    elseif is_plat("macosx") then
+        add_frameworks("CoreFoundation", "Security", "SystemConfiguration")
+        add_syslinks("resolv")
+    end
 
-    on_install("windows|x64", function (package)
+    on_install("windows|x64", "macosx|arm64", function (package)
         import("lib.detect.find_tool")
         local cargo = assert(find_tool("cargo"), "PocketJS requires Cargo/Rust on PATH")
         local bun = assert(find_tool("bun"), "PocketJS UI compilation requires Bun on PATH")
         os.cp(path.join(package:scriptdir(), "pocket_desktop.rs"), "engine/ios/src/pocket_desktop.rs")
         os.cp(path.join(package:scriptdir(), "pocket_gpu.rs"), "engine/ios/src/pocket_gpu.rs")
         io.replace("engine/ios/src/lib.rs", "pub mod core_host;", "pub mod core_host;\nmod pocket_desktop;\nmod pocket_gpu;", {plain = true})
+        local rust_target = package:is_plat("windows") and "x86_64-pc-windows-msvc"
+            or "aarch64-apple-darwin"
         local profile = package:is_debug() and "dev" or "release"
         os.vrunv(cargo.program, {"build", "--manifest-path", "engine/Cargo.toml",
             "-p", "pocket-apple", "--profile", profile, "--locked", "-j", "1",
-            "--target", "x86_64-pc-windows-msvc"})
+            "--target", rust_target}, {envs = package:is_plat("macosx") and {
+                MACOSX_DEPLOYMENT_TARGET = "26.6.2"
+            } or {}})
         local output = package:is_debug() and "debug" or "release"
-        os.cp(path.join("engine/target/x86_64-pc-windows-msvc", output, "pocket_apple.lib"), package:installdir("lib"))
+        local library = package:is_plat("windows") and "pocket_apple.lib" or "libpocket_apple.a"
+        os.cp(path.join("engine/target", rust_target, output, library), package:installdir("lib"))
         os.cp("engine/ios/include/*.h", package:installdir("include"))
         os.cp("contracts/generated/*.h", package:installdir("include"))
         os.cp(path.join(package:scriptdir(), "pocket.h"), package:installdir("include"))

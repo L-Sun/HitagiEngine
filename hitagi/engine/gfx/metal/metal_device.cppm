@@ -1,0 +1,10 @@
+export module gfx.metal;
+export import :types;
+export import :configs;
+export import :utils;
+export import :device;
+export import :bindless;
+export import :sync;
+export import :resource;
+export import :command_buffer;
+export import :command_queue;

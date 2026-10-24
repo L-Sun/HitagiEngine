@@ -31,16 +31,17 @@ public:
     Session(gfx::Device::Type backend, const std::filesystem::path& output, bool replay,
             std::vector<RecordedFrame>& tape, bool record_animation = false,
             const std::filesystem::path& record_scene = {}, RendererType renderer = RendererType::Pbr,
-            bool deterministic = true)
+            bool deterministic = true, bool fixed_size = false)
         : m_Output(output),
           m_Replay(replay),
           m_RecordAnimation(record_animation),
+          m_FixedSize(fixed_size),
           m_Tape(tape),
           m_App(
               Application::CreateApp({.title       = "USD Viewer E2E",
-                                      .width       = 1500,
-                                      .height      = 1050,
-                                      .gfx_backend = backend == gfx::Device::Type::Vulkan ? "Vulkan" : "DX12",
+                                      .width       = fixed_size ? 1000u : 1500u,
+                                      .height      = fixed_size ? 700u : 1050u,
+                                      .gfx_backend = backend == gfx::Device::Type::Vulkan ? "Vulkan" : backend == gfx::Device::Type::Metal ? "Metal" : "DX12",
                                       .log_level   = "warn",
                                       .headless    = true})),
           m_Device(gfx::create_device(backend)),
@@ -51,7 +52,7 @@ public:
                    record_scene.empty() ? std::filesystem::path(record_animation ? "examples/usd-viewer/assets/skinned.usda" : "examples/usd-viewer/assets/studio.usda") : record_scene,
                    renderer, deterministic),
           m_Trace(output / (replay ? "replay.jsonl" : "record.jsonl")) {
-        {
+        if (!m_FixedSize) {
             // Preserve a useful logical viewport on high-DPI stations.
             const float dpi = m_App->GetDpiRatio();
             m_App->ResizeWindow(static_cast<unsigned>(1000 * dpi), static_cast<unsigned>(700 * dpi));
@@ -401,13 +402,15 @@ public:
         Click(NodeControl("Coral"));
         Step("inspector-visible");
         Require(m_Viewer.Controls().contains("selection.frame"), "Selection did not show inspector controls");
-        Step("resize.compact", [&] { m_App->ResizeWindow(800*m_App->GetDpiRatio(), 600*m_App->GetDpiRatio()); });
-        Require(!m_Viewer.Controls().contains("selection.frame"),
-                "Compact layout kept hidden inspector controls");
-        Click("renderer.deferred");
-        Step("resize.wide", [&] { m_App->ResizeWindow(1000*m_App->GetDpiRatio(), 700*m_App->GetDpiRatio()); });
-        Require(m_Viewer.Controls().contains("selection.frame"),
-                "Wide layout did not restore inspector controls");
+        if (!m_FixedSize) {
+            Step("resize.compact", [&] { m_App->ResizeWindow(800*m_App->GetDpiRatio(), 600*m_App->GetDpiRatio()); });
+            Require(!m_Viewer.Controls().contains("selection.frame"),
+                    "Compact layout kept hidden inspector controls");
+            Click("renderer.deferred");
+            Step("resize.wide", [&] { m_App->ResizeWindow(1000*m_App->GetDpiRatio(), 700*m_App->GetDpiRatio()); });
+            Require(m_Viewer.Controls().contains("selection.frame"),
+                    "Wide layout did not restore inspector controls");
+        }
         Click("renderer.pbr");
         Step("final");
 #ifdef _WIN32
@@ -422,6 +425,7 @@ private:
     std::filesystem::path               m_Output;
     bool                                m_Replay;
     bool                                m_RecordAnimation;
+    bool                                m_FixedSize;
     std::vector<RecordedFrame>&         m_Tape;
     std::vector<std::byte>              m_ViewportPixels;
     core::FileIOManager                 m_FileIO;
@@ -442,8 +446,9 @@ int main(int argc, char** argv) {
     try {
         core::MemoryManager memory;
         const std::string   backend = argc > 1 ? argv[1] : "Vulkan";
-        examples::test::Require(backend == "Vulkan" || backend == "DX12", "Backend must be Vulkan or DX12");
-        const auto type         = backend == "Vulkan" ? gfx::Device::Type::Vulkan : gfx::Device::Type::DX12;
+        examples::test::Require(backend == "Vulkan" || backend == "DX12" || backend == "Metal", "Backend must be Vulkan, DX12 or Metal");
+        const auto type         = backend == "Vulkan" ? gfx::Device::Type::Vulkan : backend == "Metal" ? gfx::Device::Type::Metal : gfx::Device::Type::DX12;
+        const bool fixed_size = argc > 2 && std::string_view(argv[2]) == "--fixed-size";
         const bool record       = argc > 2 && std::string_view(argv[2]) == "--record-animation";
         const bool physics_test = argc > 2 && std::string_view(argv[2]) == "--verify-physics";
         const bool benchmark = argc > 2 && std::string_view(argv[2]) == "--benchmark";
@@ -488,11 +493,11 @@ int main(int argc, char** argv) {
             return 0;
         }
         {
-            examples::test::Session session(type, output, false, tape);
+            examples::test::Session session(type, output, false, tape, false, {}, examples::RendererType::Pbr, true, fixed_size);
             session.Journey();
         }
         {
-            examples::test::Session session(type, output, true, tape);
+            examples::test::Session session(type, output, true, tape, false, {}, examples::RendererType::Pbr, true, fixed_size);
             session.Journey();
         }
         std::println("PASS: {} UI ticks replayed with identical state and PNG bytes ({})", tape.size(),

@@ -17,7 +17,8 @@ struct DeferredLight {
     float4 color_intensity;
 };
 
-struct FrameConstant {
+// Prefix of the CPU FrameConstant buffer; lights follow this header.
+struct FrameHeader {
     float4 camera_pos;
     matrix view;
     matrix projection;
@@ -34,7 +35,6 @@ struct FrameConstant {
     float  exposure;
     float  ssao_strength;
     float4 viewport;
-    DeferredLight lights[MAX_DEFERRED_LIGHTS];
 };
 
 struct PSInput {
@@ -75,7 +75,7 @@ float3 ACESFilm(float3 color) {
     return saturate((color * (a * color + b)) / (color * (c * color + d) + e));
 }
 
-float3 SkyColor(float2 uv, FrameConstant frame_constant) {
+float3 SkyColor(float2 uv, FrameHeader frame_constant) {
     const float2 ndc      = float2(uv.x * 2.0f - 1.0f, (1.0f - uv.y) * 2.0f - 1.0f);
     float4       view_far = mul(frame_constant.inv_projection, float4(ndc, 1.0f, 1.0f));
     view_far /= max(abs(view_far.w), 0.00001f);
@@ -110,7 +110,7 @@ float3 FresnelSchlick(float cos_theta, float3 f0) {
     return f0 + (1.0f - f0) * pow(saturate(1.0f - cos_theta), 5.0f);
 }
 
-float ComputeScreenSpaceAO(BindlessInfo resource, SamplerState sampler, FrameConstant frame_constant, float2 uv, float3 position_in_view, float3 normal_in_view, float linear_depth) {
+float ComputeScreenSpaceAO(BindlessInfo resource, SamplerState sampler, FrameHeader frame_constant, float2 uv, float3 position_in_view, float3 normal_in_view, float linear_depth) {
     static const float2 offsets[12] = {
         float2(1.0f, 0.0f),
         float2(-1.0f, 0.0f),
@@ -167,7 +167,7 @@ float ComputeScreenSpaceAO(BindlessInfo resource, SamplerState sampler, FrameCon
 
 float4 PSMain(PSInput input) : SV_TARGET {
     const BindlessInfo  resource       = hitagi::load_bindless<BindlessInfo>();
-    const FrameConstant frame_constant = resource.frame_constant.load<FrameConstant>();
+    const FrameHeader   frame_constant = resource.frame_constant.load<FrameHeader>();
     const SamplerState  sampler        = resource.sampler.load();
     const float4        albedo_depth   = resource.gbuffer_albedo.sample_level<float4>(sampler, input.uv, 0.0f);
     const float4        normal_data    = resource.gbuffer_normal.sample_level<float4>(sampler, input.uv, 0.0f);
@@ -207,11 +207,12 @@ float4 PSMain(PSInput input) : SV_TARGET {
 
     const uint light_count = min(frame_constant.light_count, MAX_DEFERRED_LIGHTS);
     for (uint i = 0; i < light_count; ++i) {
-        const float3 light_vector = frame_constant.lights[i].position_in_view.xyz - position_in_view;
+        const DeferredLight light = resource.frame_constant.load<DeferredLight>(sizeof(FrameHeader) + i * sizeof(DeferredLight));
+        const float3 light_vector = light.position_in_view.xyz - position_in_view;
         const float  distance2    = dot(light_vector, light_vector);
         const float3 light_dir    = normalize(light_vector);
         const float3 half_dir     = normalize(light_dir + view_dir);
-        const float3 radiance     = frame_constant.lights[i].color_intensity.rgb * frame_constant.lights[i].color_intensity.a;
+        const float3 radiance     = light.color_intensity.rgb * light.color_intensity.a;
         const float  distance     = sqrt(distance2);
         const float  attenuation  = 1.0f / (1.0f + distance * 0.016f + distance2 * 0.00025f);
         const float  n_dot_l      = saturate(dot(normal_in_view, light_dir));

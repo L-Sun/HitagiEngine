@@ -7,6 +7,9 @@ import interop.dx12;
 import std;
 import gfx;
 import gfx.vulkan;
+#ifdef __APPLE__
+import gfx.metal;
+#endif
 #ifdef _WIN32
 import gfx.dx12;
 #endif
@@ -76,6 +79,8 @@ TEST_P(BindlessTest, RejectsForeignCreationDependencies) {
 }
 #ifdef _WIN32
 INSTANTIATE_TEST_SUITE_P(Backends, BindlessTest, testing::Values(Device::Type::DX12, Device::Type::Vulkan));
+#elif defined(__APPLE__)
+INSTANTIATE_TEST_SUITE_P(Backends, BindlessTest, testing::Values(Device::Type::Metal, Device::Type::Vulkan));
 #else
 INSTANTIATE_TEST_SUITE_P(Backends, BindlessTest, testing::Values(Device::Type::Vulkan));
 #endif
@@ -86,7 +91,14 @@ TEST_P(BindlessTest, SamplerHeapExhaustionAndReuse) {
     auto                                  bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler           compiler{"Tests"};
     std::vector<std::shared_ptr<Sampler>> samplers;
-    for (std::size_t index = 0; index < 128; ++index) {
+#ifdef __APPLE__
+    // Fixed M4+ contract: 500 K argument-buffer samplers (Apple feature tables).
+    const std::size_t capacity = GetParam() == Device::Type::Metal ? 500000 : 128;
+#else
+    constexpr std::size_t capacity = 128;
+#endif
+    samplers.reserve(capacity);
+    for (std::size_t index = 0; index < capacity; ++index) {
         auto sampler = hitagi::gfx::Sampler::Create(*device, *bindings, {});
         ASSERT_TRUE(sampler->GetBindlessHandle());
         samplers.emplace_back(std::move(sampler));
@@ -100,7 +112,7 @@ TEST_P(BindlessTest, SamplerHeapExhaustionAndReuse) {
 }
 
 TEST_P(BindlessTest, RenderGraphResolvesSharedSamplerAcrossPassesAndFrames) {
-    auto                         device   = create_device(GetParam(), "GraphSharedSampler");
+    auto                         device = create_device(GetParam(), "GraphSharedSampler");
     hitagi::gfx::CommandQueues   queues(*device);
     auto                         bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler  compiler{"Tests"};
@@ -196,10 +208,15 @@ TEST_P(BindlessTest, RawBufferRoundTrip) {
     context->ResourceBarrier({}, std::array{output->Transition(BarrierAccess::ShaderWrite, PipelineStage::ComputeShader)});
     context->SetPipeline(*pipeline);
     context->PushBindlessMetaInfo({.handle = argument_view->GetBindlessHandle()});
-    // Dispatch through the backend: the public compute context has no Dispatch API yet.
+// Dispatch through the backend: the public compute context has no Dispatch API yet.
     if (GetParam() == Device::Type::Vulkan) {
         static_cast<VulkanComputeCommandBuffer&>(*context).command_buffer.dispatch(1, 1, 1);
     }
+#ifdef __APPLE__
+    else {
+        static_cast<MetalComputeCommandBuffer&>(*context).GetMetalEncoder()->dispatchThreads({1, 1, 1}, {1, 1, 1});
+    }
+#endif
 #ifdef _WIN32
     else {
         static_cast<DX12ComputeCommandList&>(*context).command_list->Dispatch(1, 1, 1);
@@ -229,11 +246,11 @@ TEST_P(BindlessTest, RawBufferRoundTrip) {
 }
 
 TEST_P(BindlessTest, StorageViewPreservesDenseElements) {
-    auto       device       = create_device(GetParam(), "DenseStorageElements");
+    auto                        device = create_device(GetParam(), "DenseStorageElements");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
-    const auto requirements = GPUBuffer::GetStorageViewRequirements(*device);
+    const auto                  requirements = GPUBuffer::GetStorageViewRequirements(*device);
     EXPECT_GT(requirements.offset_alignment, 0);
     EXPECT_EQ(requirements.size_alignment, 4);
     const std::array<float, 3> input{1.0f, 2.0f, 3.0f};
@@ -259,12 +276,12 @@ TEST_P(BindlessTest, StorageViewPreservesDenseElements) {
 }
 
 TEST_P(BindlessTest, ExplicitStrideAndOverlappingViews) {
-    auto       device       = create_device(GetParam(), "ExplicitStorageStride");
+    auto                        device = create_device(GetParam(), "ExplicitStorageStride");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
-    const auto requirements = GPUBuffer::GetStorageViewRequirements(*device);
-    const auto stride       = 2 * requirements.offset_alignment;
+    const auto                  requirements = GPUBuffer::GetStorageViewRequirements(*device);
+    const auto                  stride       = 2 * requirements.offset_alignment;
     auto                        buffer       = hitagi::gfx::GPUBuffer::Create(*device, {
                                                                                            .size   = 2 * stride + sizeof(float),
                                                                                            .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
@@ -302,7 +319,7 @@ TEST_P(BindlessTest, ExplicitStrideAndOverlappingViews) {
 }
 
 TEST_P(BindlessTest, StorageViewPadsOnlyBindingTailAndChecksBounds) {
-    auto device = create_device(GetParam(), "StorageViewBounds");
+    auto                        device = create_device(GetParam(), "StorageViewBounds");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
@@ -371,7 +388,7 @@ TEST_P(BindlessTest, StorageViewPadsOnlyBindingTailAndChecksBounds) {
 }
 
 TEST_P(BindlessTest, ReadAndWriteViewsShareStorage) {
-    auto device = create_device(GetParam(), "OverlappingReadWriteViews");
+    auto                        device = create_device(GetParam(), "OverlappingReadWriteViews");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
@@ -399,27 +416,27 @@ TEST_P(BindlessTest, ReadAndWriteViewsShareStorage) {
 }
 
 TEST_P(BindlessTest, RenderGraphMapsVertexAndIndexViews) {
-    auto                  device = create_device(GetParam(), "MappedVertexIndexViews");
+    auto                        device = create_device(GetParam(), "MappedVertexIndexViews");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
     rg::RenderGraph             graph(*device, queues, *bindings);
-    const auto            vertices = graph.Create(GPUBufferDesc{
+    const auto                  vertices = graph.Create(GPUBufferDesc{
         .size   = 3 * sizeof(float),
         .usages = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::MapWrite,
     });
-    const auto            indices  = graph.Create(GPUBufferDesc{
+    const auto                  indices  = graph.Create(GPUBufferDesc{
         .size   = 3 * sizeof(std::uint16_t),
         .usages = GPUBufferUsageFlags::Index | GPUBufferUsageFlags::MapWrite,
     });
-    const auto            target   = graph.Create(TextureDesc{
+    const auto                  target   = graph.Create(TextureDesc{
         .width  = 1,
         .height = 1,
         .format = Format::R8G8B8A8_UNORM,
         .usages = TextureUsageFlags::RenderTarget,
     });
-    bool                  executed = false;
-    rg::RenderPassBuilder builder(graph);
+    bool                        executed = false;
+    rg::RenderPassBuilder       builder(graph);
     builder.AllowPassCulling(false);
     const auto vertices_access = builder.ReadAsVertices(vertices, {.element_size = sizeof(float), .element_count = 0});
     const auto indices_access  = builder.ReadAsIndices(indices, {.element_size = sizeof(std::uint16_t), .element_count = 0});
@@ -449,15 +466,15 @@ TEST_P(BindlessTest, RenderGraphMapsVertexAndIndexViews) {
 }
 
 TEST_P(BindlessTest, RenderGraphOverlappingViewsAndHandleOwnership) {
-    auto                   device = create_device(GetParam(), "GraphAccessViews");
+    auto                        device = create_device(GetParam(), "GraphAccessViews");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
     rg::RenderGraph             graph(*device, queues, *bindings);
-    const auto             buffer  = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
-    const auto             texture = graph.Create(TextureDesc{
+    const auto                  buffer  = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
+    const auto                  texture = graph.Create(TextureDesc{
         .width = 8, .height = 8, .depth = 1, .format = Format::R8G8B8A8_UNORM, .mip_levels = 2, .usages = TextureUsageFlags::SRV});
-    rg::ComputePassBuilder first(graph);
+    rg::ComputePassBuilder      first(graph);
     first.AllowPassCulling(false);
     const rg::GPUBufferEdgeHandle records  = first.Read(buffer, {.element_size = 4, .element_count = 8});
     const rg::GPUBufferEdgeHandle pairs    = first.Read(buffer, {.element_size = 8, .element_count = 4});
@@ -513,13 +530,13 @@ TEST_P(BindlessTest, RenderGraphOverlappingViewsAndHandleOwnership) {
 }
 
 TEST_P(BindlessTest, RenderGraphReadsIndexedScalarRecords) {
-    auto            device = create_device(GetParam(), "AlignedScalarRecords");
+    auto                        device = create_device(GetParam(), "AlignedScalarRecords");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
     rg::RenderGraph             graph(*device, queues, *bindings);
-    const auto      requirements = GPUBuffer::GetStorageViewRequirements(*device);
-    const auto      stride       = 2 * utils::align(sizeof(float), requirements.offset_alignment);
+    const auto                  requirements = GPUBuffer::GetStorageViewRequirements(*device);
+    const auto                  stride       = 2 * utils::align(sizeof(float), requirements.offset_alignment);
     // No trailing stride padding: inference must still include the final record.
     auto input = hitagi::gfx::GPUBuffer::Create(*device, {.size = 2 * stride + sizeof(float), .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite});
     if (requirements.offset_alignment > sizeof(float)) {
@@ -579,6 +596,11 @@ TEST_P(BindlessTest, RenderGraphReadsIndexedScalarRecords) {
         if (GetParam() == Device::Type::Vulkan) {
             static_cast<VulkanComputeCommandBuffer&>(cmd).command_buffer.dispatch(1, 1, 1);
         }
+#ifdef __APPLE__
+        else {
+            static_cast<MetalComputeCommandBuffer&>(cmd).GetMetalEncoder()->dispatchThreads({1, 1, 1}, {1, 1, 1});
+        }
+#endif
 #ifdef _WIN32
         else {
             static_cast<DX12ComputeCommandList&>(cmd).command_list->Dispatch(1, 1, 1);
@@ -606,3 +628,31 @@ TEST_P(BindlessTest, RenderGraphReadsIndexedScalarRecords) {
     auto result        = readback_view->GetMappedSpan<const float>();
     EXPECT_FLOAT_EQ(result.front(), 18.0f);
 }
+
+#ifdef __APPLE__
+TEST(MetalCommandTest, CopySubmissionSignalsFenceAndAllowsRerecording) {
+    auto          device = create_device(Device::Type::Metal, "CommandLifetime");
+    CommandQueues queues(*device);
+    auto          context  = CopyCommandContext::Create(*device, queues);
+    auto          fence    = Fence::Create(*device);
+    auto          upload   = GPUBuffer::Create(*device, {.size = 64, .usages = GPUBufferUsageFlags::MapWrite | GPUBufferUsageFlags::CopySrc});
+    auto          readback = GPUBuffer::Create(*device, {.size = 64, .usages = GPUBufferUsageFlags::MapRead | GPUBufferUsageFlags::CopyDst});
+    auto&         queue    = queues.Get(CommandType::Copy);
+
+    for (std::uint64_t round = 1; round <= 3; ++round) {
+        const auto value = static_cast<std::byte>(round * 17);
+        std::fill_n(upload->Map(), 64, value);
+        upload->UnMap();
+        context->Begin();
+        context->CopyBuffer(*upload, 0, *readback, 0, 64);
+        context->End();
+        queue.Submit({{*context}}, {{FenceWaitInfo{*fence, round - 1}}}, {{FenceSignalInfo{*fence, round}}});
+        ASSERT_TRUE(fence->Wait(round, std::chrono::seconds(5)));
+        EXPECT_EQ(fence->GetCurrentValue(), round);
+        const auto* data = readback->Map();
+        EXPECT_TRUE(std::ranges::all_of(std::span(data, 64), [value](std::byte byte) { return byte == value; }));
+        readback->UnMap();
+    }
+    queue.WaitIdle();
+}
+#endif

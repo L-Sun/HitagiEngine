@@ -12,6 +12,8 @@ vtune
 output
 
 .vscode/compile_commands.json
+# Generated per platform by xmake/scripts/generate_clangd.lua
+.clangd
 
 # ispc header will be generated during compilation
 *_ispc.h

@@ -1,5 +1,6 @@
 module;
-#include <cassert>
+#include <utility>
+
 #include "interop/tracy_macros.hpp"
 
 export module gfx.vulkan:resource;
@@ -8,6 +9,7 @@ import interop.win32;
 #endif
 import interop.sdl;
 import interop.fmt;
+import interop.magic_enum;
 import interop.spdlog;
 import interop.vma;
 import interop.vulkan;
@@ -18,6 +20,7 @@ import utils;
 import math;
 import gfx.base;
 import :types;
+import :command_queue;
 import :bindless;
 import :utils;
 import :configs;
@@ -43,7 +46,7 @@ struct VulkanBuffer final : public GPUBuffer {
 };
 
 struct VulkanBufferView final : public GPUBufferView {
-    VulkanBufferView(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc);
+    VulkanBufferView(VulkanBindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc);
 };
 
 struct VulkanImage final : public Texture {
@@ -86,7 +89,7 @@ public:
         std::shared_ptr<vk::raii::Semaphore> presentable;
     };
 
-    VulkanSwapChain(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::raii::Instance& instance, const vk::raii::PhysicalDevice& physical_device, const vk::raii::Queue& queue, std::uint32_t queue_family_index, std::shared_ptr<spdlog::logger> logger, SwapChainDesc desc);
+    VulkanSwapChain(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::raii::Instance& instance, const vk::raii::PhysicalDevice& physical_device, std::shared_ptr<VulkanNativeQueue> queue, std::span<const std::shared_ptr<VulkanNativeQueue>> device_queues, std::uint32_t queue_family_index, std::shared_ptr<spdlog::logger> logger, SwapChainDesc desc);
 
     auto AcquireTextureForRendering() -> utils::optional_ref<Texture> final;
 
@@ -102,12 +105,13 @@ public:
     inline const auto& GetSemaphores() const noexcept { return m_CurrentSemaphores; }
 
 private:
-    const vk::raii::Device&         m_Device;
-    const vk::AllocationCallbacks&  m_Callbacks;
-    const vk::raii::PhysicalDevice& m_PhysicalDevice;
-    const vk::raii::Queue&          m_Queue;
-    std::uint32_t                   m_QueueFamilyIndex;
-    std::shared_ptr<spdlog::logger> m_Logger;
+    const vk::raii::Device&                             m_Device;
+    const vk::AllocationCallbacks&                      m_Callbacks;
+    const vk::raii::PhysicalDevice&                     m_PhysicalDevice;
+    std::shared_ptr<VulkanNativeQueue>                  m_Queue;
+    std::span<const std::shared_ptr<VulkanNativeQueue>> m_DeviceQueues;
+    std::uint32_t                                       m_QueueFamilyIndex;
+    std::shared_ptr<spdlog::logger>                     m_Logger;
 
     void CreateSwapChain();
     void CreateImageViews();
@@ -140,22 +144,90 @@ struct VulkanShader final : public Shader {
 };
 
 struct VulkanRenderPipeline final : public RenderPipeline {
-    VulkanRenderPipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders);
+    VulkanRenderPipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders);
 
     std::unique_ptr<vk::raii::Pipeline> pipeline;
 };
 
 struct VulkanComputePipeline final : public ComputePipeline {
-    VulkanComputePipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs);
+    VulkanComputePipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs);
 
     std::unique_ptr<vk::raii::Pipeline> pipeline;
+};
+
+class VulkanDescriptorHeap final {
+public:
+    VulkanDescriptorHeap(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, VmaAllocator allocator);
+    VulkanDescriptorHeap(const VulkanDescriptorHeap&)            = delete;
+    VulkanDescriptorHeap& operator=(const VulkanDescriptorHeap&) = delete;
+
+    void Write(std::uint32_t index, const GPUBufferViewDesc& desc, std::uint64_t size);
+    void Write(std::uint32_t index, const TextureView& view);
+    void Write(std::uint32_t index, const Sampler& sampler);
+    void Bind(const vk::raii::CommandBuffer& command_buffer, vk::PipelineBindPoint bind_point) const;
+    void PushMetaInfo(const vk::raii::CommandBuffer& command_buffer, const BindlessMetaInfo& info) const;
+    void ConfigureShader(vk::PipelineShaderStageCreateInfo& info) const { info.pNext = &m_MappingInfo; }
+
+    template <typename PipelineCreateInfo>
+    auto CreatePipeline(PipelineCreateInfo info, const vk::AllocationCallbacks& callbacks) const -> std::unique_ptr<vk::raii::Pipeline> {
+        const vk::PipelineCreateFlags2CreateInfo flags{
+            .pNext = info.pNext,
+            .flags = vk::PipelineCreateFlagBits2::eDescriptorHeapEXT,
+        };
+        info.pNext  = &flags;
+        info.layout = nullptr;
+        return std::make_unique<vk::raii::Pipeline>(m_Device, nullptr, info, callbacks);
+    }
+
+private:
+    const vk::raii::Device& m_Device;
+    struct Heap {
+        ~Heap();
+        VmaAllocator        allocator  = nullptr;
+        VmaAllocation       allocation = nullptr;
+        VkBuffer            buffer     = interop::null_handle;
+        std::byte*          mapped     = nullptr;
+        vk::BindHeapInfoEXT bind_info;
+    };
+    std::array<Heap, 2>                                  m_Heaps;
+    std::array<vk::DescriptorSetAndBindingMappingEXT, 4> m_Mappings;
+    std::array<std::uint32_t, 4>                         m_DescriptorSizes;
+    std::array<std::uint32_t, 4>                         m_Offsets;
+
+    vk::ShaderDescriptorSetAndBindingMappingInfoEXT m_MappingInfo;
+};
+
+class VulkanDescriptorIndexing final {
+public:
+    VulkanDescriptorIndexing(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device);
+    void Write(std::uint32_t index, const GPUBufferViewDesc& desc, std::uint64_t size);
+    void Write(std::uint32_t index, const TextureView& view);
+    void Write(std::uint32_t index, const Sampler& sampler);
+    void Bind(const vk::raii::CommandBuffer& command_buffer, vk::PipelineBindPoint bind_point) const;
+    void PushMetaInfo(const vk::raii::CommandBuffer& command_buffer, const BindlessMetaInfo& info) const;
+    void ConfigureShader(vk::PipelineShaderStageCreateInfo&) const {}
+
+    template <typename PipelineCreateInfo>
+    auto CreatePipeline(PipelineCreateInfo info, const vk::AllocationCallbacks& callbacks) const -> std::unique_ptr<vk::raii::Pipeline> {
+        info.layout = **m_PipelineLayout;
+        return std::make_unique<vk::raii::Pipeline>(m_Device, nullptr, info, callbacks);
+    }
+
+private:
+    const vk::raii::Device&                        m_Device;
+    std::uint64_t                                  m_MaxStorageBufferRange = 0;
+    std::unique_ptr<vk::raii::DescriptorSetLayout> m_SetLayout;
+    std::unique_ptr<vk::raii::PipelineLayout>      m_PipelineLayout;
+    std::unique_ptr<vk::raii::DescriptorPool>      m_DescriptorPool;
+    std::unique_ptr<vk::raii::DescriptorSet>       m_DescriptorSet;
 };
 
 }  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
 
-VulkanBuffer::VulkanBuffer(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VmaAllocator allocator, std::shared_ptr<spdlog::logger> logger, GPUBufferDesc desc, std::span<const std::byte> initial_data) : GPUBuffer(std::move(desc)), m_Allocator(allocator), m_Logger(std::move(logger)) {
+VulkanBuffer::VulkanBuffer(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VmaAllocator allocator, std::shared_ptr<spdlog::logger> logger, GPUBufferDesc desc, std::span<const std::byte> initial_data)
+    : GPUBuffer(std::move(desc)), m_Allocator(allocator), m_Logger(std::move(logger)) {
     logger = m_Logger;
 
     if (Size() == 0) {
@@ -260,8 +332,9 @@ VulkanBuffer::VulkanBuffer(const vk::raii::Device& device, const vk::AllocationC
     create_vk_debug_object_info(*buffer, GetName(), device);
 }
 
-VulkanBufferView::VulkanBufferView(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc) : GPUBufferView(bindings, storage_requirements, std::move(desc)) {
-    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<VulkanBindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(device.getBufferAddress({.buffer = **static_cast<VulkanBuffer&>(*m_Desc.buffer).buffer}), m_Desc, Size());
+VulkanBufferView::VulkanBufferView(VulkanBindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc)
+    : GPUBufferView(bindings, storage_requirements, std::move(desc)) {
+    if (RequiresBindlessHandle()) m_BindlessHandle = bindings.CreateBindlessHandle(m_Desc, Size());
 }
 
 VulkanBuffer::~VulkanBuffer() {
@@ -280,7 +353,6 @@ auto VulkanBuffer::Map() -> std::byte* {
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
-
 
     std::byte* mapped_ptr = nullptr;
     if (VK_SUCCESS != vmaMapMemory(m_Allocator,
@@ -336,7 +408,8 @@ void VulkanBuffer::UnMap() {
     vmaUnmapMemory(m_Allocator, allocation);
 }
 
-VulkanImage::VulkanImage(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VmaAllocator allocator, const std::shared_ptr<spdlog::logger>& logger, TextureDesc desc, std::span<const std::byte> initial_data) : Texture(std::move(desc)), m_Allocator(allocator), native_device(*device) {
+VulkanImage::VulkanImage(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VmaAllocator allocator, const std::shared_ptr<spdlog::logger>& logger, TextureDesc desc, std::span<const std::byte> initial_data)
+    : Texture(std::move(desc)), m_Allocator(allocator), native_device(*device) {
     logger->trace("Create Texture({})...", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
         if (m_Desc.width == 0 || m_Desc.height == 0 || m_Desc.depth == 0) {
@@ -389,14 +462,15 @@ VulkanImage::VulkanImage(const vk::raii::Device& device, const VulkanSwapChain& 
           }),
       swap_chain(&_swap_chian),
       native_device(*device) {
-    const auto  _images   = _swap_chian.GetVkSwapChain().getImages();
+    const auto _images = _swap_chian.GetVkSwapChain().getImages();
     create_vk_debug_object_info(_images.at(index), GetName(), device);
 
     image_handle = _images.at(index);
 }
 
-VulkanTextureView::VulkanTextureView(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, TextureViewDesc desc) : TextureView(bindings, std::move(desc)) {
-    const auto fail   = [&](std::string message) {
+VulkanTextureView::VulkanTextureView(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, TextureViewDesc desc)
+    : TextureView(bindings, std::move(desc)) {
+    const auto fail = [&](std::string message) {
         const auto error_message = fmt::format(
             "Invalid texture view({}): {}",
             fmt::styled(GetName(), fmt::fg(fmt::color::red)),
@@ -459,7 +533,7 @@ VulkanTextureView::VulkanTextureView(const vk::raii::Device& device, const vk::A
     image_view         = vk::raii::ImageView(device, to_vk_image_view_create_info(m_Desc, vulkan_image.image_handle), callbacks);
     create_vk_debug_object_info(image_view.value(), GetName(), device);
 
-    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<VulkanBindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(static_cast<VulkanImage&>(*m_Desc.texture).image_handle, m_Desc);
+    if (RequiresBindlessHandle()) m_BindlessHandle = bindings.CreateBindlessHandle(*this);
 }
 
 VulkanImage::~VulkanImage() {
@@ -469,7 +543,7 @@ VulkanImage::~VulkanImage() {
 VulkanSampler::VulkanSampler(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, VulkanBindlessUtils& bindings, SamplerDesc desc) : Sampler(bindings, std::move(desc)) {
     sampler = std::make_unique<vk::raii::Sampler>(device, to_vk_sampler_create_info(m_Desc), callbacks);
     create_vk_debug_object_info(*sampler, GetName(), device);
-    if (RequiresBindlessHandle()) m_BindlessHandle = static_cast<VulkanBindlessUtils&>(m_BindlessUtils).CreateBindlessHandle(m_Desc);
+    if (RequiresBindlessHandle()) m_BindlessHandle = bindings.CreateBindlessHandle(*this);
 }
 
 VulkanSwapChain::SemaphorePair::SemaphorePair(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, std::string_view name)
@@ -479,12 +553,28 @@ VulkanSwapChain::SemaphorePair::SemaphorePair(const vk::raii::Device& device, co
     create_vk_debug_object_info(*presentable, std::format("{}-presentable", name), device);
 }
 
-VulkanSwapChain::VulkanSwapChain(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::raii::Instance& instance, const vk::raii::PhysicalDevice& physical_device, const vk::raii::Queue& queue, std::uint32_t queue_family_index, std::shared_ptr<spdlog::logger> logger, SwapChainDesc desc)
-    : SwapChain(std::move(desc)), m_Device(device), m_Callbacks(callbacks), m_PhysicalDevice(physical_device), m_Queue(queue), m_QueueFamilyIndex(queue_family_index), m_Logger(std::move(logger)) {
-    switch (desc.window.type) {
+VulkanSwapChain::VulkanSwapChain(
+    const vk::raii::Device&                             device,
+    const vk::AllocationCallbacks&                      callbacks,
+    const vk::raii::Instance&                           instance,
+    const vk::raii::PhysicalDevice&                     physical_device,
+    std::shared_ptr<VulkanNativeQueue>                  queue,
+    std::span<const std::shared_ptr<VulkanNativeQueue>> device_queues,
+    std::uint32_t                                       queue_family_index,
+    std::shared_ptr<spdlog::logger>                     logger,
+    SwapChainDesc                                       desc)
+    : SwapChain(std::move(desc)),
+      m_Device(device),
+      m_Callbacks(callbacks),
+      m_PhysicalDevice(physical_device),
+      m_Queue(std::move(queue)),
+      m_DeviceQueues(device_queues),
+      m_QueueFamilyIndex(queue_family_index),
+      m_Logger(std::move(logger)) {
+    switch (m_Desc.window.type) {
 #ifdef _WIN32
         case utils::Window::Type::Win32: {
-            auto                          h_wnd = static_cast<HWND>(desc.window.ptr);
+            auto                          h_wnd = static_cast<HWND>(m_Desc.window.ptr);
             vk::Win32SurfaceCreateInfoKHR surface_create_info{
                 .hinstance = GetModuleHandleW(nullptr),
                 .hwnd      = h_wnd,
@@ -493,38 +583,20 @@ VulkanSwapChain::VulkanSwapChain(const vk::raii::Device& device, const vk::Alloc
         } break;
 #endif
         case utils::Window::Type::SDL3: {
-            auto sdl_window = static_cast<SDL_Window*>(desc.window.ptr);
-            auto h_wnd      = reinterpret_cast<HWND>(
-                SDL_GetPointerProperty(
-                    SDL_GetWindowProperties(sdl_window),
-                    SDL_PROP_WINDOW_WIN32_HWND_POINTER,
-                    nullptr));
-            if (!h_wnd) {
-                const auto error_message = std::format("SDL_GetWindowProperties failed: {}", SDL_GetError());
+            auto                  sdl_window = static_cast<SDL_Window*>(m_Desc.window.ptr);
+            vk::SurfaceKHR::CType surface{};
+            if (!SDL_Vulkan_CreateSurface(sdl_window, static_cast<vk::Instance::CType>(*instance), callbacks, &surface)) {
+                const auto error_message = std::format("SDL_Vulkan_CreateSurface failed: {}", SDL_GetError());
                 m_Logger->error(error_message);
                 throw std::runtime_error(error_message);
             }
-#if defined(VK_USE_PLATFORM_WIN32_KHR)
-            vk::Win32SurfaceCreateInfoKHR surface_create_info{
-                .hinstance = GetModuleHandleW(nullptr),
-                .hwnd      = h_wnd,
-            };
-#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-            assert((SDL_strcmp(SDL_GetCurrentVideoDriver(), "wayland") == 0));
-            auto display = reinterpret_cast<struct wl_display*>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window), SDL_PROP_WINDOW_WAYLAND_DISPLAY_POINTER, nullptr));
-            auto surface = reinterpret_cast<struct wl_surface*>(SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window), SDL_PROP_WINDOW_WAYLAND_SURFACE_POINTER, nullptr));
-            if (!display || !surface) {
-                const auto error_message = std::format("SDL_GetPointerProperty failed: {}", SDL_GetError());
-                m_Logger->error(error_message);
-                throw std::runtime_error(error_message);
-            }
-            vk::WaylandSurfaceCreateInfoKHR surface_create_info{
-                .display = display,
-                .surface = surface,
-            };
-#endif
-            m_Surface = std::make_unique<vk::raii::SurfaceKHR>(instance, surface_create_info, callbacks);
+            m_Surface = std::make_unique<vk::raii::SurfaceKHR>(instance, surface, callbacks);
         } break;
+        default: {
+            const auto error_message = std::format("Vulkan swap chain does not support window type {}", magic_enum::enum_name(m_Desc.window.type));
+            m_Logger->error(error_message);
+            throw std::runtime_error(error_message);
+        }
     }
 
     CreateSwapChain();
@@ -583,12 +655,13 @@ void VulkanSwapChain::Present() {
 
     const auto& queue = m_Queue;
 
-    auto          index                 = static_cast<std::uint32_t>(m_CurrentIndex);
-    auto          presentable_semaphore = m_CurrentSemaphores.presentable;
-    m_CurrentIndex                      = -1;
-    m_CurrentSemaphores                 = {};
+    auto index                 = static_cast<std::uint32_t>(m_CurrentIndex);
+    auto presentable_semaphore = m_CurrentSemaphores.presentable;
+    m_CurrentIndex             = -1;
+    m_CurrentSemaphores        = {};
 
-    auto result = queue.presentKHR(vk::PresentInfoKHR{
+    std::scoped_lock lock{queue->mutex};
+    auto             result = queue->queue.presentKHR(vk::PresentInfoKHR{
         .waitSemaphoreCount = 1,
         .pWaitSemaphores    = &(**presentable_semaphore),
         .swapchainCount     = 1,
@@ -606,7 +679,7 @@ void VulkanSwapChain::Present() {
 }
 
 void VulkanSwapChain::Resize() {
-    m_Device.waitIdle();
+    wait_vulkan_device_idle(m_Device, m_DeviceQueues);
     m_CurrentIndex       = -1;
     m_NextSemaphoreIndex = 0;
     m_CurrentSemaphores  = {};
@@ -656,7 +729,8 @@ void VulkanSwapChain::CreateSwapChain() {
     const auto supported_formats       = physical_device.getSurfaceFormatsKHR(**m_Surface);
     const auto supported_present_modes = physical_device.getSurfacePresentModesKHR(**m_Surface);
 
-    m_Format = from_vk_format(supported_formats.front().format);
+    const auto surface_format = choose_surface_format(supported_formats);
+    m_Format                  = from_vk_format(surface_format.format);
 
     if (std::find_if(supported_present_modes.begin(), supported_present_modes.end(), [](const auto& present_mode) {
             return present_mode == vk::PresentModeKHR::eFifo;
@@ -693,7 +767,7 @@ void VulkanSwapChain::CreateSwapChain() {
         .surface          = **m_Surface,
         .minImageCount    = m_NumImages,
         .imageFormat      = to_vk_format(m_Format),
-        .imageColorSpace  = supported_formats.front().colorSpace,
+        .imageColorSpace  = surface_format.colorSpace,
         .imageExtent      = vk::Extent2D{.width = m_Size.x, .height = m_Size.y},
         .imageArrayLayers = 1,
         .imageUsage       = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst,
@@ -746,7 +820,7 @@ auto VulkanShader::GetSPIRVData() const noexcept -> std::span<const std::byte> {
     return m_Compiled.bytecode.Span<const std::byte>();
 }
 
-VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(std::move(desc)) {
+VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>& shaders) : RenderPipeline(std::move(desc)) {
     bool has_vertex_shader = false, has_fragment_shader = false;
     for (const auto& shader : shaders) {
         if (shader->GetDesc().type == ShaderType::Vertex) {
@@ -808,13 +882,14 @@ VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const
     std::pmr::vector<vk::PipelineShaderStageCreateInfo> shader_stage_create_infos;
     std::transform(
         shaders.begin(), shaders.end(), std::back_inserter(shader_stage_create_infos),
-        [&mapping_info](const auto& shader) {
-            return vk::PipelineShaderStageCreateInfo{
-                .pNext  = &mapping_info,
+        [&bindings](const auto& shader) {
+            vk::PipelineShaderStageCreateInfo info{
                 .stage  = to_vk_shader_stage(shader->GetDesc().type),
                 .module = *std::static_pointer_cast<VulkanShader>(shader)->shader,
                 .pName  = shader->GetEntryPointName().c_str(),
             };
+            bindings.ConfigureShader(info);
+            return info;
         });
 
     const auto assembly_state = to_vk_assembly_state(m_Desc.assembly_state);
@@ -896,10 +971,9 @@ VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const
                                     ? depth_format
                                     : vk::Format::eUndefined;
 
-
     logger->trace("Create render pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
-        const vk::StructureChain pipeline_create_info = {
+        vk::StructureChain pipeline_create_info = {
             vk::GraphicsPipelineCreateInfo{
                 .stageCount          = static_cast<std::uint32_t>(shader_stage_create_infos.size()),
                 .pStages             = shader_stage_create_infos.data(),
@@ -911,10 +985,8 @@ VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const
                 .pDepthStencilState  = &depth_stencil_state,
                 .pColorBlendState    = &blend_state,
                 .pDynamicState       = &dynamic_state_create_info,
-                .layout              = nullptr,
                 .renderPass          = nullptr,
             },
-            vk::PipelineCreateFlags2CreateInfo{.flags = vk::PipelineCreateFlagBits2::eDescriptorHeapEXT},
             vk::PipelineRenderingCreateInfo{
                 .colorAttachmentCount    = 1,
                 .pColorAttachmentFormats = &render_format,
@@ -923,7 +995,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const
             },
         };
 
-        pipeline = std::make_unique<vk::raii::Pipeline>(device, nullptr, pipeline_create_info.get(), callbacks);
+        pipeline = bindings.CreatePipeline(pipeline_create_info.get(), callbacks);
 
         switch (pipeline->getConstructorSuccessCode()) {
             case vk::Result::eSuccess:
@@ -937,7 +1009,8 @@ VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const
     }
 }
 
-VulkanComputePipeline::VulkanComputePipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const vk::ShaderDescriptorSetAndBindingMappingInfoEXT& mapping_info, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(std::move(desc)) {
+VulkanComputePipeline::VulkanComputePipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs)
+    : ComputePipeline(std::move(desc)) {
     auto compute_shader = std::dynamic_pointer_cast<VulkanShader>(cs);
 
     if (compute_shader == nullptr) {
@@ -946,21 +1019,17 @@ VulkanComputePipeline::VulkanComputePipeline(const vk::raii::Device& device, con
         throw std::invalid_argument(error_message);
     }
 
-    const vk::PipelineShaderStageCreateInfo shader_stage_create_info{
-        .pNext  = &mapping_info,
+    vk::PipelineShaderStageCreateInfo shader_stage_create_info{
         .stage  = vk::ShaderStageFlagBits::eCompute,
         .module = *compute_shader->shader,
         .pName  = compute_shader->GetEntryPointName().c_str(),
     };
 
+    bindings.ConfigureShader(shader_stage_create_info);
+
     logger->trace("Create compute pipeline({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
     {
-        const vk::StructureChain pipeline_create_info{
-            vk::ComputePipelineCreateInfo{.stage = shader_stage_create_info},
-            vk::PipelineCreateFlags2CreateInfo{.flags = vk::PipelineCreateFlagBits2::eDescriptorHeapEXT},
-        };
-
-        pipeline = std::make_unique<vk::raii::Pipeline>(device, nullptr, pipeline_create_info.get(), callbacks);
+        pipeline = bindings.CreatePipeline(vk::ComputePipelineCreateInfo{.stage = shader_stage_create_info}, callbacks);
 
         switch (pipeline->getConstructorSuccessCode()) {
             case vk::Result::eSuccess:
@@ -972,6 +1041,289 @@ VulkanComputePipeline::VulkanComputePipeline(const vk::raii::Device& device, con
         }
         create_vk_debug_object_info(*pipeline, GetName(), device);
     }
+}
+
+VulkanDescriptorHeap::VulkanDescriptorHeap(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, VmaAllocator allocator)
+    : m_Device(device) {
+    constexpr auto& counts     = vulkan_bindless_descriptor_counts;
+    constexpr auto& bindings   = vulkan_bindless_descriptor_bindings;
+    const auto      properties = physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
+    const auto&     limits     = properties.get<vk::PhysicalDeviceDescriptorHeapPropertiesEXT>();
+    if (limits.maxPushDataSize < sizeof(BindlessMetaInfo)) throw std::runtime_error("Insufficient Vulkan push data size");
+
+    m_DescriptorSizes                        = {static_cast<std::uint32_t>(limits.bufferDescriptorSize), static_cast<std::uint32_t>(limits.imageDescriptorSize), static_cast<std::uint32_t>(limits.imageDescriptorSize), static_cast<std::uint32_t>(limits.samplerDescriptorSize)};
+    const std::array              alignments = {limits.bufferDescriptorAlignment, limits.imageDescriptorAlignment, limits.imageDescriptorAlignment, limits.samplerDescriptorAlignment};
+    std::array<vk::DeviceSize, 2> sizes{};
+    // Slang DefaultVkBindlessBindings (BindlessDescriptorOptions.None).
+    for (std::uint32_t kind = 0; kind < counts.size(); ++kind) {
+        auto& size              = sizes[kind == 3 ? 1 : 0];
+        size                    = utils::align(size, alignments[kind]);
+        m_Offsets[kind]         = static_cast<std::uint32_t>(size);
+        m_DescriptorSizes[kind] = utils::align(m_DescriptorSizes[kind], alignments[kind]);
+        size += static_cast<vk::DeviceSize>(m_DescriptorSizes[kind]) * counts[kind];
+        m_Mappings[kind] = {
+            .descriptorSet = 0,
+            .firstBinding  = bindings[kind],
+            .bindingCount  = 1,
+            .resourceMask  = vk::SpirvResourceTypeFlagBitsEXT::eAll,
+            .source        = vk::DescriptorMappingSourceEXT::eHeapWithConstantOffset,
+        };
+        m_Mappings[kind].sourceData.constantOffset = {.heapOffset = m_Offsets[kind], .heapArrayStride = m_DescriptorSizes[kind]};
+    }
+    m_MappingInfo = {.mappingCount = static_cast<std::uint32_t>(m_Mappings.size()), .pMappings = m_Mappings.data()};
+
+    const std::array heap_alignments     = {limits.resourceHeapAlignment, limits.samplerHeapAlignment};
+    const std::array reserved_alignments = {std::max(limits.bufferDescriptorAlignment, limits.imageDescriptorAlignment), limits.samplerDescriptorAlignment};
+    const std::array reserved_sizes      = {limits.minResourceHeapReservedRange, limits.minSamplerHeapReservedRange};
+    const std::array max_sizes           = {limits.maxResourceHeapSize, limits.maxSamplerHeapSize};
+    for (std::size_t index = 0; index < m_Heaps.size(); ++index) {
+        auto& heap                         = m_Heaps[index];
+        heap.allocator                     = allocator;
+        heap.bind_info.reservedRangeOffset = utils::align(sizes[index], reserved_alignments[index]);
+        heap.bind_info.reservedRangeSize   = utils::align(reserved_sizes[index], reserved_alignments[index]);
+        const auto size                    = heap.bind_info.reservedRangeOffset + heap.bind_info.reservedRangeSize;
+        if (size > max_sizes[index]) throw std::runtime_error("Vulkan descriptor heap capacity exceeds device limits");
+        const VkBufferCreateInfo buffer_info{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size  = size,
+            .usage = VK_BUFFER_USAGE_DESCRIPTOR_HEAP_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        };
+        const VmaAllocationCreateInfo allocation_info{
+            .flags         = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+            .usage         = VMA_MEMORY_USAGE_AUTO,
+            .requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        };
+        VmaAllocationInfo allocation{};
+        if (vmaCreateBufferWithAlignment(heap.allocator, &buffer_info, &allocation_info, heap_alignments[index], &heap.buffer, &heap.allocation, &allocation) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate Vulkan descriptor heap");
+        }
+        heap.mapped              = static_cast<std::byte*>(allocation.pMappedData);
+        heap.bind_info.heapRange = {.address = device.getBufferAddress({.buffer = heap.buffer}), .size = size};
+    }
+}
+
+VulkanDescriptorHeap::Heap::~Heap() {
+    if (buffer) vmaDestroyBuffer(allocator, buffer, allocation);
+}
+
+void VulkanDescriptorHeap::Write(std::uint32_t index, const GPUBufferViewDesc& desc, std::uint64_t size) {
+    const vk::DeviceAddressRangeEXT range{
+        .address = m_Device.getBufferAddress({.buffer = **std::static_pointer_cast<VulkanBuffer>(desc.buffer)->buffer}) + desc.offset,
+        .size    = size,
+    };
+    vk::ResourceDescriptorInfoEXT resource{.type = vk::DescriptorType::eStorageBuffer};
+    resource.data.pAddressRange = &range;
+    m_Device.writeResourceDescriptorsEXT(
+        resource,
+        vk::HostAddressRangeEXT{
+            .address = m_Heaps[0].mapped + m_Offsets[0] + index * m_DescriptorSizes[0],
+            .size    = m_DescriptorSizes[0],
+        });
+}
+
+void VulkanDescriptorHeap::Write(std::uint32_t index, const TextureView& view) {
+    const auto&                      desc      = view.GetDesc();
+    const bool                       writable  = desc.type == TextureViewType::ShaderWrite;
+    const auto                       kind      = writable ? 2 : 1;
+    const auto                       view_info = to_vk_image_view_create_info(desc, std::static_pointer_cast<VulkanImage>(desc.texture)->image_handle);
+    const vk::ImageDescriptorInfoEXT image_info{.pView = &view_info, .layout = writable ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal};
+    vk::ResourceDescriptorInfoEXT    resource{.type = writable ? vk::DescriptorType::eStorageImage : vk::DescriptorType::eSampledImage};
+    resource.data.pImage = &image_info;
+    m_Device.writeResourceDescriptorsEXT(
+        resource,
+        vk::HostAddressRangeEXT{
+            .address = m_Heaps[0].mapped + m_Offsets[kind] + index * m_DescriptorSizes[kind],
+            .size    = m_DescriptorSizes[kind],
+        });
+}
+
+void VulkanDescriptorHeap::Write(std::uint32_t index, const Sampler& sampler) {
+    m_Device.writeSamplerDescriptorsEXT(
+        to_vk_sampler_create_info(sampler.GetDesc()),
+        vk::HostAddressRangeEXT{
+            .address = m_Heaps[1].mapped + index * m_DescriptorSizes[3],
+            .size    = m_DescriptorSizes[3],
+        });
+}
+
+void VulkanDescriptorHeap::Bind(const vk::raii::CommandBuffer& command_buffer, vk::PipelineBindPoint) const {
+    command_buffer.bindResourceHeapEXT(m_Heaps[0].bind_info);
+    command_buffer.bindSamplerHeapEXT(m_Heaps[1].bind_info);
+}
+
+void VulkanDescriptorHeap::PushMetaInfo(const vk::raii::CommandBuffer& command_buffer, const BindlessMetaInfo& info) const {
+    command_buffer.pushDataEXT({.offset = 0, .data = {.address = &info, .size = sizeof(info)}});
+}
+
+VulkanDescriptorIndexing::VulkanDescriptorIndexing(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device)
+    : m_Device(device) {
+    constexpr auto& counts      = vulkan_bindless_descriptor_counts;
+    constexpr auto& bindings    = vulkan_bindless_descriptor_bindings;
+    const auto      properties  = physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDescriptorIndexingProperties>();
+    const auto&     limits      = properties.get<vk::PhysicalDeviceDescriptorIndexingProperties>();
+    const auto&     core_limits = properties.get<vk::PhysicalDeviceProperties2>().properties.limits;
+    m_MaxStorageBufferRange     = core_limits.maxStorageBufferRange;
+    constexpr auto total        = max_storage_descriptors + max_sampled_image_descriptors + max_storage_image_descriptors + max_sampler_descriptors;
+    if (core_limits.maxPushConstantsSize < sizeof(BindlessMetaInfo) ||
+        limits.maxDescriptorSetUpdateAfterBindStorageBuffers < max_storage_descriptors ||
+        limits.maxPerStageDescriptorUpdateAfterBindStorageBuffers < max_storage_descriptors ||
+        limits.maxDescriptorSetUpdateAfterBindSampledImages < max_sampled_image_descriptors ||
+        limits.maxPerStageDescriptorUpdateAfterBindSampledImages < max_sampled_image_descriptors ||
+        limits.maxDescriptorSetUpdateAfterBindStorageImages < max_storage_image_descriptors ||
+        limits.maxPerStageDescriptorUpdateAfterBindStorageImages < max_storage_image_descriptors ||
+        limits.maxDescriptorSetUpdateAfterBindSamplers < max_sampler_descriptors ||
+        limits.maxPerStageDescriptorUpdateAfterBindSamplers < max_sampler_descriptors ||
+        limits.maxPerStageUpdateAfterBindResources < total ||
+        limits.maxUpdateAfterBindDescriptorsInAllPools < total) {
+        throw std::runtime_error("Vulkan descriptor indexing capacity exceeds device limits");
+    }
+    constexpr std::array                          types{vk::DescriptorType::eStorageBuffer, vk::DescriptorType::eSampledImage, vk::DescriptorType::eStorageImage, vk::DescriptorType::eSampler};
+    std::array<vk::DescriptorSetLayoutBinding, 4> layout_bindings;
+    std::array<vk::DescriptorPoolSize, 4>         pool_sizes;
+    std::array<vk::DescriptorBindingFlags, 4>     binding_flags;
+    for (std::size_t kind = 0; kind < counts.size(); ++kind) {
+        layout_bindings[kind] = {.binding = bindings[kind], .descriptorType = types[kind], .descriptorCount = counts[kind], .stageFlags = vk::ShaderStageFlagBits::eAll};
+        pool_sizes[kind]      = {.type = types[kind], .descriptorCount = counts[kind]};
+        binding_flags[kind]   = vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eUpdateAfterBind | vk::DescriptorBindingFlagBits::eUpdateUnusedWhilePending;
+    }
+    const vk::DescriptorSetLayoutBindingFlagsCreateInfo flags{.bindingCount = 4, .pBindingFlags = binding_flags.data()};
+    m_SetLayout = std::make_unique<vk::raii::DescriptorSetLayout>(
+        device,
+        vk::DescriptorSetLayoutCreateInfo{
+            .pNext        = &flags,
+            .flags        = vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
+            .bindingCount = 4,
+            .pBindings    = layout_bindings.data(),
+        });
+    const vk::DescriptorSetLayout layout = **m_SetLayout;
+    const vk::PushConstantRange   push_range{.stageFlags = vk::ShaderStageFlagBits::eAll, .offset = 0, .size = sizeof(BindlessMetaInfo)};
+    m_PipelineLayout = std::make_unique<vk::raii::PipelineLayout>(
+        device,
+        vk::PipelineLayoutCreateInfo{
+            .setLayoutCount         = 1,
+            .pSetLayouts            = &layout,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges    = &push_range,
+        });
+    m_DescriptorPool = std::make_unique<vk::raii::DescriptorPool>(
+        device,
+        vk::DescriptorPoolCreateInfo{
+            .flags         = vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind | vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+            .maxSets       = 1,
+            .poolSizeCount = 4,
+            .pPoolSizes    = pool_sizes.data(),
+        });
+    auto sets       = device.allocateDescriptorSets(vk::DescriptorSetAllocateInfo{
+        .descriptorPool     = **m_DescriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts        = &layout,
+    });
+    m_DescriptorSet = std::make_unique<vk::raii::DescriptorSet>(std::move(sets.front()));
+}
+
+void VulkanDescriptorIndexing::Write(std::uint32_t index, const GPUBufferViewDesc& desc, std::uint64_t size) {
+    if (size > m_MaxStorageBufferRange) throw std::invalid_argument("Storage buffer view exceeds Vulkan maxStorageBufferRange");
+    const vk::DescriptorBufferInfo buffer_info{.buffer = **std::static_pointer_cast<VulkanBuffer>(desc.buffer)->buffer, .offset = desc.offset, .range = size};
+    m_Device.updateDescriptorSets(
+        vk::WriteDescriptorSet{
+            .dstSet          = **m_DescriptorSet,
+            .dstBinding      = 7,
+            .dstArrayElement = index,
+            .descriptorCount = 1,
+            .descriptorType  = vk::DescriptorType::eStorageBuffer,
+            .pBufferInfo     = &buffer_info,
+        },
+        {});
+}
+
+void VulkanDescriptorIndexing::Write(std::uint32_t index, const TextureView& view) {
+    const auto&                   desc     = view.GetDesc();
+    const bool                    writable = desc.type == TextureViewType::ShaderWrite;
+    const vk::DescriptorImageInfo image_info{
+        .imageView   = *static_cast<const VulkanTextureView&>(view).image_view.value(),
+        .imageLayout = writable ? vk::ImageLayout::eGeneral : vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
+    m_Device.updateDescriptorSets(
+        vk::WriteDescriptorSet{
+            .dstSet          = **m_DescriptorSet,
+            .dstBinding      = writable ? 3u : 2u,
+            .dstArrayElement = index,
+            .descriptorCount = 1,
+            .descriptorType  = writable ? vk::DescriptorType::eStorageImage : vk::DescriptorType::eSampledImage,
+            .pImageInfo      = &image_info,
+        },
+        {});
+}
+
+void VulkanDescriptorIndexing::Write(std::uint32_t index, const Sampler& sampler) {
+    const vk::DescriptorImageInfo sampler_info{.sampler = **static_cast<const VulkanSampler&>(sampler).sampler};
+    m_Device.updateDescriptorSets(
+        vk::WriteDescriptorSet{
+            .dstSet          = **m_DescriptorSet,
+            .dstBinding      = 0,
+            .dstArrayElement = index,
+            .descriptorCount = 1,
+            .descriptorType  = vk::DescriptorType::eSampler,
+            .pImageInfo      = &sampler_info,
+        },
+        {});
+}
+
+void VulkanDescriptorIndexing::Bind(const vk::raii::CommandBuffer& command_buffer, vk::PipelineBindPoint bind_point) const {
+    command_buffer.bindDescriptorSets(bind_point, **m_PipelineLayout, 0, **m_DescriptorSet, {});
+}
+
+void VulkanDescriptorIndexing::PushMetaInfo(const vk::raii::CommandBuffer& command_buffer, const BindlessMetaInfo& info) const {
+    command_buffer.pushConstants<BindlessMetaInfo>(**m_PipelineLayout, vk::ShaderStageFlagBits::eAll, 0, info);
+}
+
+VulkanBindlessUtils::VulkanBindlessUtils(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, VmaAllocator allocator, bool descriptor_heap, std::string_view name)
+    : BindlessUtils(name), m_Device(device) {
+    if (descriptor_heap)
+        m_Backend = std::make_unique<VulkanDescriptorHeap>(device, physical_device, allocator);
+    else
+        m_Backend = std::make_unique<VulkanDescriptorIndexing>(device, physical_device);
+
+    for (std::size_t kind = 0; kind < vulkan_bindless_descriptor_counts.size(); ++kind) {
+        auto&      pool  = m_BindlessHandlePools[kind].pool;
+        const auto count = vulkan_bindless_descriptor_counts[kind];
+        pool.reserve(count);
+        for (std::uint32_t index = 0; index < count; ++index) pool.emplace_back(BindlessHandle{.index = index});
+    }
+}
+
+VulkanBindlessUtils::~VulkanBindlessUtils() = default;
+
+void VulkanBindlessUtils::Bind(const vk::raii::CommandBuffer& command_buffer, vk::PipelineBindPoint bind_point) const {
+    std::visit([&](const auto& backend) { backend->Bind(command_buffer, bind_point); }, m_Backend);
+}
+
+void VulkanBindlessUtils::PushMetaInfo(const vk::raii::CommandBuffer& command_buffer, const BindlessMetaInfo& info) const {
+    std::visit([&](const auto& backend) { backend->PushMetaInfo(command_buffer, info); }, m_Backend);
+}
+
+void VulkanBindlessUtils::ConfigureShader(vk::PipelineShaderStageCreateInfo& info) const {
+    std::visit([&](const auto& backend) { backend->ConfigureShader(info); }, m_Backend);
+}
+
+auto VulkanBindlessUtils::CreatePipeline(vk::GraphicsPipelineCreateInfo info, const vk::AllocationCallbacks& callbacks) const -> std::unique_ptr<vk::raii::Pipeline> {
+    return std::visit([&](const auto& backend) { return backend->CreatePipeline(info, callbacks); }, m_Backend);
+}
+
+auto VulkanBindlessUtils::CreatePipeline(vk::ComputePipelineCreateInfo info, const vk::AllocationCallbacks& callbacks) const -> std::unique_ptr<vk::raii::Pipeline> {
+    return std::visit([&](const auto& backend) { return backend->CreatePipeline(info, callbacks); }, m_Backend);
+}
+
+void VulkanBindlessUtils::Write(std::uint32_t index, const GPUBufferViewDesc& desc, std::uint64_t size) {
+    std::visit([&](const auto& backend) { backend->Write(index, desc, size); }, m_Backend);
+}
+
+void VulkanBindlessUtils::Write(std::uint32_t index, const TextureView& view) {
+    std::visit([&](const auto& backend) { backend->Write(index, view); }, m_Backend);
+}
+
+void VulkanBindlessUtils::Write(std::uint32_t index, const Sampler& sampler) {
+    std::visit([&](const auto& backend) { backend->Write(index, sampler); }, m_Backend);
 }
 
 }  // namespace hitagi::gfx

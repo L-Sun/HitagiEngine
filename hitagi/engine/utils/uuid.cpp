@@ -67,6 +67,14 @@ auto UUID::Create() -> UUID {
         static_cast<std::byte>(newId.Data4[6]),
         static_cast<std::byte>(newId.Data4[7]),
     };
+#else
+    std::random_device random;
+    for (auto& byte : uuid.m_Data) {
+        byte = static_cast<std::byte>(random());
+    }
+    // RFC 9562 UUIDv4: random payload, version 4, variant 10.
+    uuid.m_Data[6] = (uuid.m_Data[6] & std::byte{0x0f}) | std::byte{0x40};
+    uuid.m_Data[8] = (uuid.m_Data[8] & std::byte{0x3f}) | std::byte{0x80};
 #endif
     return uuid;
 }

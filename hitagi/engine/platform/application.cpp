@@ -28,7 +28,12 @@ struct AppConfig {
     std::uint32_t         height          = 800;
     bool                  maximized       = false;
     std::filesystem::path asset_root_path = "assets";
-    std::pmr::string      gfx_backend     = "Vulkan";
+    std::pmr::string      gfx_backend     =
+#ifdef __APPLE__
+        "Metal";
+#else
+        "Vulkan";
+#endif
     std::pmr::string      log_level       = "info";
     bool                  headless        = false;
 };
@@ -115,7 +120,7 @@ bool Application::TickModalFrame() noexcept {
         Application::Tick();
         m_ModalFrame();
     } catch (...) {
-        // Never unwind a C++ exception through the native window procedure.
+        // Never unwind a C++ exception through a native window procedure or SDL callback.
         m_ModalFrameError = std::current_exception();
     }
     m_InModalFrame = false;

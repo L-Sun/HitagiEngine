@@ -12,7 +12,7 @@ export namespace hitagi::core {
 // a type-erased "executor" that schedules a unit of work (fire-and-forget).
 // Consumers treat an empty submitter as "no async capability available" and
 // fall back to synchronous execution.
-using JobSubmitter = std::function<void(std::move_only_function<void()>)>;
+using JobSubmitter = std::function<void(std::function<void()>)>;
 
 class JobSystem final : public RuntimeModule {
 public:
@@ -30,7 +30,7 @@ public:
 
     // Type-erased executor view of this job system, for fire-and-forget submission.
     auto MakeSubmitter() -> JobSubmitter {
-        return [this](std::move_only_function<void()> job) { Submit(std::move(job)); };
+        return [this](std::function<void()> job) { Submit(std::move(job)); };
     }
 
     void RunTaskflow(interop::tf::Taskflow& taskflow);

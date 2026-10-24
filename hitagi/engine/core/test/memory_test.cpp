@@ -14,7 +14,7 @@ TEST(MemoryTest, BufferSpan) {
         item = 1;
     }
     auto p = reinterpret_cast<int*>(buf.GetData());
-    for (size_t i = 0; i < 32 / sizeof(int); i++) {
+    for (std::size_t i = 0; i < 32 / sizeof(int); i++) {
         EXPECT_EQ(sp[i], p[i]);
     }
 }
@@ -37,12 +37,12 @@ TEST(MemoryTest, Allocate) {
 TEST(MemoryTest, PmrContainer) {
     std::pmr::vector<int> vec{std::pmr::polymorphic_allocator<int>{std::pmr::get_default_resource()}};
     EXPECT_NO_THROW({
-        for (size_t i = 0; i < 10000; i++) {
+        for (std::size_t i = 0; i < 10000; i++) {
             vec.emplace_back(i);
         }
     });
     auto p = vec.data();
-    for (size_t i = 0; i < 10000; i++) {
+    for (std::size_t i = 0; i < 10000; i++) {
         EXPECT_EQ(*p++, i);
     }
 }

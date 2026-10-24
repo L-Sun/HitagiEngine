@@ -41,5 +41,12 @@ if has_config("profile") then
     end
 end
 
+target("clangd_config")
+    set_kind("phony")
+    on_config(function (target)
+        import("xmake.scripts.generate_clangd", {rootdir = os.projectdir()}).main(target:plat())
+    end)
+target_end()
+
 includes("hitagi/xmake.lua")
 includes("examples/*/xmake.lua")

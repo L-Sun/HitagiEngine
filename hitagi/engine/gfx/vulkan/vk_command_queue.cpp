@@ -16,16 +16,39 @@ import math;
 import gfx.base;
 import :types;
 import :sync;
-import :command_buffer;
 import :utils;
-import :resource;
 import :configs;
 
 export namespace hitagi::gfx {
 
+// One state per native queue in a device, shared even across CommandQueues groups.
+struct VulkanNativeQueue {
+    VulkanNativeQueue(const vk::raii::Device& device, std::uint32_t family, std::uint32_t index)
+        : queue(device.getQueue(family, index)), family_index(family), queue_index(index) {}
+
+    vk::raii::Queue     queue;
+    const std::uint32_t family_index;
+    const std::uint32_t queue_index;
+    std::mutex          mutex;
+};
+
+inline void wait_vulkan_device_idle(const vk::raii::Device& device, std::span<const std::shared_ptr<VulkanNativeQueue>> queues) {
+    // Every caller takes the device's unique queues in creation order.
+    std::pmr::vector<std::unique_lock<std::mutex>> locks;
+    locks.reserve(queues.size());
+    for (const auto& queue : queues) locks.emplace_back(queue->mutex);
+    device.waitIdle();
+}
+
+// Defined with the concrete command buffers, keeping this partition independent of resources.
+void append_vulkan_submission(const CommandContext& context,
+                              std::pmr::vector<vk::CommandBufferSubmitInfo>& commands,
+                              std::pmr::vector<vk::SemaphoreSubmitInfo>& waits,
+                              std::pmr::vector<vk::SemaphoreSubmitInfo>& signals);
+
 class VulkanCommandQueue final : public CommandQueue {
 public:
-    VulkanCommandQueue(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, const vk::AllocationCallbacks& callbacks, std::shared_ptr<spdlog::logger> logger, CommandType type, std::string_view name, std::uint32_t queue_family_index);
+    VulkanCommandQueue(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, const vk::AllocationCallbacks& callbacks, std::shared_ptr<spdlog::logger> logger, CommandType type, std::string_view name, std::shared_ptr<VulkanNativeQueue> native_queue);
     ~VulkanCommandQueue() final;
 
     void Submit(
@@ -39,29 +62,29 @@ public:
 
     void InitializeTracyContext(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, const vk::raii::CommandPool& pool);
 
-    inline auto  GetFamilyIndex() const noexcept { return m_FamilyIndex; }
-    inline auto  GetNativeDevice() const noexcept { return m_NativeDevice; }
-    inline auto& GetVkQueue() const noexcept { return m_Queue; }
-    inline auto  GetTracyCtx() const noexcept { return m_TracyCtx; }
+    inline auto GetFamilyIndex() const noexcept { return m_FamilyIndex; }
+    inline auto GetNativeDevice() const noexcept { return m_NativeDevice; }
+    inline auto GetNativeQueue() const noexcept { return m_Queue; }
+    inline auto GetTracyCtx() const noexcept { return m_TracyCtx; }
 
 private:
-    std::uint32_t                   m_FamilyIndex;
-    vk::Device                      m_NativeDevice;
-    vk::raii::Queue                 m_Queue;
-    vk::raii::CommandPool           m_CommandPool;
-    TracyVkCtx                      m_TracyCtx = nullptr;
-    std::shared_ptr<spdlog::logger> m_Logger;
+    std::uint32_t                      m_FamilyIndex;
+    vk::Device                         m_NativeDevice;
+    std::shared_ptr<VulkanNativeQueue> m_Queue;
+    vk::raii::CommandPool              m_CommandPool;
+    TracyVkCtx                         m_TracyCtx = nullptr;
+    std::shared_ptr<spdlog::logger>    m_Logger;
 };
 
 }  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
 
-VulkanCommandQueue::VulkanCommandQueue(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, const vk::AllocationCallbacks& callbacks, std::shared_ptr<spdlog::logger> logger, CommandType type, std::string_view name, std::uint32_t queue_family_index)
-    : CommandQueue(type, name), m_Logger(std::move(logger)), m_FamilyIndex(queue_family_index), m_NativeDevice(*device), m_Queue(device.getQueue(queue_family_index, magic_enum::enum_integer(type))), m_CommandPool(device, vk::CommandPoolCreateInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer | vk::CommandPoolCreateFlagBits::eTransient, .queueFamilyIndex = queue_family_index}, callbacks)
+VulkanCommandQueue::VulkanCommandQueue(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, const vk::AllocationCallbacks& callbacks, std::shared_ptr<spdlog::logger> logger, CommandType type, std::string_view name, std::shared_ptr<VulkanNativeQueue> native_queue)
+    : CommandQueue(type, name), m_Logger(std::move(logger)), m_FamilyIndex(native_queue->family_index), m_NativeDevice(*device), m_Queue(std::move(native_queue)), m_CommandPool(device, vk::CommandPoolCreateInfo{.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer | vk::CommandPoolCreateFlagBits::eTransient, .queueFamilyIndex = m_FamilyIndex}, callbacks)
 
 {
-    create_vk_debug_object_info(m_Queue, m_Name, device);
+    // Native queue names must not be overwritten by each logical wrapper.
     InitializeTracyContext(device, physical_device, m_CommandPool);
 }
 
@@ -71,16 +94,18 @@ VulkanCommandQueue::~VulkanCommandQueue() {
 }
 
 void VulkanCommandQueue::InitializeTracyContext(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, const vk::raii::CommandPool& pool) {
-    auto setup_command_buffer = std::move(vk::raii::CommandBuffers(
-                                              device,
-                                              vk::CommandBufferAllocateInfo{
-                                                  .commandPool        = *pool,
-                                                  .level              = vk::CommandBufferLevel::ePrimary,
-                                                  .commandBufferCount = 1,
-                                              })
-                                              .front());
+    auto setup_command_buffer = std::move(
+        vk::raii::CommandBuffers(
+            device,
+            vk::CommandBufferAllocateInfo{
+                .commandPool        = *pool,
+                .level              = vk::CommandBufferLevel::ePrimary,
+                .commandBufferCount = 1,
+            })
+            .front());
 
-    m_TracyCtx = TracyVkContext(*physical_device, *device, *m_Queue, *setup_command_buffer);
+    std::scoped_lock lock{m_Queue->mutex};
+    m_TracyCtx = TracyVkContext(*physical_device, *device, *m_Queue->queue, *setup_command_buffer);
     TracyVkContextName(m_TracyCtx, m_Name.data(), static_cast<std::uint16_t>(m_Name.size()));
 }
 
@@ -100,26 +125,8 @@ void VulkanCommandQueue::Submit(std::span<const std::reference_wrapper<const Com
         return;
     }
 
-    const auto cmd_buffer_infos =
-        contexts |
-        std::ranges::views::transform([](const CommandContext& ctx) -> vk::CommandBufferSubmitInfo {
-            vk::CommandBuffer cmd_buf;
-            switch (ctx.GetType()) {
-                case CommandType::Graphics:
-                    cmd_buf = *(dynamic_cast<const VulkanGraphicsCommandBuffer&>(ctx).command_buffer);
-                    break;
-                case CommandType::Compute:
-                    cmd_buf = *(dynamic_cast<const VulkanComputeCommandBuffer&>(ctx).command_buffer);
-                    break;
-                case CommandType::Copy:
-                    cmd_buf = *(dynamic_cast<const VulkanTransferCommandBuffer&>(ctx).command_buffer);
-                    break;
-                default:
-                    utils::unreachable();
-            }
-            return {.commandBuffer = cmd_buf};
-        }) |
-        std::ranges::to<std::pmr::vector<vk::CommandBufferSubmitInfo>>();
+    std::pmr::vector<vk::CommandBufferSubmitInfo> cmd_buffer_infos;
+    cmd_buffer_infos.reserve(contexts.size());
 
     auto wait_semaphore_infos =
         wait_fences |
@@ -144,41 +151,7 @@ void VulkanCommandQueue::Submit(std::span<const std::reference_wrapper<const Com
         std::ranges::to<std::pmr::vector<vk::SemaphoreSubmitInfo>>();
 
     for (const CommandContext& ctx : contexts) {
-        if (ctx.GetType() == CommandType::Graphics) {
-            auto& gfx_ctx = dynamic_cast<const VulkanGraphicsCommandBuffer&>(ctx);
-            if (gfx_ctx.swap_chain_image_available_semaphore) {
-                wait_semaphore_infos.emplace_back(vk::SemaphoreSubmitInfo{
-                    .semaphore = **gfx_ctx.swap_chain_image_available_semaphore,
-                    .value     = 0,
-                    .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                });
-            }
-
-            for (const auto& swapchain_presentable_semaphore : gfx_ctx.swap_chain_presentable_semaphores) {
-                signal_semaphore_infos.emplace_back(vk::SemaphoreSubmitInfo{
-                    .semaphore = **swapchain_presentable_semaphore,
-                    .value     = 0,
-                    .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
-                });
-            }
-        } else if (ctx.GetType() == CommandType::Copy) {
-            auto& transfer_ctx = dynamic_cast<const VulkanTransferCommandBuffer&>(ctx);
-            if (transfer_ctx.swap_chain_image_available_semaphore) {
-                wait_semaphore_infos.emplace_back(vk::SemaphoreSubmitInfo{
-                    .semaphore = **transfer_ctx.swap_chain_image_available_semaphore,
-                    .value     = 0,
-                    .stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
-                });
-            }
-
-            for (const auto& swapchain_presentable_semaphore : transfer_ctx.swap_chain_presentable_semaphores) {
-                signal_semaphore_infos.emplace_back(vk::SemaphoreSubmitInfo{
-                    .semaphore = **swapchain_presentable_semaphore,
-                    .value     = 0,
-                    .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
-                });
-            }
-        }
+        append_vulkan_submission(ctx, cmd_buffer_infos, wait_semaphore_infos, signal_semaphore_infos);
     }
 
     const vk::SubmitInfo2 submit_info{
@@ -190,11 +163,24 @@ void VulkanCommandQueue::Submit(std::span<const std::reference_wrapper<const Com
         .pSignalSemaphoreInfos    = signal_semaphore_infos.data(),
     };
 
-    m_Queue.submit2(submit_info);
+#ifdef TRACY_ENABLE
+    const auto lock_start = std::chrono::steady_clock::now();
+#endif
+    std::scoped_lock lock{m_Queue->mutex};
+#ifdef TRACY_ENABLE
+    const auto submit_start = std::chrono::steady_clock::now();
+#endif
+    m_Queue->queue.submit2(submit_info);
+#ifdef TRACY_ENABLE
+    const auto submit_end = std::chrono::steady_clock::now();
+    interop::plot_profiling_value("Vulkan Queue Lock (ms)", std::chrono::duration<double, std::milli>(submit_start - lock_start).count());
+    interop::plot_profiling_value("Vulkan Queue Submit (ms)", std::chrono::duration<double, std::milli>(submit_end - submit_start).count());
+#endif
 }
 
 void VulkanCommandQueue::WaitIdle() {
-    m_Queue.waitIdle();
+    std::scoped_lock lock{m_Queue->mutex};
+    m_Queue->queue.waitIdle();
 }
 
 }  // namespace hitagi::gfx

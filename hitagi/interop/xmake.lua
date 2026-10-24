@@ -1,10 +1,17 @@
-add_requires(
-    "vulkan-memory-allocator",
-    "directx-shader-compiler"
-)
+add_requires("vulkan-memory-allocator")
+if is_plat("windows", "linux") then
+    add_requires("directx-shader-compiler")
+end
 -- Use the compiler shipped with the Vulkan SDK, including its matching headers
 -- and runtime DLL. DXC remains a downstream dependency for DXIL generation.
-add_requires("vulkansdk", {configs = {utils = {"slang"}}})
+if is_plat("macosx") then
+    -- Mirror the existing Windows SDK discovery; Metal additionally needs the
+    -- SDK's SPIRV-Cross libraries for its SPIR-V to MSL lowering.
+    add_requires("vulkansdk", {configs = {utils = {"slang", "spirv-cross-msl", "spirv-cross-glsl", "spirv-cross-core"}}})
+    add_requires("metal-cpp 26")
+else
+    add_requires("vulkansdk", {configs = {utils = {"slang"}}})
+end
 add_requires("taskflow v4.1.0", {configs = {modules = true}})
 
 -- Only compiled libraries that we intentionally link dynamically need this setting.
@@ -12,9 +19,9 @@ add_requires(
     "libpng",
     "libjpeg-turbo",
     "libsdl3",
-    "joltphysics",
     {configs = {shared = true}}
 )
+add_requires("joltphysics", {configs = {shared = true, rtti = is_plat("macosx")}})
 add_requires("gtest", {configs = {shared = true, gmock = false}})
 
 -- Compiled libraries avoid MSVC module errors in spdlog's header-only implementation.
@@ -38,28 +45,44 @@ add_requires("pocketjs 0.14.0", {system = false})
 
 target("hitagi_interop")
     set_kind("static")
+    -- The official module and VMA must see the same SDK headers before transitive headers.
+    add_packages("vulkansdk", {public = true})
     add_files("fmt.cppm", "spdlog.cppm", "vulkan.cppm", "magic_enum.cppm", "vma.cppm", "tracy.cppm", "tracy_vulkan.cppm", {public = true})
     add_files("vma.cpp")
     add_files("bullet.cppm", {public = true})
     add_packages("bullet3", {public = true})
     add_files("slang.cppm", {public = true})
-    add_packages("directx-shader-compiler", {public = true})
+    if is_plat("macosx") then
+        -- Only metal.cpp owns the Objective-C dispatch definitions.
+        add_packages("metal-cpp", {public = true, defines = {}})
+        add_frameworks("QuartzCore", {public = true})
+        add_files("spirv_cross.cppm", {public = true})
+        add_files("metal.cppm", {public = true})
+        add_files("metal.cpp")
+    end
+    if is_plat("windows", "linux") then
+        add_packages("directx-shader-compiler", {public = true})
+    end
     add_files("taskflow.cppm", "sdl.cppm", "jolt.cppm", "png.cppm", "jpeg.cppm", {public = true})
     add_packages("taskflow", "libsdl3", "joltphysics", "libpng", "libjpeg-turbo", {public = true})
     add_files("pocketjs.cppm", {public = true})
     add_packages("pocketjs", {public = true})
     add_includedirs("..", {public = true})
-    add_packages("magic_enum", "fmt", "spdlog", "vulkansdk", "vulkan-memory-allocator", {public = true})
+    add_packages("magic_enum", "fmt", "spdlog", "vulkan-memory-allocator", {public = true})
     if has_config("profile") then
         add_packages("tracy", {public = true})
     else
         add_packages("tracy", {public = true, links = {}})
     end
 
-    -- The SDK module and its importers must use the same Vulkan-Hpp configuration.
-    add_defines("VULKAN_HPP_NO_CONSTRUCTORS", "VULKAN_HPP_CXX_MODULE_EXPERIMENTAL_WARNING", {public = true})
+    -- Vulkan backend structs use designated initializers; compile the SDK module as aggregates.
+    add_defines("VULKAN_HPP_NO_CONSTRUCTORS", "VULKAN_HPP_COMPILE_WARNING", {public = true})
     on_load(function (target)
         local sdk = target:pkg("vulkansdk")
+        if is_plat("macosx") then
+            -- SDK dylibs use @rpath install names, independently of link-time library lookup.
+            target:add("rpathdirs", sdk:get("linkdirs"), {public = true})
+        end
         local includedirs = table.join(table.wrap(sdk:get("sysincludedirs")), table.wrap(sdk:get("includedirs")))
         for _, includedir in ipairs(includedirs) do
             local modulefile = path.join(includedir, "vulkan", "vulkan.cppm")

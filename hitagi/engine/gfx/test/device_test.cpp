@@ -3,6 +3,9 @@
 import interop.gtest;
 import interop.spdlog;
 import interop.magic_enum;
+#ifdef __APPLE__
+import interop.metal;
+#endif
 
 import std;
 import gfx;
@@ -1308,3 +1311,19 @@ TEST_P(DeviceTest, DrawTriangle) {
     hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
 
 }
+
+#ifdef __APPLE__
+TEST(MetalDeviceTest, TickPreservesEnclosingNativeAutoreleasePools) {
+    namespace ns = hitagi::interop::ns;
+    auto device = create_device(Device::Type::Metal);
+    for (int frame = 0; frame < 3; ++frame) {
+        // Model Cocoa's pool around a live-resize callback, then the frame pool.
+        auto native_pool = ns::TransferPtr(ns::AutoreleasePool::alloc()->init());
+        {
+            auto frame_pool = ns::TransferPtr(ns::AutoreleasePool::alloc()->init());
+            device->Tick();
+        }
+        // Both pools must remain valid until their own scope ends.
+    }
+}
+#endif

@@ -29,6 +29,7 @@ function Viewer() {
     file: "",
     renderer: "pbr",
     backend: "",
+    fps: 0,
     debug: 0,
     light: 1,
     selected: "",
@@ -420,16 +421,23 @@ function Viewer() {
       </Show>
       <Panel rect={[0, size().h - 30, size().w, 30]} fill="#202936" />
       <Label
-        rect={[16, size().h - 23, Math.max(80, size().w - 570), 20]}
+        rect={[16, size().h - 23, Math.max(80, size().w - (size().w >= 1200 ? 780 : 490)), 20]}
         color={state().error ? "#f3a195" : colors.accent}
       >
         {state().error ? "Could not open scene" : state().status}
       </Label>
-      <Label rect={[size().w - 550, size().h - 23, 240, 20]}>
+      <Label rect={[size().w - 470, size().h - 23, 240, 20]}>
         {state().visible}/{state().meshes} meshes / {state().triangles} triangles
       </Label>
-      <Label rect={[size().w - 290, size().h - 23, 278, 20]}>
-        LMB orbit / MMB pan / Scroll zoom
+      <Show when={size().w >= 1200}>
+        <Label rect={[size().w - 760, size().h - 23, 278, 20]}>
+          LMB orbit / MMB pan / Scroll zoom
+        </Label>
+      </Show>
+      <Label rect={[size().w - 210, size().h - 23, 198, 20]} color={colors.accent}>
+        {state().fps > 0
+          ? `${state().fps.toFixed(1)} FPS / ${(1000 / state().fps).toFixed(1)} ms`
+          : "-- FPS / -- ms"}
       </Label>
     </View>
   );

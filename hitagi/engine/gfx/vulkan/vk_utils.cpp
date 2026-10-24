@@ -38,19 +38,42 @@ inline auto compute_physical_device_score(const vk::raii::PhysicalDevice& device
     return score;
 }
 
-inline auto is_physical_suitable(const vk::raii::PhysicalDevice& physical_device) -> bool {
-    const auto queue_family_properties = physical_device.getQueueFamilyProperties();
+inline auto supports_descriptor_heap(const vk::raii::PhysicalDevice& device) -> bool {
+    const auto extensions = device.enumerateDeviceExtensionProperties();
+    if (!std::ranges::any_of(extensions, [](const auto& extension) {
+            return std::string_view(extension.extensionName.data()) == vk::EXTDescriptorHeapExtensionName;
+        })) return false;
+    return device.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceDescriptorHeapFeaturesEXT>()
+        .get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap;
+}
 
-    bool queue_family_found = false;
-    for (const auto& queue_family_properties : queue_family_properties) {
-        if (queue_family_properties.queueCount >= magic_enum::enum_count<CommandType>() &&
-            (queue_family_properties.queueFlags & vk::QueueFlagBits::eGraphics) &&
-            (queue_family_properties.queueFlags & vk::QueueFlagBits::eCompute) &&
-            (queue_family_properties.queueFlags & vk::QueueFlagBits::eTransfer)) {
-            queue_family_found = true;
-            break;
-        }
+inline auto get_queue_create_info(const vk::raii::PhysicalDevice& device) -> std::optional<vk::DeviceQueueCreateInfo> {
+    const auto queue_family_properties = device.getQueueFamilyProperties();
+
+    constexpr static auto priorities = utils::create_enum_array<float, CommandType>(1.0f);
+
+    for (std::uint32_t family_index = 0; family_index < queue_family_properties.size(); family_index++) {
+        if (queue_family_properties[family_index].queueCount >= 1 &&
+            (queue_family_properties[family_index].queueFlags & vk::QueueFlagBits::eGraphics) &&
+            (queue_family_properties[family_index].queueFlags & vk::QueueFlagBits::eCompute) &&
+            (queue_family_properties[family_index].queueFlags & vk::QueueFlagBits::eTransfer)) {
+            return vk::DeviceQueueCreateInfo{
+                .queueFamilyIndex = family_index,
+                .queueCount       = std::min(queue_family_properties[family_index].queueCount, std::uint32_t{3}),
+                .pQueuePriorities = priorities.data(),
+            };
+        };
     }
+    return std::nullopt;
+}
+
+inline auto is_physical_suitable(const vk::raii::PhysicalDevice& physical_device) -> bool {
+#ifdef __APPLE__
+    const auto driver_id = physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDriverProperties>()
+                               .get<vk::PhysicalDeviceDriverProperties>()
+                               .driverID;
+    if (driver_id != vk::DriverId::eMesaKosmickrisp) return false;
+#endif
 
     const auto supported_extensions = physical_device.enumerateDeviceExtensionProperties();
 
@@ -59,10 +82,10 @@ inline auto is_physical_suitable(const vk::raii::PhysicalDevice& physical_device
     for (const auto& extension : supported_extensions) {
         required_extensions.erase(std::pmr::string{extension.extensionName});
     }
-    if (!queue_family_found || !required_extensions.empty()) return false;
+    if (!get_queue_create_info(physical_device) || !required_extensions.empty()) return false;
     const auto  features = physical_device.getFeatures2<vk::PhysicalDeviceFeatures2,
                                                         vk::PhysicalDeviceVulkan11Features,
-                                                        vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceDescriptorHeapFeaturesEXT>();
+                                                        vk::PhysicalDeviceVulkan12Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceHostImageCopyFeaturesEXT>();
     const auto& vulkan12 = features.get<vk::PhysicalDeviceVulkan12Features>();
     return features.get<vk::PhysicalDeviceVulkan11Features>().shaderDrawParameters &&
            vulkan12.bufferDeviceAddress &&
@@ -70,7 +93,16 @@ inline auto is_physical_suitable(const vk::raii::PhysicalDevice& physical_device
            vulkan12.shaderSampledImageArrayNonUniformIndexing &&
            vulkan12.shaderStorageBufferArrayNonUniformIndexing &&
            vulkan12.shaderStorageImageArrayNonUniformIndexing &&
-           features.get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap;
+           vulkan12.timelineSemaphore &&
+           features.get<vk::PhysicalDeviceVulkan13Features>().synchronization2 &&
+           features.get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
+           features.get<vk::PhysicalDeviceHostImageCopyFeaturesEXT>().hostImageCopy &&
+           (supports_descriptor_heap(physical_device) ||
+            (vulkan12.descriptorBindingPartiallyBound &&
+             vulkan12.descriptorBindingUpdateUnusedWhilePending &&
+             vulkan12.descriptorBindingSampledImageUpdateAfterBind &&
+             vulkan12.descriptorBindingStorageImageUpdateAfterBind &&
+             vulkan12.descriptorBindingStorageBufferUpdateAfterBind));
 }
 
 inline auto get_sdl3_window_size(SDL_Window* window) -> math::vec2u {
@@ -112,26 +144,6 @@ inline void create_vk_debug_object_info(const T& obj, std::string_view name, con
         .pObjectName  = name.data(),
     });
 #endif
-}
-
-inline auto get_queue_create_info(const vk::raii::PhysicalDevice& device) -> std::optional<vk::DeviceQueueCreateInfo> {
-    const auto queue_family_properties = device.getQueueFamilyProperties();
-
-    constexpr static auto priorities = utils::create_enum_array<float, CommandType>(1.0f);
-
-    for (std::uint32_t family_index = 0; family_index < queue_family_properties.size(); family_index++) {
-        if (queue_family_properties[family_index].queueCount >= magic_enum::enum_count<CommandType>() &&
-            (queue_family_properties[family_index].queueFlags & vk::QueueFlagBits::eGraphics) &&
-            (queue_family_properties[family_index].queueFlags & vk::QueueFlagBits::eCompute) &&
-            (queue_family_properties[family_index].queueFlags & vk::QueueFlagBits::eTransfer)) {
-            return vk::DeviceQueueCreateInfo{
-                .queueFamilyIndex = family_index,
-                .queueCount       = magic_enum::enum_count<CommandType>(),
-                .pQueuePriorities = priorities.data(),
-            };
-        };
-    }
-    return std::nullopt;
 }
 
 inline constexpr auto to_vk_format(Format format) noexcept -> vk::Format {
@@ -796,7 +808,7 @@ inline constexpr auto to_vk_access_flags(BarrierAccess access) noexcept -> vk::A
         result |= vk::AccessFlagBits2::eDepthStencilAttachmentWrite;
     }
     if (utils::has_flag(access, BarrierAccess::RenderTarget)) {
-        result |= vk::AccessFlagBits2::eColorAttachmentWrite;
+        result |= vk::AccessFlagBits2::eColorAttachmentRead | vk::AccessFlagBits2::eColorAttachmentWrite;
     }
     if (utils::has_flag(access, BarrierAccess::Present)) {
         result |= vk::AccessFlagBits2::eMemoryRead;
@@ -819,7 +831,7 @@ inline constexpr auto to_vk_pipeline_stage2(PipelineStage stage) noexcept -> vk:
         result |= vk::PipelineStageFlagBits2::eFragmentShader;
     }
     if (utils::has_flag(stage, PipelineStage::DepthStencil)) {
-        result |= vk::PipelineStageFlagBits2::eLateFragmentTests;
+        result |= vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests;
     }
     if (utils::has_flag(stage, PipelineStage::Render)) {
         result |= vk::PipelineStageFlagBits2::eColorAttachmentOutput;

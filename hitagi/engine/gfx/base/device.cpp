@@ -16,8 +16,9 @@ class Device : public core::RuntimeModule {
 public:
     enum struct Type : std::uint8_t {
         DX12,
+        Metal,
         Vulkan,
-        Mock
+        Mock,
     } const device_type;
 
     ~Device() override;

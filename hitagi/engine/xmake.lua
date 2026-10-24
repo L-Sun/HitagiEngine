@@ -32,6 +32,10 @@ target("engine")
         remove_files("gfx/dx12/*.cpp")
     end
 
+    if not is_plat("macosx") then
+        remove_files("gfx/metal/*.cppm", "gfx/metal/*.cpp")
+    end
+
     if is_plat("linux") then
         add_syslinks("pthread", {public = true})
     end

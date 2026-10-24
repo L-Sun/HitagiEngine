@@ -5,6 +5,9 @@ module;
 module engine;
 import interop.tracy;
 import interop.magic_enum;
+#ifdef __APPLE__
+import interop.metal;
+#endif
 
 import std;
 import physics;
@@ -71,19 +74,27 @@ Engine::~Engine() {
 }
 
 void Engine::Tick() {
-    m_App->Tick();
+    {
+        ZoneScopedN("Application Event Pump");
+        m_App->Tick();
+    }
     TickFrame();
 }
 
 void Engine::TickFrame() {
     ZoneScopedN("Engine");
     if (m_InFrame) return;
+#ifdef __APPLE__
+    // The frame can run inside Cocoa's live-resize callback. A lexical pool
+    // drains only this frame's objects and leaves the enclosing native pools intact.
+    auto autorelease_pool = interop::ns::TransferPtr(interop::ns::AutoreleasePool::alloc()->init());
+#endif
     m_InFrame = true;
     struct FrameGuard {
         bool& active;
         ~FrameGuard() { active = false; }
     } guard{m_InFrame};
-    // The application is already pumping events, possibly inside the Windows
+    // The application is already pumping events, possibly inside a native
     // modal sizing loop. Never re-enter that pump or an in-progress render graph.
     for (const auto& module : m_SubModules) {
         if (module.get() == m_App) continue;

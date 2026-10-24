@@ -10,6 +10,9 @@ import utils;
 import gfx.dx12;
 #endif
 import gfx.vulkan;
+#ifdef __APPLE__
+import gfx.metal;
+#endif
 import gfx.mock;
 
 namespace hitagi::gfx {
@@ -24,8 +27,15 @@ auto create_device(Device::Type type, std::string_view name) -> std::unique_ptr<
 #else
             return nullptr;
 #endif
+        case Device::Type::Metal:
+#ifdef __APPLE__
+            return std::make_unique<MetalDevice>(name);
+#else
+            return nullptr;
+#endif
         case Device::Type::Vulkan:
             return std::make_unique<VulkanDevice>(name);
+
         case Device::Type::Mock:
             return std::make_unique<MockDevice>(name);
         default:

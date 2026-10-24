@@ -3,6 +3,8 @@ import interop.gtest;
 import interop.spdlog;
 #ifdef _WIN32
 import interop.win32;
+#else
+import interop.sdl;
 #endif
 import std;
 import app;
@@ -94,6 +96,51 @@ TEST_F(AppTest, ModalFrameErrorsReturnThroughTickNotWindowProc) {
     SendMessageW(window, WM_ENTERSIZEMOVE, 0, 0);
     EXPECT_NO_THROW(SendMessageW(window, WM_TIMER, 1, 0));
     SendMessageW(window, WM_EXITSIZEMOVE, 0, 0);
+    EXPECT_THROW(app->Tick(), std::runtime_error);
+    app->SetModalFrameCallback({});
+}
+#endif
+
+#ifndef _WIN32
+TEST_F(AppTest, LiveResizeFramesAreImmediateAndNonReentrant) {
+    app->Tick();
+    SDL_Event event{};
+    event.type = SDL_EVENT_WINDOW_EXPOSED;
+    event.window.windowID = SDL_GetWindowID(static_cast<SDL_Window*>(app->GetWindow().ptr));
+    event.window.data1 = 1;
+    int frames = 0;
+    app->SetModalFrameCallback([&] {
+        ++frames;
+        if (frames == 1) SDL_PushEvent(&event);
+    });
+    // No Tick/PollEvent: native live resize cannot return to the outer loop.
+    EXPECT_TRUE(SDL_PushEvent(&event));
+    EXPECT_EQ(frames, 1);
+    event.window.data1 = 0;
+    EXPECT_TRUE(SDL_PushEvent(&event));
+    EXPECT_EQ(frames, 1);
+    event.window.data1 = 1;
+    ++event.window.windowID;
+    EXPECT_TRUE(SDL_PushEvent(&event));
+    EXPECT_EQ(frames, 1);
+    --event.window.windowID;
+    std::thread worker([&] { SDL_PushEvent(&event); });
+    worker.join();
+    EXPECT_EQ(frames, 1);
+    EXPECT_TRUE(SDL_PushEvent(&event));
+    EXPECT_EQ(frames, 2);
+    app->SetModalFrameCallback({});
+    EXPECT_TRUE(SDL_PushEvent(&event));
+    EXPECT_EQ(frames, 2);
+}
+
+TEST_F(AppTest, LiveResizeErrorsReturnThroughTickNotSDL) {
+    SDL_Event event{};
+    event.type = SDL_EVENT_WINDOW_EXPOSED;
+    event.window.windowID = SDL_GetWindowID(static_cast<SDL_Window*>(app->GetWindow().ptr));
+    event.window.data1 = 1;
+    app->SetModalFrameCallback([] { throw std::runtime_error("modal frame failure"); });
+    EXPECT_NO_THROW(SDL_PushEvent(&event));
     EXPECT_THROW(app->Tick(), std::runtime_error);
     app->SetModalFrameCallback({});
 }

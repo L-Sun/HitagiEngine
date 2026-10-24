@@ -22,8 +22,10 @@ struct ShaderCompilerState {
         std::string message;
         if (diagnostics && diagnostics->getBufferSize())
             message.assign(static_cast<const char*>(diagnostics->getBufferPointer()), diagnostics->getBufferSize());
-        if (interop::SlangFailed(result)) throw std::runtime_error(std::format("Slang {}: {}", operation, message));
-        if (!message.empty()) logger->warn("Slang {}: {}", operation, message);
+        if (interop::SlangFailed(result))
+            throw std::runtime_error(std::format("Slang {}: {}", operation, message));
+        if (!message.empty())
+            logger->warn("Slang {}: {}", operation, message);
     }
 };
 }  // namespace hitagi::gfx
@@ -37,11 +39,17 @@ public:
     ~ShaderProgram();
     ShaderProgram(const ShaderProgram&)            = delete;
     ShaderProgram& operator=(const ShaderProgram&) = delete;
-    auto           Compile(std::string_view entry, ShaderType stage,
-                           std::span<const std::pmr::string> specialization_types = {}) const -> CompiledShader;
+    auto           Compile(
+        std::string_view                  entry,
+        ShaderType                        stage,
+        std::span<const std::pmr::string> specialization_types = {}) const -> CompiledShader;
 
 private:
     friend class ShaderCompiler;
+    auto Link(
+        std::string_view                  entry,
+        ShaderType                        stage,
+        std::span<const std::pmr::string> specialization_types) const -> SlangPtr<sl::IComponentType>;
     explicit ShaderProgram(std::shared_ptr<ShaderCompilerState> state) : m_State(std::move(state)) {}
     std::shared_ptr<ShaderCompilerState> m_State;
     SlangPtr<sl::ISession>               m_Session;
@@ -52,6 +60,7 @@ class ShaderCompiler {
 public:
     explicit ShaderCompiler(std::string_view name);
     auto LoadProgram(const ShaderProgramDesc& desc, ShaderTarget target) const -> std::shared_ptr<ShaderProgram>;
+    auto ReflectVertexLayout(const ShaderDesc& desc) const -> VertexLayout;
 
 private:
     std::shared_ptr<ShaderCompilerState> m_State;
@@ -133,37 +142,43 @@ auto ShaderCompiler::LoadProgram(const ShaderProgramDesc& desc, ShaderTarget tar
     if (desc.modules.empty()) throw std::invalid_argument("Shader program has no modules");
     auto                     program = std::shared_ptr<ShaderProgram>(new ShaderProgram(m_State));
     std::scoped_lock         lock(m_State->mutex);
-    std::vector<std::string> paths{"assets/shaders"};
+    std::vector<std::string> paths;
+    paths.emplace_back("assets/shaders");
     for (const auto& module : desc.modules) {
         if (!module.path.empty()) paths.emplace_back(module.path.parent_path().string());
     }
     std::vector<const char*> search_paths;
-    for (const auto& path : paths) search_paths.emplace_back(path.c_str());
-    const sl::PreprocessorMacroDesc      macro{"HITAGI_SPIRV", target == ShaderTarget::SPIRV ? "1" : "0"};
+    search_paths.reserve(paths.size());
+    for (const auto& path : paths)
+        search_paths.emplace_back(path.c_str());
+    const sl::PreprocessorMacroDesc      macro{.name = "HITAGI_SPIRV", .value = target != ShaderTarget::DXIL ? "1" : "0"};
     std::vector<sl::CompilerOptionEntry> options = {
-        {sl::CompilerOptionName::VulkanUseEntryPointName, {sl::CompilerOptionValueKind::Int, 1}},
-        {sl::CompilerOptionName::MatrixLayoutRow, {sl::CompilerOptionValueKind::Int, 1}},
+        {.name = sl::CompilerOptionName::VulkanUseEntryPointName, .value = {.kind = sl::CompilerOptionValueKind::Int, .intValue0 = 1}},
+        {.name = sl::CompilerOptionName::MatrixLayoutRow, .value = {.kind = sl::CompilerOptionValueKind::Int, .intValue0 = 1}},
 #ifdef HITAGI_DEBUG
-        {sl::CompilerOptionName::Optimization, {sl::CompilerOptionValueKind::Int, 0}},
-        {sl::CompilerOptionName::DebugInformation, {sl::CompilerOptionValueKind::Int, 1}},
+        {.name = sl::CompilerOptionName::Optimization, .value = {.kind = sl::CompilerOptionValueKind::Int, .intValue0 = 0}},
+        {.name = sl::CompilerOptionName::DebugInformation, .value = {.kind = sl::CompilerOptionValueKind::Int, .intValue0 = 1}},
 #endif
     };
-    if (target == ShaderTarget::SPIRV)
-        options.push_back({sl::CompilerOptionName::BindlessSpaceIndex, {sl::CompilerOptionValueKind::Int, 0}});
-    sl::TargetDesc target_desc{};
-    target_desc.format  = target == ShaderTarget::DXIL ? interop::slang_dxil : interop::slang_spirv;
-    target_desc.profile = m_State->global->findProfile(target == ShaderTarget::DXIL ? "sm_6_7" : "spirv_1_5");
-    sl::SessionDesc session_desc{};
-    session_desc.targets                  = &target_desc;
-    session_desc.targetCount              = 1;
-    session_desc.defaultMatrixLayoutMode  = interop::slang_row_major;
-    session_desc.searchPaths              = search_paths.data();
-    session_desc.searchPathCount          = search_paths.size();
-    session_desc.preprocessorMacros       = &macro;
-    session_desc.preprocessorMacroCount   = 1;
-    session_desc.compilerOptionEntries    = options.data();
-    session_desc.compilerOptionEntryCount = std::size(options);
+    if (target != ShaderTarget::DXIL)
+        options.push_back({.name = sl::CompilerOptionName::BindlessSpaceIndex, .value = {.kind = sl::CompilerOptionValueKind::Int, .intValue0 = 0}});
+    sl::TargetDesc target_desc{
+        .format  = target == ShaderTarget::DXIL ? interop::slang_dxil : interop::slang_spirv,
+        .profile = m_State->global->findProfile(target == ShaderTarget::DXIL ? "sm_6_7" : "spirv_1_5"),
+    };
+    sl::SessionDesc session_desc{
+        .targets                  = &target_desc,
+        .targetCount              = 1,
+        .defaultMatrixLayoutMode  = interop::slang_row_major,
+        .searchPaths              = search_paths.data(),
+        .searchPathCount          = static_cast<std::uint32_t>(search_paths.size()),
+        .preprocessorMacros       = &macro,
+        .preprocessorMacroCount   = 1,
+        .compilerOptionEntries    = options.data(),
+        .compilerOptionEntryCount = static_cast<std::uint32_t>(options.size()),
+    };
     m_State->Check(m_State->global->createSession(session_desc, program->m_Session.writeRef()), {}, "create session");
+
     std::unordered_set<std::string> names;
     for (std::size_t i = 0; i < desc.modules.size(); ++i) {
         const auto&       source = desc.modules[i];
@@ -189,9 +204,30 @@ ShaderProgram::~ShaderProgram() {
     m_Session.setNull();
 }
 
-auto ShaderProgram::Compile(std::string_view entry, ShaderType stage,
-                            std::span<const std::pmr::string> specialization_types) const -> CompiledShader {
-    std::scoped_lock          lock(m_State->mutex);
+auto ShaderCompiler::ReflectVertexLayout(const ShaderDesc& desc) const -> VertexLayout {
+    // Obtain the existing cross-target layout contract without generating code
+    // or loading downstream DXIL compilers on a non-Windows host.
+    auto reflect = [&](ShaderTarget target) {
+        auto             program = LoadProgram(desc.program, target);
+        std::scoped_lock lock(m_State->mutex);
+        auto             linked     = program->Link(desc.entry, ShaderType::Vertex, desc.specialization_types);
+        auto*            reflection = linked->getLayout()->getEntryPointByIndex(0);
+        VertexLayout     layout;
+        for (unsigned i = 0; i < reflection->getParameterCount(); ++i)
+            ReflectVertexInput(reflection->getParameterByIndex(i), 0, layout);
+        return layout;
+    };
+    auto spirv = reflect(ShaderTarget::SPIRV);
+    auto dxil  = reflect(ShaderTarget::DXIL);
+    if (!std::ranges::equal(dxil, spirv, [](const auto& a, const auto& b) {
+            return a.semantic == b.semantic && a.format == b.format && a.binding == b.binding &&
+                   a.offset == b.offset && a.stride == b.stride && a.per_instance == b.per_instance && a.location == b.location;
+        })) throw std::invalid_argument("Pipeline vertex layout differs between DXIL and SPIR-V; supply an explicit layout");
+    return spirv;
+}
+
+auto ShaderProgram::Link(std::string_view entry, ShaderType stage,
+                         std::span<const std::pmr::string> specialization_types) const -> SlangPtr<sl::IComponentType> {
     SlangPtr<sl::IBlob>       diagnostics;
     SlangPtr<sl::IEntryPoint> entry_point;
     const std::string         entry_name(entry);
@@ -202,6 +238,7 @@ auto ShaderProgram::Compile(std::string_view entry, ShaderType stage,
     SlangPtr<sl::IComponentType> composed;
     status = m_Session->createCompositeComponentType(components.data(), components.size(), composed.writeRef(), diagnostics.writeRef());
     m_State->Check(status, diagnostics, "compose " + entry_name);
+
     if (!specialization_types.empty()) {
         std::vector<sl::SpecializationArg> args;
         auto*                              layout = composed->getLayout();
@@ -215,9 +252,20 @@ auto ShaderProgram::Compile(std::string_view entry, ShaderType stage,
         m_State->Check(status, diagnostics, "specialize " + entry_name);
         composed = specialized;
     }
+
     SlangPtr<sl::IComponentType> linked;
     status = composed->link(linked.writeRef(), diagnostics.writeRef());
     m_State->Check(status, diagnostics, "link " + entry_name);
+    return linked;
+}
+
+auto ShaderProgram::Compile(std::string_view entry, ShaderType stage,
+                            std::span<const std::pmr::string> specialization_types) const -> CompiledShader {
+    std::scoped_lock    lock(m_State->mutex);
+    const auto          linked = Link(entry, stage, specialization_types);
+    const std::string   entry_name(entry);
+    SlangPtr<sl::IBlob> diagnostics;
+    int                 status = 0;
     SlangPtr<sl::IBlob> code;
     status = linked->getEntryPointCode(0, 0, code.writeRef(), diagnostics.writeRef());
     m_State->Check(status, diagnostics, "compile " + entry_name);

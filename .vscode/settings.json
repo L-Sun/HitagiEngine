@@ -9,6 +9,7 @@
         "-j=16",
         "--pch-storage=memory",
         "--experimental-modules-support",
+        "--compile-commands-dir=${workspaceFolder}/build"
     ],
     "testMate.cpp.test.workingDirectory": "${workspaceFolder}",
     "testMate.cpp.test.advancedExecutables": [

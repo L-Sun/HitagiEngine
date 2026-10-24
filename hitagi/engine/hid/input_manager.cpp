@@ -125,7 +125,7 @@ bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const
     return std::visit(
         utils::Overloaded{
             [&](const VirtualKeyCode& key) -> bool {
-                return m_KeyState[static_cast<size_t>(key)].current;
+                return m_KeyState[static_cast<std::size_t>(key)].current;
             },
             [&](const MouseEvent& event) -> bool {
                 switch (event) {
@@ -148,7 +148,7 @@ bool InputManager::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) co
     return std::visit(
         utils::Overloaded{
             [&](const VirtualKeyCode& key) -> bool {
-                return m_KeyState[static_cast<size_t>(key)].current && !m_KeyState[static_cast<size_t>(key)].previous;
+                return m_KeyState[static_cast<std::size_t>(key)].current && !m_KeyState[static_cast<std::size_t>(key)].previous;
             },
             [&](const MouseEvent& event) -> bool {
                 switch (event) {
@@ -176,7 +176,7 @@ float InputManager::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) con
     return std::visit(
         utils::Overloaded{
             [&](const VirtualKeyCode& key) -> float {
-                return m_KeyState[static_cast<size_t>(key)].current ? 1.0f : 0.0f;
+                return m_KeyState[static_cast<std::size_t>(key)].current ? 1.0f : 0.0f;
             },
             [&](const MouseEvent& event) -> float {
                 switch (event) {
@@ -199,8 +199,8 @@ float InputManager::GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event
     return std::visit(
         utils::Overloaded{
             [&](const VirtualKeyCode& key) -> float {
-                return (m_KeyState[static_cast<size_t>(key)].current &&
-                        !m_KeyState[static_cast<size_t>(key)].previous)
+                return (m_KeyState[static_cast<std::size_t>(key)].current &&
+                        !m_KeyState[static_cast<std::size_t>(key)].previous)
                            ? 1.0f
                            : 0.0f;
             },

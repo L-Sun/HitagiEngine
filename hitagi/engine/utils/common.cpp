@@ -5,7 +5,7 @@ export constexpr std::size_t operator""_kB(unsigned long long val) { return val 
 
 export namespace hitagi::utils {
 
-constexpr std::size_t align(size_t x, size_t a) {
+constexpr std::size_t align(std::size_t x, std::size_t a) {
     return (x + a - 1) & ~(a - 1);
 }
 

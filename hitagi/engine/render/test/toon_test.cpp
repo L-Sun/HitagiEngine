@@ -190,3 +190,34 @@ TEST_P(ToonRendererTest, OutlineExpandsSilhouetteAndCutoutRemovesBothPasses) {
     EXPECT_THROW(renderer.SetFrame({}), std::logic_error);
     asset::Texture::DestroyDefaultTexture();
 }
+
+TEST(ToonShaderTest, OutlineAvoidsImplicitLodAndFragmentsKeepIt) {
+    gfx::ShaderCompiler compiler("Toon stage sampling");
+    unsigned            checked = 0;
+    for (const auto& pass : render::toon::CreateToonMaterialPasses()) {
+        for (const auto& shader : pass.pipeline->GetShaders()) {
+            const auto& desc = shader->GetDesc();
+            if (desc.entry != "VSOutline" && desc.type != gfx::ShaderType::Pixel) continue;
+            auto       program  = compiler.LoadProgram(desc.program, gfx::ShaderTarget::SPIRV);
+            auto       compiled = program->Compile(desc.entry, desc.type, desc.specialization_types);
+            const auto words    = compiled.bytecode.Span<const std::uint32_t>();
+            ASSERT_TRUE(words.size() >= 5u);
+            unsigned implicit_lod = 0;
+            for (std::size_t offset = 5; offset < words.size();) {
+                const auto count = words[offset] >> 16;
+                ASSERT_TRUE(count > 0u);
+                ASSERT_TRUE(offset + count <= words.size());
+                // SPIR-V OpImageSampleImplicitLod.
+                implicit_lod += (words[offset] & 0xffffu) == 87;
+                offset += count;
+            }
+            if (desc.type == gfx::ShaderType::Vertex) {
+                EXPECT_EQ(implicit_lod, 0u);
+            } else {
+                EXPECT_GT(implicit_lod, 0u);
+            }
+            ++checked;
+        }
+    }
+    EXPECT_EQ(checked, 3u);
+}

@@ -18,6 +18,9 @@ import core;
 #ifdef _WIN32
 import gfx.dx12;
 #endif
+#ifdef __APPLE__
+import gfx.metal;
+#endif
 import gfx.vulkan;
 import gfx.mock;
 
@@ -30,6 +33,13 @@ void validate_bindings(Device& device, const BindlessUtils& bindings) {
         case Device::Type::DX12: {
             const auto* backend = dynamic_cast<const DX12BindlessUtils*>(&bindings);
             compatible          = backend && &backend->GetNativeDevice() == dynamic_cast<DX12Device&>(device).GetDevice().Get();
+            break;
+        }
+#endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            const auto* backend = dynamic_cast<const MetalBindlessUtils*>(&bindings);
+            compatible          = backend && backend->GetNativeDevice() == &dynamic_cast<MetalDevice&>(device).GetDevice();
             break;
         }
 #endif
@@ -57,6 +67,13 @@ void validate_queue(Device& device, const CommandQueue& queue, CommandType type)
             const auto*                          backend = dynamic_cast<const DX12CommandQueue*>(&queue);
             Microsoft::WRL::ComPtr<ID3D12Device> owner;
             compatible = compatible && backend && interop::succeeded(backend->GetDX12Queue()->GetDevice(IID_PPV_ARGS(&owner))) && owner.Get() == dynamic_cast<DX12Device&>(device).GetDevice().Get();
+            break;
+        }
+#endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            const auto* backend = dynamic_cast<const MetalCommandQueue*>(&queue);
+            compatible          = compatible && backend && backend->GetNativeDevice() == &dynamic_cast<MetalDevice&>(device).GetDevice();
             break;
         }
 #endif
@@ -260,6 +277,12 @@ auto Fence::Create(Device& device, std::uint64_t initial_value, std::string_view
             return std::make_shared<DX12Fence>(*backend.GetDevice().Get(), backend.GetLogger(), initial_value, name);
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalFence>(backend.GetDevice(), backend.GetLogger(), initial_value, name);
+        }
+#endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
             return std::make_shared<VulkanTimelineSemaphore>(backend.GetDevice(), backend.GetCustomAllocator(), initial_value, name);
@@ -288,6 +311,22 @@ auto CommandContext::Create(Device& device, CommandQueues& queues, BindlessUtils
                     return std::make_shared<DX12CopyCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
                 default:
                     throw std::runtime_error("Invalid command type.");
+            }
+        }
+#endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend         = dynamic_cast<MetalDevice&>(device);
+            auto& native_bindings = static_cast<MetalBindlessUtils&>(bindings);
+            switch (type) {
+                case CommandType::Graphics:
+                    return std::make_shared<MetalGraphicsCommandBuffer>(backend.GetDevice(), backend.GetLogger(), native_bindings, name);
+                case CommandType::Compute:
+                    return std::make_shared<MetalComputeCommandBuffer>(backend.GetDevice(), backend.GetLogger(), native_bindings, name);
+                case CommandType::Copy:
+                    return std::make_shared<MetalTransferCommandBuffer>(backend.GetDevice(), backend.GetLogger(), name);
+                default:
+                    throw std::invalid_argument("Invalid command type");
             }
         }
 #endif
@@ -331,9 +370,15 @@ auto SwapChain::Create(Device& device, CommandQueue& queue, SwapChainDesc desc) 
             return std::make_shared<DX12SwapChain>(backend.GetFactory(), *static_cast<DX12CommandQueue&>(queue).GetDX12Queue().Get(), queue, backend.GetLogger(), std::move(desc));
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalSwapChain>(backend.GetDevice(), static_cast<MetalCommandQueue&>(queue).GetMetalQueue(), backend.GetLogger(), std::move(desc));
+        }
+#endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
-            return std::make_shared<VulkanSwapChain>(backend.GetDevice(), backend.GetCustomAllocator(), backend.GetInstance(), backend.GetPhysicalDevice(), static_cast<VulkanCommandQueue&>(queue).GetVkQueue(), static_cast<VulkanCommandQueue&>(queue).GetFamilyIndex(), backend.GetLogger(), std::move(desc));
+            return std::make_shared<VulkanSwapChain>(backend.GetDevice(), backend.GetCustomAllocator(), backend.GetInstance(), backend.GetPhysicalDevice(), static_cast<VulkanCommandQueue&>(queue).GetNativeQueue(), backend.GetNativeQueues(), static_cast<VulkanCommandQueue&>(queue).GetFamilyIndex(), backend.GetLogger(), std::move(desc));
         }
         case Device::Type::Mock: {
             auto& backend = dynamic_cast<MockDevice&>(device);
@@ -350,6 +395,12 @@ auto GPUBuffer::Create(Device& device, GPUBufferDesc desc, std::span<const std::
         case Device::Type::DX12: {
             auto& backend = dynamic_cast<DX12Device&>(device);
             return std::make_shared<DX12GPUBuffer>(*backend.GetAllocator().Get(), backend.GetLogger(), std::move(desc), initial_data);
+        }
+#endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalBuffer>(backend.GetDevice(), backend.GetLogger(), std::move(desc), initial_data);
         }
 #endif
         case Device::Type::Vulkan: {
@@ -378,11 +429,19 @@ auto GPUBufferView::Create(Device& device, BindlessUtils& bindings, GPUBufferVie
             return std::make_shared<DX12GPUBufferView>(static_cast<DX12BindlessUtils&>(bindings), GPUBuffer::GetStorageViewRequirements(device), std::move(desc));
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto&       backend = dynamic_cast<MetalDevice&>(device);
+            const auto* buffer  = dynamic_cast<const MetalBuffer*>(desc.buffer.get());
+            if (!buffer || &buffer->native_device != &backend.GetDevice()) throw std::invalid_argument("buffer belongs to another device");
+            return std::make_shared<MetalBufferView>(static_cast<MetalBindlessUtils&>(bindings), std::move(desc));
+        }
+#endif
         case Device::Type::Vulkan: {
             auto&       backend  = dynamic_cast<VulkanDevice&>(device);
             const auto* resource = dynamic_cast<const VulkanBuffer*>(desc.buffer.get());
             if (!resource || resource->buffer->getDevice() != *backend.GetDevice()) throw std::invalid_argument("buffer belongs to another device");
-            return std::make_shared<VulkanBufferView>(backend.GetDevice(), backend.GetCustomAllocator(), static_cast<VulkanBindlessUtils&>(bindings), GPUBuffer::GetStorageViewRequirements(device), std::move(desc));
+            return std::make_shared<VulkanBufferView>(static_cast<VulkanBindlessUtils&>(bindings), GPUBuffer::GetStorageViewRequirements(device), std::move(desc));
         }
         case Device::Type::Mock: {
             auto&       backend  = dynamic_cast<MockDevice&>(device);
@@ -406,6 +465,12 @@ auto Texture::Create(Device& device, CommandQueues& queues, BindlessUtils& bindi
             auto  texture = std::make_shared<DX12Texture>(*backend.GetAllocator().Get(), backend.GetLogger(), std::move(desc), initial_data);
             initialize_dx12_texture(backend, queues, bindings, *texture, initial_data);
             return texture;
+        }
+#endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalTexture>(backend.GetDevice(), backend.GetLogger(), std::move(desc), initial_data);
         }
 #endif
         case Device::Type::Vulkan: {
@@ -436,6 +501,14 @@ auto TextureView::Create(Device& device, BindlessUtils& bindings, TextureViewDes
             return std::make_shared<DX12TextureView>(*backend.GetDevice().Get(), static_cast<DX12BindlessUtils&>(bindings), backend.GetRTVDescriptorAllocator(), backend.GetDSVDescriptorAllocator(), backend.GetLogger(), std::move(desc));
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto&       backend = dynamic_cast<MetalDevice&>(device);
+            const auto* texture = dynamic_cast<const MetalTexture*>(desc.texture.get());
+            if (!texture || &texture->native_device != &backend.GetDevice()) throw std::invalid_argument("texture belongs to another device");
+            return std::make_shared<MetalTextureView>(static_cast<MetalBindlessUtils&>(bindings), backend.GetLogger(), std::move(desc));
+        }
+#endif
         case Device::Type::Vulkan: {
             auto&       backend  = dynamic_cast<VulkanDevice&>(device);
             const auto* resource = dynamic_cast<const VulkanImage*>(desc.texture.get());
@@ -462,6 +535,12 @@ auto Sampler::Create(Device& device, BindlessUtils& bindings, SamplerDesc desc) 
             return std::make_shared<DX12Sampler>(static_cast<DX12BindlessUtils&>(bindings), backend.GetLogger(), std::move(desc));
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalSampler>(backend.GetDevice(), backend.GetLogger(), static_cast<MetalBindlessUtils&>(bindings), std::move(desc));
+        }
+#endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
             return std::make_shared<VulkanSampler>(backend.GetDevice(), backend.GetCustomAllocator(), static_cast<VulkanBindlessUtils&>(bindings), std::move(desc));
@@ -478,15 +557,23 @@ auto Sampler::Create(Device& device, BindlessUtils& bindings, SamplerDesc desc) 
 auto Shader::Create(Device& device, const ShaderCompiler& compiler, ShaderDesc desc) -> std::shared_ptr<Shader> {
     CompiledShader compiled;
     if (device.device_type != Device::Type::Mock) {
-        const auto target = device.device_type == Device::Type::DX12 ? ShaderTarget::DXIL : ShaderTarget::SPIRV;
+        const auto target  = device.device_type == Device::Type::DX12    ? ShaderTarget::DXIL
+                             : device.device_type == Device::Type::Metal ? ShaderTarget::Metal
+                                                                         : ShaderTarget::SPIRV;
         const auto program = compiler.LoadProgram(desc.program, target);
-        compiled = program->Compile(desc.entry, desc.type, desc.specialization_types);
+        compiled           = program->Compile(desc.entry, desc.type, desc.specialization_types);
     }
     switch (device.device_type) {
 #ifdef _WIN32
         case Device::Type::DX12: {
             auto& backend = dynamic_cast<DX12Device&>(device);
             return std::make_shared<DX12Shader>(backend.GetLogger(), std::move(desc), std::move(compiled));
+        }
+#endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalShader>(backend.GetCompiler(), backend.GetLogger(), std::move(desc), std::move(compiled));
         }
 #endif
         case Device::Type::Vulkan: {
@@ -511,9 +598,15 @@ auto RenderPipeline::Create(Device& device, BindlessUtils& bindings, RenderPipel
             return std::make_shared<DX12RenderPipeline>(*backend.GetDevice().Get(), *static_cast<DX12BindlessUtils&>(bindings).GetBindlessRootSignature().Get(), backend.GetLogger(), std::move(desc), shaders);
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalRenderPipeline>(backend.GetDevice(), backend.GetCompiler(), backend.GetLogger(), std::move(desc), shaders);
+        }
+#endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
-            return std::make_shared<VulkanRenderPipeline>(backend.GetDevice(), backend.GetCustomAllocator(), static_cast<VulkanBindlessUtils&>(bindings).mapping_info, backend.GetLogger(), std::move(desc), shaders);
+            return std::make_shared<VulkanRenderPipeline>(backend.GetDevice(), backend.GetCustomAllocator(), static_cast<VulkanBindlessUtils&>(bindings), backend.GetLogger(), std::move(desc), shaders);
         }
         case Device::Type::Mock: {
             auto& backend = dynamic_cast<MockDevice&>(device);
@@ -533,9 +626,15 @@ auto ComputePipeline::Create(Device& device, BindlessUtils& bindings, ComputePip
             return std::make_shared<DX12ComputePipeline>(*backend.GetDevice().Get(), *static_cast<DX12BindlessUtils&>(bindings).GetBindlessRootSignature().Get(), backend.GetLogger(), std::move(desc), cs);
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalComputePipeline>(backend.GetCompiler(), backend.GetLogger(), std::move(desc), cs);
+        }
+#endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
-            return std::make_shared<VulkanComputePipeline>(backend.GetDevice(), backend.GetCustomAllocator(), static_cast<VulkanBindlessUtils&>(bindings).mapping_info, backend.GetLogger(), std::move(desc), cs);
+            return std::make_shared<VulkanComputePipeline>(backend.GetDevice(), backend.GetCustomAllocator(), static_cast<VulkanBindlessUtils&>(bindings), backend.GetLogger(), std::move(desc), cs);
         }
         case Device::Type::Mock: {
             auto& backend = dynamic_cast<MockDevice&>(device);
@@ -563,6 +662,12 @@ auto CopyCommandContext::Create(Device& device, CommandQueues& queues, std::stri
             return std::make_shared<DX12CopyCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalTransferCommandBuffer>(backend.GetDevice(), backend.GetLogger(), name);
+        }
+#endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
             return std::make_shared<VulkanTransferCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetCommandPool(), backend.GetLogger(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
@@ -585,9 +690,15 @@ auto CommandQueue::Create(Device& device, CommandType type, std::string_view nam
             return std::make_shared<DX12CommandQueue>(*backend.GetDevice().Get(), backend.GetLogger(), type, name);
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_shared<MetalCommandQueue>(backend.GetDevice(), backend.GetLogger(), type, name);
+        }
+#endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
-            return std::make_shared<VulkanCommandQueue>(backend.GetDevice(), backend.GetPhysicalDevice(), backend.GetCustomAllocator(), backend.GetLogger(), type, name, backend.GetQueueFamilyIndex());
+            return std::make_shared<VulkanCommandQueue>(backend.GetDevice(), backend.GetPhysicalDevice(), backend.GetCustomAllocator(), backend.GetLogger(), type, name, backend.GetNativeQueue(type));
         }
         case Device::Type::Mock:
             return std::make_shared<MockCommandQueue>(&device, type, name);
@@ -604,9 +715,15 @@ auto BindlessUtils::Create(Device& device, std::string_view name) -> std::unique
             return std::make_unique<DX12BindlessUtils>(*backend.GetDevice().Get(), backend.GetLogger(), name);
         }
 #endif
+#ifdef __APPLE__
+        case Device::Type::Metal: {
+            auto& backend = dynamic_cast<MetalDevice&>(device);
+            return std::make_unique<MetalBindlessUtils>(backend.GetDevice(), backend.GetLogger(), name);
+        }
+#endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
-            return std::make_unique<VulkanBindlessUtils>(backend.GetDevice(), backend.GetPhysicalDevice(), backend.GetVmaAllocator(), name);
+            return std::make_unique<VulkanBindlessUtils>(backend.GetDevice(), backend.GetPhysicalDevice(), backend.GetVmaAllocator(), backend.UsesDescriptorHeap(), name);
         }
         case Device::Type::Mock:
             return std::make_unique<MockBindlessUtils>(&device, name);

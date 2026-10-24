@@ -275,7 +275,7 @@ struct ShaderProgramDesc {
     std::pmr::vector<ShaderModuleDesc> modules;
 };
 
-enum class ShaderTarget { DXIL, SPIRV };
+enum class ShaderTarget { DXIL, SPIRV, Metal };
 
 struct CompiledShader {
     core::Buffer bytecode;

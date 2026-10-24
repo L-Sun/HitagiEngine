@@ -15,6 +15,7 @@ import utils;
 import math;
 import gfx.base;
 import :types;
+import :command_queue;
 import :bindless;
 import :utils;
 import :resource;
@@ -202,6 +203,44 @@ inline auto to_vk_image_barrier(const TextureBarrier& barrier) -> vk::ImageMemor
 
 namespace hitagi::gfx {
 
+void append_vulkan_submission(const CommandContext& context,
+                              std::pmr::vector<vk::CommandBufferSubmitInfo>& commands,
+                              std::pmr::vector<vk::SemaphoreSubmitInfo>& waits,
+                              std::pmr::vector<vk::SemaphoreSubmitInfo>& signals) {
+    const auto append_present_sync = [&](const auto& buffer) {
+        commands.emplace_back(vk::CommandBufferSubmitInfo{.commandBuffer = *buffer.command_buffer});
+        if (buffer.swap_chain_image_available_semaphore) {
+            waits.emplace_back(vk::SemaphoreSubmitInfo{
+                .semaphore = **buffer.swap_chain_image_available_semaphore,
+                // Graphics command buffers may also blit/copy into the acquired image.
+                .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            });
+        }
+        for (const auto& semaphore : buffer.swap_chain_presentable_semaphores) {
+            signals.emplace_back(vk::SemaphoreSubmitInfo{
+                .semaphore = **semaphore,
+                .stageMask = vk::PipelineStageFlagBits2::eAllCommands,
+            });
+        }
+    };
+    switch (context.GetType()) {
+        case CommandType::Graphics:
+            append_present_sync(dynamic_cast<const VulkanGraphicsCommandBuffer&>(context));
+            break;
+        case CommandType::Copy:
+            append_present_sync(dynamic_cast<const VulkanTransferCommandBuffer&>(context));
+            break;
+        case CommandType::Compute:
+            commands.emplace_back(vk::CommandBufferSubmitInfo{
+                .commandBuffer = *dynamic_cast<const VulkanComputeCommandBuffer&>(context).command_buffer,
+            });
+            break;
+        default:
+            utils::unreachable();
+    }
+}
+
+
 inline void pipeline_barrier_fn(vk::raii::CommandBuffer&          command_buffer,
                                 std::span<const GlobalBarrier>    global_barriers,
                                 std::span<const GPUBufferBarrier> buffer_barriers,
@@ -294,7 +333,7 @@ void VulkanGraphicsCommandBuffer::Begin() {
     });
     auto& vk_bindless_utils = m_BindlessUtils;
 
-    vk_bindless_utils.Bind(command_buffer);
+    vk_bindless_utils.Bind(command_buffer, vk::PipelineBindPoint::eGraphics);
 
 #ifdef TRACY_ENABLE
     m_TracyZone = std::make_unique<tracy::VkCtxScope>(
@@ -430,11 +469,12 @@ void VulkanGraphicsCommandBuffer::SetVertexBuffers(std::uint8_t                 
                       }) |
                       std::ranges::to<std::pmr::vector<vk::Buffer>>();
 
-    command_buffer.bindVertexBuffers(start_binding, vk_buffers, offsets);
+    const std::pmr::vector<vk::DeviceSize> vk_offsets(offsets.begin(), offsets.end());
+    command_buffer.bindVertexBuffers(start_binding, vk_buffers, vk_offsets);
 }
 
 void VulkanGraphicsCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
-    command_buffer.pushDataEXT({.offset = 0, .data = {.address = &info, .size = sizeof(info)}});
+    m_BindlessUtils.PushMetaInfo(command_buffer, info);
 }
 
 void VulkanGraphicsCommandBuffer::Draw(std::uint32_t vertex_count, std::uint32_t instance_count, std::uint32_t first_vertex, std::uint32_t first_instance) {
@@ -509,7 +549,7 @@ void VulkanComputeCommandBuffer::Begin() {
     });
     auto& vk_bindless_utils = m_BindlessUtils;
 
-    vk_bindless_utils.Bind(command_buffer);
+    vk_bindless_utils.Bind(command_buffer, vk::PipelineBindPoint::eCompute);
 
 #ifdef TRACY_ENABLE
     m_TracyZone = std::make_unique<tracy::VkCtxScope>(
@@ -546,7 +586,7 @@ void VulkanComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
 }
 
 void VulkanComputeCommandBuffer::PushBindlessMetaInfo(const BindlessMetaInfo& info) {
-    command_buffer.pushDataEXT({.offset = 0, .data = {.address = &info, .size = sizeof(info)}});
+    m_BindlessUtils.PushMetaInfo(command_buffer, info);
 }
 
 VulkanTransferCommandBuffer::VulkanTransferCommandBuffer(const vk::raii::Device& device, const vk::raii::CommandPool& pool, const std::shared_ptr<spdlog::logger>& logger, TracyVkCtx tracy_context, std::string_view name)

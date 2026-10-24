@@ -308,10 +308,14 @@ struct Material : IMaterial {{
         const MaterialData data = context.material_data.load<MaterialData>();
         {}
         if (hitagi::valid(data.base_color_texture.handle)) {{
-            if (input.is_vertex)
-                surface.base_color *= data.base_color_texture.sample_level<float4>(context.sampler, input.uv, 0.0);
-            else
-                surface.base_color *= data.base_color_texture.sample<float4>(context.sampler, input.uv);
+            // Select at compile time: a runtime flag leaves fragment-only
+            // implicit LOD instructions reachable from VSOutline in Debug SPIR-V.
+            __stage_switch {{
+                case vertex:
+                    surface.base_color *= data.base_color_texture.sample_level<float4>(context.sampler, input.uv, 0.0);
+                case fragment:
+                    surface.base_color *= data.base_color_texture.sample<float4>(context.sampler, input.uv);
+            }}
         }}
     }}
 }};

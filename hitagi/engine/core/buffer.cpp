@@ -61,7 +61,7 @@ private:
 
 namespace hitagi::core {
 
-Buffer::Buffer(size_t size, const std::byte* data, size_t alignment)
+Buffer::Buffer(std::size_t size, const std::byte* data, std::size_t alignment)
     : m_Allocator(std::pmr::get_default_resource()),
       m_Data(size != 0 ? static_cast<std::byte*>(m_Allocator.allocate_bytes(size, alignment)) : nullptr),
       m_Size(size),
