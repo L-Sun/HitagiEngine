@@ -589,7 +589,9 @@ JoltRigWorld::JoltRigWorld(std::span<const RigBody> bodies, std::span<const RigJ
     }
     d.world.OptimizeBroadPhase();
 }
-JoltRigWorld::~JoltRigWorld() = default;
+// Keep an explicit body: MSVC emits duplicate symbols for the defaulted
+// out-of-line destructor when this module is imported by rig tests.
+JoltRigWorld::~JoltRigWorld() {}
 void JoltRigWorld::Reset(std::span<const math::mat4f> poses) {
     auto& d = *m_Impl;
     if (poses.size() != d.bodies.size()) throw std::invalid_argument("Rig pose count mismatch");

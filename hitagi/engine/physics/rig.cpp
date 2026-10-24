@@ -124,7 +124,9 @@ RigWorld::RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> jo
     }
 }
 
-RigWorld::~RigWorld() = default;
+// Keep an explicit body: MSVC emits duplicate symbols for the defaulted
+// out-of-line destructor when this module is imported by rig tests.
+RigWorld::~RigWorld() {}
 
 void RigWorld::Reset(std::span<const math::mat4f> poses) {
     if (m_Jolt) return m_Jolt->Reset(poses);
