@@ -1,11 +1,8 @@
 <div align="center">
     <h1> Hitagi Engine</h1>
     <div>
-        <a href="https://github.com/L-Sun/HitagiEngine/actions?query=workflow%3Awindows-build">
-            <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/L-Sun/HitagiEngine/windows.yaml?logo=windows&style=flat-square">
-        </a>
-        <a href="https://github.com/L-Sun/HitagiEngine/actions?query=workflow%3Amacos-build">
-            <img alt="macOS Workflow Status" src="https://img.shields.io/github/actions/workflow/status/L-Sun/HitagiEngine/macos.yaml?logo=apple&style=flat-square">
+        <a href="https://github.com/L-Sun/HitagiEngine/actions/workflows/build.yaml">
+            <img alt="Build Status (Windows and macOS)" src="https://img.shields.io/github/actions/workflow/status/L-Sun/HitagiEngine/build.yaml?style=flat-square">
         </a>
     </div>
     <hr>
@@ -26,7 +23,7 @@ Hitagi Engine is an experimental game engine written with C++23 modules and buil
 - **Platform**: Win32 on Windows, SDL3 elsewhere
 - **Asset authoring**: OpenUSD import, material source metadata, renderer-agnostic material graph compilation against renderer-supplied pass templates, and asset cooking
 
-Platform status: Windows is the primary target. CI workflows cover Windows builds and macOS 26 ARM64 release builds. The macOS workflow compiles test targets but does not run tests. Linux/Wayland code paths exist for Vulkan and SDL3 but are not regularly validated.
+Platform status: Windows is the primary target. One CI workflow uses a matrix for Windows clang-cl, Windows MSVC and macOS 26 ARM64 clang release builds. It compiles test targets but does not run tests. Linux/Wayland code paths exist for Vulkan and SDL3 but are not regularly validated.
 
 ## Repository Layout
 
@@ -68,7 +65,7 @@ xmake f -y -p macosx -a arm64 -m release --toolchain=clang \
 xmake build -j 3
 ```
 
-Use the native `clang` toolchain, preserving its default deployment target; XMake's `llvm` toolchain injects different Xcode target flags. The macOS workflow installs prerequisites, caches packages by compiler/Rust/SDK versions and package recipes, builds libraries/tests/examples without running tests. It runs for pushes and pull requests to `dev` and can be dispatched manually. These steps require the macOS platform implementation and package recipes to be present in the checked-out revision.
+Use the native `clang` toolchain, preserving its default deployment target; XMake's `llvm` toolchain injects different Xcode target flags. The build workflow installs prerequisites, caches packages by compiler/Rust/SDK versions and package recipes, builds libraries/tests/examples without running tests. It runs for pushes and pull requests to `dev` and can be dispatched manually. These steps require the macOS platform implementation and package recipes to be present in the checked-out revision.
 
 On Windows:
 

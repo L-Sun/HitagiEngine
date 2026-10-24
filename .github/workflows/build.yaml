@@ -1,0 +1,184 @@
+name: build
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [dev]
+    paths-ignore: &docs-only
+      - "**/*.md"
+      - "docs/**"
+      - "tools/**"
+      - "LICENSE"
+      - ".cursor/**"
+      - ".codex/**"
+      - ".vscode/**"
+      - ".clang-format"
+      - ".clangd"
+  push:
+    branches: [dev]
+    paths-ignore: *docs-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows clang-cl
+            os: windows-latest
+            platform: windows
+            arch: x64
+            toolchain: clang-cl
+            timeout: 180
+          - name: Windows MSVC
+            os: windows-latest
+            platform: windows
+            arch: x64
+            toolchain: msvc
+            timeout: 180
+          - name: macOS ARM64 clang
+            os: macos-26
+            platform: macosx
+            arch: arm64
+            toolchain: clang
+            timeout: 90
+    env:
+      LLVM_VERSION: "23.1.2"
+      VULKAN_SDK_VERSION: "1.4.363.0"
+      CMAKE_BUILD_PARALLEL_LEVEL: "3"
+      CARGO_BUILD_JOBS: "1"
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Keep the package root short, especially for USD on Windows.
+      - name: Set xmake global directory
+        run: echo "XMAKE_GLOBALDIR=$RUNNER_WORKSPACE/xmake-global" >> "$GITHUB_ENV"
+
+      - name: Install LLVM
+        if: ${{ matrix.toolchain == 'clang-cl' }}
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/llvm/llvm-project/releases/download/llvmorg-$env:LLVM_VERSION/LLVM-$env:LLVM_VERSION-win64.msi" -OutFile "llvm.msi"
+          if (Test-Path "C:\Program Files\LLVM") { Remove-Item -Recurse -Force "C:\Program Files\LLVM" }
+          $process = Start-Process msiexec.exe -ArgumentList "/i", "`"$((Resolve-Path llvm.msi).Path)`"", "/qn", "/norestart" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "LLVM installer failed with exit code $($process.ExitCode)" }
+          $version = & "C:\Program Files\LLVM\bin\clang-cl.exe" --version
+          $version
+          if (-not ($version -match "clang version $([regex]::Escape($env:LLVM_VERSION))")) { throw "Unexpected clang-cl version" }
+
+      - name: Download ISPC (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/ispc/ispc/releases/download/v1.27.0/ispc-v1.27.0-windows.zip" -OutFile "ispc.zip"
+          7z x ispc.zip
+          "$env:GITHUB_WORKSPACE\ispc-v1.27.0-windows\bin" >> $env:GITHUB_PATH
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm ispc cmake ninja
+          llvm_root="$(brew --prefix llvm)"
+          echo "LLVM_ROOT=$llvm_root" >> "$GITHUB_ENV"
+          echo "$llvm_root/bin" >> "$GITHUB_PATH"
+          "$llvm_root/bin/clang++" --version
+          ispc --version
+          cargo --version
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      # Headers/Loader alone are insufficient: the engine also links Slang and
+      # SPIRV-Cross. Install the complete prebuilt SDK, including those libraries.
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1.7.0
+        with:
+          vulkan_version: ${{ env.VULKAN_SDK_VERSION }}
+          cache: true
+
+      - name: Check SDK components (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          test -f "$VULKAN_SDK/include/vulkan/vulkan.cppm"
+          test -f "$VULKAN_SDK/include/slang/slang.h"
+          test -f "$VULKAN_SDK/lib/libslang.dylib"
+          for component in core glsl msl; do
+            test -f "$VULKAN_SDK/lib/libspirv-cross-$component.a"
+          done
+
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: L-Sun/xmake#branch@hitagi-engine
+          actions-cache-folder: ".xmake-cache"
+
+      - name: Record tool versions
+        id: tools
+        run: |
+          # Include resolved versions in cache keys, even as runner images change.
+          {
+            xmake --version
+            rustc --version
+            bun --version
+            if [[ "$RUNNER_OS" == "macOS" ]]; then
+              "$LLVM_ROOT/bin/clang++" --version
+            elif [[ "${{ matrix.toolchain }}" == "clang-cl" ]]; then
+              "/c/Program Files/LLVM/bin/clang-cl.exe" --version
+            else
+              "/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationVersion
+            fi
+          } > tool-versions.txt
+          cat tool-versions.txt
+          echo "hash=$(node -e "process.stdout.write(require('crypto').createHash('sha256').update(require('fs').readFileSync('tool-versions.txt')).digest('hex'))")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore xmake packages
+        id: restore-packages
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/packages
+          key: xmake-packages-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.toolchain }}-release-${{ steps.tools.outputs.hash }}-sdk${{ env.VULKAN_SDK_VERSION }}-${{ hashFiles('.github/workflows/build.yaml', 'xmake.lua', 'hitagi/**/xmake.lua', 'xmake/**') }}
+
+      - name: Configure
+        run: |
+          compiler_args=()
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            # Native clang preserves its default deployment target, unlike the
+            # llvm toolchain, which injects Xcode target flags.
+            compiler_args=(--cc="$LLVM_ROOT/bin/clang" --cxx="$LLVM_ROOT/bin/clang++")
+          fi
+          xmake f -y -p ${{ matrix.platform }} -a ${{ matrix.arch }} -m release \
+            --toolchain=${{ matrix.toolchain }} "${compiler_args[@]}" \
+            --ispc=y --profile=n --benchmarks=n
+
+      - name: Save xmake packages
+        if: ${{ success() && steps.restore-packages.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/packages
+          key: ${{ steps.restore-packages.outputs.cache-primary-key }}
+
+      - name: Build libraries, tests and examples
+        run: xmake -vD -j 3
+
+      - name: Upload dependency failure logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-failure-logs-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.toolchain }}
+          path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/cache/packages/**/installdir.failed/logs/**
+          if-no-files-found: ignore
