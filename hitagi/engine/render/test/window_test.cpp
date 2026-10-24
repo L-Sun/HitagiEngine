@@ -115,11 +115,11 @@ void ExerciseWindow(Application& app, gfx::CommandQueues& queues, std::unique_pt
 }
 
 class WindowRendererTest : public testing::TestWithParam<gfx::Device::Type> {};
-INSTANTIATE_TEST_SUITE_P(Backends, WindowRendererTest, testing::Values(
 #ifdef _WIN32
-                                                           gfx::Device::Type::DX12,
+INSTANTIATE_TEST_SUITE_P(Backends, WindowRendererTest, testing::Values(gfx::Device::Type::DX12, gfx::Device::Type::Vulkan));
+#else
+INSTANTIATE_TEST_SUITE_P(Backends, WindowRendererTest, testing::Values(gfx::Device::Type::Vulkan));
 #endif
-                                                           gfx::Device::Type::Vulkan));
 
 TEST_P(WindowRendererTest, PbrOwnsPresentationAndRetainsFrameAcrossResize) {
     auto                app    = Application::CreateApp({.width = 320, .height = 240, .headless = true});

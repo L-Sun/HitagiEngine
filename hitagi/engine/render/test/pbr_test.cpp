@@ -26,11 +26,11 @@ private:
 
 class PbrRendererTest : public testing::TestWithParam<gfx::Device::Type> {};
 
-INSTANTIATE_TEST_SUITE_P(Backends, PbrRendererTest, testing::Values(
 #ifdef _WIN32
-                                                        gfx::Device::Type::DX12,
+INSTANTIATE_TEST_SUITE_P(Backends, PbrRendererTest, testing::Values(gfx::Device::Type::DX12, gfx::Device::Type::Vulkan));
+#else
+INSTANTIATE_TEST_SUITE_P(Backends, PbrRendererTest, testing::Values(gfx::Device::Type::Vulkan));
 #endif
-                                                        gfx::Device::Type::Vulkan));
 
 TEST_P(PbrRendererTest, EmptyFrameClearsApplicationTargetAcrossExecutions) {
     auto                     device = gfx::create_device(GetParam());

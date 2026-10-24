@@ -93,11 +93,11 @@ auto Sphere(std::shared_ptr<asset::Material> material) -> std::shared_ptr<asset:
 }  // namespace toon_renderer_test
 
 class ToonRendererTest : public testing::TestWithParam<gfx::Device::Type> {};
-INSTANTIATE_TEST_SUITE_P(Backends, ToonRendererTest, testing::Values(
 #ifdef _WIN32
-                                                         gfx::Device::Type::DX12,
+INSTANTIATE_TEST_SUITE_P(Backends, ToonRendererTest, testing::Values(gfx::Device::Type::DX12, gfx::Device::Type::Vulkan));
+#else
+INSTANTIATE_TEST_SUITE_P(Backends, ToonRendererTest, testing::Values(gfx::Device::Type::Vulkan));
 #endif
-                                                         gfx::Device::Type::Vulkan));
 
 TEST_P(ToonRendererTest, ThreeBandsAndSupersamplingPreserveDepthForLaterPasses) {
     auto                                           device = gfx::create_device(GetParam());

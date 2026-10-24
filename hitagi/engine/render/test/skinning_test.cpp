@@ -112,11 +112,11 @@ auto Triangle(bool deferred, bool toon = false) -> std::shared_ptr<asset::Mesh> 
 }  // namespace skinning_render_test
 
 class SkinningRendererTest : public testing::TestWithParam<gfx::Device::Type> {};
-INSTANTIATE_TEST_SUITE_P(Backends, SkinningRendererTest, testing::Values(
 #ifdef _WIN32
-                                                             gfx::Device::Type::DX12,
+INSTANTIATE_TEST_SUITE_P(Backends, SkinningRendererTest, testing::Values(gfx::Device::Type::DX12, gfx::Device::Type::Vulkan));
+#else
+INSTANTIATE_TEST_SUITE_P(Backends, SkinningRendererTest, testing::Values(gfx::Device::Type::Vulkan));
 #endif
-                                                             gfx::Device::Type::Vulkan));
 
 TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmittedSnapshots) {
     core::JobSystem     jobs;

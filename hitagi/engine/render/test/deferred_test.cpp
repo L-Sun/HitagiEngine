@@ -21,14 +21,13 @@ using namespace hitagi::render::deferred;
 
 class DeferredRendererTest : public TestWithParam<gfx::Device::Type> {};
 
-INSTANTIATE_TEST_SUITE_P(Backends, DeferredRendererTest, Values(
 #ifdef _WIN32
-                                                             gfx::Device::Type::DX12,
+INSTANTIATE_TEST_SUITE_P(Backends, DeferredRendererTest, Values(gfx::Device::Type::DX12, gfx::Device::Type::Vulkan));
+#elif defined(__APPLE__)
+INSTANTIATE_TEST_SUITE_P(Backends, DeferredRendererTest, Values(gfx::Device::Type::Metal, gfx::Device::Type::Vulkan));
+#else
+INSTANTIATE_TEST_SUITE_P(Backends, DeferredRendererTest, Values(gfx::Device::Type::Vulkan));
 #endif
-#ifdef __APPLE__
-                                                             gfx::Device::Type::Metal,
-#endif
-                                                             gfx::Device::Type::Vulkan));
 
 class DeferredExtensionProbe final : public IDeferredRenderExtension {
 public:
