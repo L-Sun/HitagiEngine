@@ -107,3 +107,11 @@ jobs:
 
       - name: Build libraries, tests and examples
         run: xmake -vD -j 3
+
+      - name: Upload dependency failure logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dependency-failure-logs
+          path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/cache/packages/**/installdir.failed/logs/**
+          if-no-files-found: ignore

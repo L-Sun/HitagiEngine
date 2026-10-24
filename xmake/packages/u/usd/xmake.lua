@@ -53,7 +53,7 @@ package("usd")
             -- oneTBB 2022.1 uses std::equal without including <algorithm>.
             -- New libc++ versions no longer provide it through other headers.
             package:add("deps", "tbb", {configs = package:is_plat("macosx") and {
-                cxxflags = "-include algorithm"
+                cxxflags = "-includealgorithm"
             } or {}})
         else
             -- usd only support tbb 2022 now https://github.com/PixarAnimationStudios/USD/issues/1471
