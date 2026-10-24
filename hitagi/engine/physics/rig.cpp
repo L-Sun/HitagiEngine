@@ -12,7 +12,7 @@ class RigWorld {
 public:
     RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> joints, math::vec3f gravity,
              RigBackend backend = RigBackend::Bullet);
-    ~RigWorld();
+    ~RigWorld() = default;
     RigWorld(const RigWorld&)                    = delete;
     auto operator=(const RigWorld&) -> RigWorld& = delete;
     void Reset(std::span<const math::mat4f> poses);
@@ -124,9 +124,6 @@ RigWorld::RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> jo
     }
 }
 
-// Keep an explicit body: MSVC emits duplicate symbols for the defaulted
-// out-of-line destructor when this module is imported by rig tests.
-RigWorld::~RigWorld() {}
 
 void RigWorld::Reset(std::span<const math::mat4f> poses) {
     if (m_Jolt) return m_Jolt->Reset(poses);

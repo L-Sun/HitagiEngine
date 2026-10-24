@@ -61,7 +61,7 @@ private:
 class JoltRigWorld {
 public:
     JoltRigWorld(std::span<const RigBody>, std::span<const RigJoint>, math::vec3f gravity);
-    ~JoltRigWorld();
+    ~JoltRigWorld() = default;
     void Reset(std::span<const math::mat4f> poses);
     void Step(std::span<const math::mat4f> anchors, float seconds);
     auto Pose(unsigned body) const -> math::mat4f;
@@ -589,9 +589,6 @@ JoltRigWorld::JoltRigWorld(std::span<const RigBody> bodies, std::span<const RigJ
     }
     d.world.OptimizeBroadPhase();
 }
-// Keep an explicit body: MSVC emits duplicate symbols for the defaulted
-// out-of-line destructor when this module is imported by rig tests.
-JoltRigWorld::~JoltRigWorld() {}
 void JoltRigWorld::Reset(std::span<const math::mat4f> poses) {
     auto& d = *m_Impl;
     if (poses.size() != d.bodies.size()) throw std::invalid_argument("Rig pose count mismatch");
