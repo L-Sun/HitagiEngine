@@ -4,6 +4,9 @@
         <a href="https://github.com/L-Sun/HitagiEngine/actions?query=workflow%3Awindows-build">
             <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/L-Sun/HitagiEngine/windows.yaml?logo=windows&style=flat-square">
         </a>
+        <a href="https://github.com/L-Sun/HitagiEngine/actions?query=workflow%3Amacos-build">
+            <img alt="macOS Workflow Status" src="https://img.shields.io/github/actions/workflow/status/L-Sun/HitagiEngine/macos.yaml?logo=apple&style=flat-square">
+        </a>
     </div>
     <hr>
 </div>
@@ -23,7 +26,7 @@ Hitagi Engine is an experimental game engine written with C++23 modules and buil
 - **Platform**: Win32 on Windows, SDL3 elsewhere
 - **Asset authoring**: OpenUSD import, material source metadata, renderer-agnostic material graph compilation against renderer-supplied pass templates, and asset cooking
 
-Platform status: Windows is the primary target and the only one covered by CI. Linux/Wayland code paths exist for Vulkan and SDL3 but are not regularly validated.
+Platform status: Windows is the primary target. CI workflows cover Windows builds and macOS 26 ARM64 release builds. The macOS workflow compiles test targets but does not run tests. Linux/Wayland code paths exist for Vulkan and SDL3 but are not regularly validated.
 
 ## Repository Layout
 
@@ -54,6 +57,20 @@ Platform status: Windows is the primary target and the only one covered by CI. L
 Other third-party dependencies are downloaded and built during configuration/build, so keep a network connection available. OpenUSD belongs to the editor authoring target. PocketJS's runtime and host-side UI compiler are pinned, checksum-verified local recipes under `xmake/packages/p/`, installed and cached by XMake. Cargo builds the runtime with `-j 1`; Bun and Cargo must be available on `PATH`.
 
 ### Configure and Build
+
+For macOS 26 on Apple Silicon, install Homebrew LLVM (validated locally with 23.1.4), ISPC, CMake, Ninja, Rust and Bun, plus the full Vulkan SDK 1.4.363.0. Source the SDK's `setup-env.sh` before configuring; the build needs its Slang and SPIRV-Cross libraries in addition to Vulkan headers and the loader. Use the project's `L-Sun/xmake` `hitagi-engine` branch, as in CI.
+
+```sh
+llvm_root="$(brew --prefix llvm)"
+xmake f -y -p macosx -a arm64 -m release --toolchain=clang \
+  --cc="$llvm_root/bin/clang" --cxx="$llvm_root/bin/clang++" \
+  --ispc=y --profile=n --benchmarks=n
+xmake build -j 3
+```
+
+Use the native `clang` toolchain, preserving its default deployment target; XMake's `llvm` toolchain injects different Xcode target flags. The macOS workflow installs prerequisites, caches packages by compiler/Rust/SDK versions and package recipes, builds libraries/tests/examples without running tests. It runs for pushes and pull requests to `dev` and can be dispatched manually. These steps require the macOS platform implementation and package recipes to be present in the checked-out revision.
+
+On Windows:
 
 ```powershell
 git clone https://github.com/L-Sun/HitagiEngine
