@@ -9,14 +9,6 @@ import gfx.base;
 
 export namespace hitagi::gfx {
 
-#ifdef HITAGI_DEBUG
-constexpr std::array required_instance_layers = {
-    "VK_LAYER_KHRONOS_validation",
-};
-#else
-constexpr std::array<const char*, 0> required_instance_layers = {};
-#endif
-
 constexpr std::array required_instance_extensions = {
     vk::KHRSurfaceExtensionName,
 #ifdef HITAGI_DEBUG
@@ -27,7 +19,6 @@ constexpr std::array required_instance_extensions = {
 #endif
 };
 
-auto get_instance_layers() -> std::span<const char* const>;
 auto get_instance_extensions() -> std::pmr::vector<const char*>;
 auto choose_surface_format(std::span<const vk::SurfaceFormatKHR> formats) -> vk::SurfaceFormatKHR;
 
@@ -50,12 +41,6 @@ constexpr std::array<std::uint32_t, 4> vulkan_bindless_descriptor_bindings{7, 2,
 }  // namespace hitagi::gfx
 
 namespace hitagi::gfx {
-
-auto get_instance_layers() -> std::span<const char* const> {
-    const auto validation = std::getenv("HITAGI_VULKAN_VALIDATION");
-    if (validation && std::string_view(validation) == "0") return {};
-    return required_instance_layers;
-}
 
 auto choose_surface_format(std::span<const vk::SurfaceFormatKHR> formats) -> vk::SurfaceFormatKHR {
     // Renderers and GUI already output display-encoded colors. An sRGB attachment

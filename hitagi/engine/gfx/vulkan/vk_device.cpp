@@ -103,15 +103,12 @@ VulkanDevice::VulkanDevice(std::string_view name)
                         vk::versionMinor(app_info.apiVersion),
                         vk::versionPatch(app_info.apiVersion));
 
-        const auto instance_layers     = get_instance_layers();
         const auto instance_extensions = get_instance_extensions();
 
         m_Instance = std::make_unique<vk::raii::Instance>(
             m_Context,
             vk::InstanceCreateInfo{
                 .pApplicationInfo        = &app_info,
-                .enabledLayerCount       = static_cast<std::uint32_t>(instance_layers.size()),
-                .ppEnabledLayerNames     = instance_layers.data(),
                 .enabledExtensionCount   = static_cast<std::uint32_t>(instance_extensions.size()),
                 .ppEnabledExtensionNames = instance_extensions.data(),
             },

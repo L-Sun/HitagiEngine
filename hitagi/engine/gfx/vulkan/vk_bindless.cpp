@@ -12,7 +12,7 @@ import :types;
 
 export namespace hitagi::gfx {
 
-struct VulkanBindlessUtils : public BindlessUtils {
+struct VulkanBindlessUtils final : public BindlessUtils {
     VulkanBindlessUtils(const vk::raii::Device& device, const vk::raii::PhysicalDevice& physical_device, VmaAllocator allocator, bool descriptor_heap, std::string_view name);
     ~VulkanBindlessUtils() final;
     auto& GetNativeDevice() const noexcept { return m_Device; }
