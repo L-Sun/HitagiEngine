@@ -90,6 +90,10 @@ package("usd")
     end)
 
     on_install("linux", "macosx", "windows", function (package)
+        -- TraceEvent uses std::aligned_storage; libc++ no longer exposes it
+        -- transitively through <utility>.
+        io.replace("pxr/base/trace/event.h", "#include <utility>",
+            "#include <utility>\n#include <type_traits>", {plain = true})
         local configs = {
             "-DPXR_BUILD_TESTS=OFF",
             "-DPXR_BUILD_EXAMPLES=OFF",
