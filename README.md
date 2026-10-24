@@ -82,6 +82,8 @@ The repository provides engine libraries, built-in renderers, asset authoring to
 
 The default build includes enabled libraries and tests. Benchmark targets join it with `--benchmarks=y`.
 
+CI imports platform settings from `.github/configs/windows-clang.conf`, `windows-msvc.conf`, or `macos-arm64.conf`, then runs `xmake` with its default verbosity and parallelism. For example: `xmake f -y --import=.github/configs/macos-arm64.conf`. Put Homebrew LLVM on `PATH` before using the macOS configuration.
+
 | Option | Default | Description |
 | --- | --- | --- |
 | `--profile=y` | `n` | Enable [Tracy](https://github.com/wolfpld/tracy) profiling |

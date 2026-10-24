@@ -38,24 +38,25 @@ jobs:
             platform: windows
             arch: x64
             toolchain: clang-cl
+            config: windows-clang
             timeout: 180
           - name: Windows MSVC
             os: windows-latest
             platform: windows
             arch: x64
             toolchain: msvc
+            config: windows-msvc
             timeout: 180
           - name: macOS ARM64 clang
             os: macos-26
             platform: macosx
             arch: arm64
             toolchain: clang
+            config: macos-arm64
             timeout: 90
     env:
       LLVM_VERSION: "23.1.2"
       VULKAN_SDK_VERSION: "1.4.363.0"
-      CMAKE_BUILD_PARALLEL_LEVEL: "3"
-      CARGO_BUILD_JOBS: "1"
     defaults:
       run:
         shell: bash
@@ -141,19 +142,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.XMAKE_GLOBALDIR }}/.xmake/packages
-          key: xmake-packages-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.toolchain }}-release-${{ steps.tools.outputs.hash }}-sdk${{ env.VULKAN_SDK_VERSION }}-${{ hashFiles('.github/workflows/build.yaml', 'xmake.lua', 'hitagi/**/xmake.lua', 'xmake/**') }}
+          key: xmake-packages-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.toolchain }}-release-${{ steps.tools.outputs.hash }}-sdk${{ env.VULKAN_SDK_VERSION }}-${{ hashFiles('.github/workflows/build.yaml', '.github/configs/*.conf', 'xmake.lua', 'hitagi/**/xmake.lua', 'xmake/**') }}
 
       - name: Configure
-        run: |
-          compiler_args=()
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            # Native clang preserves its default deployment target, unlike the
-            # llvm toolchain, which injects Xcode target flags.
-            compiler_args=(--cc="$LLVM_ROOT/bin/clang" --cxx="$LLVM_ROOT/bin/clang++")
-          fi
-          xmake f -y -p ${{ matrix.platform }} -a ${{ matrix.arch }} -m release \
-            --toolchain=${{ matrix.toolchain }} "${compiler_args[@]}" \
-            --ispc=y --profile=n --benchmarks=n
+        run: xmake f -y --import=.github/configs/${{ matrix.config }}.conf
 
       - name: Save xmake packages
         if: ${{ success() && steps.restore-packages.outputs.cache-hit != 'true' }}
@@ -163,7 +155,7 @@ jobs:
           key: ${{ steps.restore-packages.outputs.cache-primary-key }}
 
       - name: Build libraries, tests and examples
-        run: xmake -vD -j 3
+        run: xmake
 
       - name: Upload dependency failure logs
         if: ${{ failure() }}
