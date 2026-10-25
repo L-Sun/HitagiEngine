@@ -14,6 +14,7 @@ import :entity_storage;
 import :filter;
 import :component;
 import :query;
+import :resource;
 
 export namespace hitagi::ecs {
 
@@ -39,8 +40,8 @@ class Schedule {
     struct TaskBase {
         TaskBase(std::string_view name, detail::ComponentIdList components, Filter filter)
             : name(name), components(std::move(components)), filter(std::move(filter)) {}
-        virtual ~TaskBase()                                        = default;
-        virtual void Run(detail::EntityStorage&, core::JobSystem&) = 0;
+        virtual ~TaskBase()                           = default;
+        virtual void Run(Schedule&, core::JobSystem&) = 0;
 
         std::optional<std::size_t> group;
         std::pmr::string           name;
@@ -52,7 +53,7 @@ class Schedule {
     struct Task : TaskBase {
         Task(std::string_view name, detail::ComponentIdList components, Filter filter, Func task)
             : TaskBase(name, std::move(components), std::move(filter)), task(std::move(task)) {}
-        void Run(detail::EntityStorage& storage, core::JobSystem& jobs) final;
+        void Run(Schedule& schedule, core::JobSystem& jobs) final;
         Func task;
     };
 
@@ -87,8 +88,8 @@ public:
 private:
     friend class World;
     double m_DeltaSeconds = 0.0;
-    Schedule(detail::EntityStorage& storage, std::shared_ptr<spdlog::logger> logger, std::string_view name)
-        : m_Storage(storage), m_Logger(std::move(logger)), m_Name(name) {}
+    Schedule(detail::EntityStorage& storage, detail::Resources& resources, std::shared_ptr<spdlog::logger> logger, std::string_view name)
+        : m_Resources(resources), m_Storage(storage), m_Logger(std::move(logger)), m_Name(name) {}
 
     void Request(std::shared_ptr<TaskBase> task, std::span<const detail::ParameterAccess> parameters, std::optional<Group> group);
     auto FindOrAddGroup(Group group) -> std::size_t;
@@ -100,6 +101,7 @@ private:
         std::pmr::vector<std::size_t> write;
     };
 
+    detail::Resources&              m_Resources;
     detail::EntityStorage&          m_Storage;
     std::shared_ptr<spdlog::logger> m_Logger;
     std::pmr::string                m_Name;
@@ -108,6 +110,7 @@ private:
     std::pmr::vector<std::shared_ptr<TaskBase>>                     m_Tasks;
     std::pmr::unordered_map<std::pmr::string, std::size_t>          m_TaskNameToIndex;
     std::pmr::unordered_map<utils::TypeID, ComponentAccess>         m_Accesses;
+    std::pmr::unordered_map<utils::TypeID, ComponentAccess>         m_ResourceAccesses;
     std::pmr::vector<std::pair<std::pmr::string, std::pmr::string>> m_CustomOrder;
 
     std::vector<Group>                               m_Groups;
@@ -124,26 +127,53 @@ Schedule& Schedule::Request(std::string_view name, Func&& task, DynamicComponent
     using traits   = utils::function_traits<Function>;
     static_assert(traits::args_size > 0, "Task must request at least one component");
 
-    static_assert(traits::args_size == 1, "A system callback takes one Query (or no arguments)");
-    using Q = typename traits::template arg_t<0>;
-    static_assert(detail::is_query<Q>, "System parameters must be Query values");
-    auto                    parameters = Q::Describe(dynamic_components);
-    detail::ComponentIdList components;
-    for (const auto& access : parameters) components.push_back(access.component);
-    auto bound = std::make_shared<Task<Function>>(name, std::move(components), std::move(filter), std::forward<Func>(task));
+    auto                                      bound = std::make_shared<Task<Function>>(name, detail::ComponentIdList{}, Filter{}, std::forward<Func>(task));
+    std::pmr::vector<detail::ParameterAccess> parameters;
+    std::pmr::vector<detail::ParameterAccess> resources;
+    std::size_t                               query_count = 0;
+    [&]<std::size_t... I>(std::index_sequence<I...>) {
+        auto describe = [&]<typename P>() {
+            if constexpr (detail::is_query<P>) {
+                ++query_count;
+                parameters = P::Describe(dynamic_components);
+                for (const auto& access : parameters) bound->components.push_back(access.component);
+                bound->filter = std::move(filter);
+            } else {
+                static_assert(detail::is_resource<P>, "Use Query, Res or ResMut parameters by value");
+                using T = typename P::value_type;
+                if (!m_Resources.Has<T>()) throw std::logic_error("Missing resource: " + std::string(typeid(T).name()));
+                const auto id = utils::TypeID::Create<T>();
+                for (const auto& other : resources)
+                    if (other.component == id && (P::writable || other.mode == detail::AccessMode::Write))
+                        throw std::invalid_argument("Conflicting resource aliases in one task");
+                resources.push_back({id, P::writable ? detail::AccessMode::Write : detail::AccessMode::Read});
+            }
+        };
+        (describe.template operator()<typename traits::template arg_t<I>>(), ...);
+    }(std::make_index_sequence<traits::args_size>{});
+    if (query_count > 1) throw std::invalid_argument("At most one Query per task");
+    if (!query_count && !dynamic_components.empty()) throw std::invalid_argument("Dynamic components require Query");
+    const auto index = m_Tasks.size();
     Request(std::move(bound), parameters, group);
+    for (const auto& access : resources) {
+        auto& entry = m_ResourceAccesses[access.component];
+        (access.mode == detail::AccessMode::Write ? entry.write : entry.read).push_back(index);
+    }
     return *this;
 }
 
 template <typename Func>
-void Schedule::Task<Func>::Run(detail::EntityStorage& storage, core::JobSystem& jobs) {
+void Schedule::Task<Func>::Run(Schedule& schedule, core::JobSystem& jobs) {
     using traits = utils::function_traits<Func>;
-    if constexpr (traits::args_size == 0) {
-        std::invoke(task);
-    } else {
-        using Q = typename traits::template arg_t<0>;
-        std::invoke(task, Q(storage, components, filter, jobs));
-    }
+    [&]<std::size_t... I>(std::index_sequence<I...>) {
+        auto parameter = [&]<typename P>() {
+            if constexpr (detail::is_query<P>)
+                return P(schedule.m_Storage, components, filter, jobs);
+            else
+                return P(schedule.m_Resources.Get<typename P::value_type>());
+        };
+        std::invoke(task, parameter.template operator()<typename traits::template arg_t<I>>()...);
+    }(std::make_index_sequence<traits::args_size>{});
 }
 
 }  // namespace hitagi::ecs
@@ -295,9 +325,16 @@ void Schedule::BuildGraph() {
     };
     const auto require_order = [&](std::size_t first, std::size_t second) {
         if (first == second || reaches(first, second) || reaches(second, first)) return;
-        throw std::invalid_argument(std::format("Unordered component conflict: {} and {}; declare SetOrder", node_name(first), node_name(second)));
+        throw std::invalid_argument(std::format("Unordered data conflict: {} and {}; declare SetOrder", node_name(first), node_name(second)));
     };
     for (const auto& [component, access] : m_Accesses) {
+        for (const auto writer : access.write) {
+            for (const auto reader : access.read) require_order(writer, reader);
+            for (const auto other : access.write) require_order(writer, other);
+        }
+    }
+
+    for (const auto& [resource, access] : m_ResourceAccesses) {
         for (const auto writer : access.write) {
             for (const auto reader : access.read) require_order(writer, reader);
             for (const auto other : access.write) require_order(writer, other);
@@ -320,7 +357,7 @@ void Schedule::BuildGraph() {
             }
             ZoneScoped;
             ZoneName(task->name.data(), task->name.size());
-            task->Run(m_Storage, *m_RunningJobSystem);
+            task->Run(*this, *m_RunningJobSystem);
         };
         tasks.push_back({std::pmr::string(task->name), std::move(execution)});
     }

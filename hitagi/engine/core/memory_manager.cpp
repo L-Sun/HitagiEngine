@@ -23,7 +23,8 @@ public:
     std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
 
 private:
-    std::shared_ptr<spdlog::logger> m_Logger;
+    std::pmr::memory_resource*                 m_Previous = std::pmr::get_default_resource();
+    std::shared_ptr<spdlog::logger>            m_Logger;
     std::unique_ptr<std::pmr::memory_resource> m_Pools;
 };
 
@@ -250,7 +251,7 @@ MemoryManager::MemoryManager() : m_Logger(utils::try_create_logger("MemoryManage
 
 MemoryManager::~MemoryManager() {
     m_Logger->trace("Unset pmr default resource");
-    std::pmr::set_default_resource(std::pmr::new_delete_resource());
+    std::pmr::set_default_resource(m_Previous);
 }
 
 }  // namespace hitagi::core

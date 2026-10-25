@@ -12,6 +12,7 @@ import utils;
 import :entity_manager;
 import :system_manager;
 import :schedule;
+import :resource;
 
 export namespace hitagi::ecs {
 
@@ -35,6 +36,29 @@ public:
     // System-set changes are reflected in the next Update, never by destroying
     // a running schedule. Concurrent registry mutation is not supported.
     void Update(core::JobSystem& job_system, double delta_seconds = 0.0);
+    template <typename T, typename... Args>
+    auto EmplaceResource(Args&&... args) -> T& {
+        return m_Resources.Emplace<T>(std::forward<Args>(args)...);
+    }
+    template <typename T>
+    void BorrowResource(T& value) { m_Resources.Borrow(value); }
+    template <typename T>
+    auto GetResource() -> T& { return m_Resources.Get<T>(); }
+    template <typename T>
+    auto GetResource() const -> const T& { return m_Resources.Get<T>(); }
+    template <typename T>
+    bool HasResource() const { return m_Resources.Has<T>(); }
+    template <typename Func>
+    void AddTask(std::string_view name, Func task, std::optional<Group> group = {}) {
+        if (m_Updating) throw std::logic_error("Cannot add tasks during update");
+        m_TaskConfigurations.emplace_back([name = std::pmr::string(name), task = std::move(task), group](Schedule& schedule) {
+            if constexpr (std::invocable<Func&>)
+                schedule.Request(name, task, group);
+            else
+                schedule.Request(name, task, {}, {}, group);
+        });
+        m_Schedule.reset();
+    }
 
     auto  GetName() const noexcept -> std::string_view { return m_Name; }
     auto& GetEntityManager() noexcept { return m_EntityManager; }
@@ -48,14 +72,16 @@ private:
     auto RegisterOne(Args&&... args) -> System&;
     auto PrepareSchedule() -> Schedule&;
 
-    std::pmr::string                m_Name;
-    std::shared_ptr<spdlog::logger> m_Logger;
-    EntityManager                   m_EntityManager;
-    SystemManager                   m_SystemManager;
-    ScheduleConfiguration           m_ConfigureSchedule;
-    std::unique_ptr<Schedule>       m_Schedule;
-    std::uint64_t                   m_ScheduleRevision = 0;
-    bool                            m_Updating         = false;
+    std::pmr::string                        m_Name;
+    std::shared_ptr<spdlog::logger>         m_Logger;
+    detail::Resources                       m_Resources;
+    std::pmr::vector<ScheduleConfiguration> m_TaskConfigurations;
+    EntityManager                           m_EntityManager;
+    SystemManager                           m_SystemManager;
+    ScheduleConfiguration                   m_ConfigureSchedule;
+    std::unique_ptr<Schedule>               m_Schedule;
+    std::uint64_t                           m_ScheduleRevision = 0;
+    bool                                    m_Updating         = false;
 };
 
 template <typename System, typename... Args>
@@ -104,15 +130,17 @@ World::World(std::string_view name, ScheduleConfiguration configure_schedule)
 World::~World() {
     // Lifecycle callbacks may still access entities and other world services.
     m_Schedule.reset();
+    m_TaskConfigurations.clear();
     m_SystemManager.Shutdown();
 }
 
 auto World::PrepareSchedule() -> Schedule& {
     const auto revision = m_SystemManager.m_Revision;
     if (!m_Schedule || m_ScheduleRevision != revision) {
-        auto schedule = std::unique_ptr<Schedule>(new Schedule(m_EntityManager.m_Storage, m_Logger, m_Name));
+        auto schedule = std::unique_ptr<Schedule>(new Schedule(m_EntityManager.m_Storage, m_Resources, m_Logger, m_Name));
         if (m_ConfigureSchedule) m_ConfigureSchedule(*schedule);
         m_SystemManager.Update(*schedule);
+        for (const auto& configure : m_TaskConfigurations) configure(*schedule);
         m_Schedule = std::move(schedule);
         // A callback may have changed the registry while building this snapshot.
         m_ScheduleRevision = revision;
@@ -124,15 +152,18 @@ void World::Update(core::JobSystem& job_system, double delta_seconds) {
     if (!std::isfinite(delta_seconds) || delta_seconds < 0.0) throw std::invalid_argument("Invalid frame duration");
     if (m_Updating) throw std::logic_error("World::Update cannot be called recursively");
     m_Updating = true;
+    m_Resources.BeginExecution();
     try {
         ZoneScopedN("ECS::World::Update");
         auto& schedule          = PrepareSchedule();
         schedule.m_DeltaSeconds = delta_seconds;
         schedule.Run(job_system);
     } catch (...) {
+        m_Resources.EndExecution();
         m_Updating = false;
         throw;
     }
+    m_Resources.EndExecution();
     m_Updating = false;
 }
 

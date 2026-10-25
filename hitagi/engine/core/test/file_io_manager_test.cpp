@@ -33,8 +33,8 @@ TEST(FileIoManagerTest, ReadFile) {
 
     auto path = create_temp_file("ReadFile", content);
 
-    core::FileIOManager file_io;
-    auto                buffer = file_io.SyncOpenAndReadBinary(path);
+    core::IOService  file_io;
+    auto             buffer = file_io.SyncOpenAndReadBinary(path);
     std::pmr::string result(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize());
 
     EXPECT_STREQ(content, result.c_str());
@@ -47,8 +47,8 @@ TEST(FileIoManagerTest, SaveFile) {
     core::Buffer     buffer(content.size(), reinterpret_cast<const std::byte*>(content.data()));
     auto             path = std::filesystem::temp_directory_path() / "SaveFile.tmp";
 
-    core::FileIOManager file_io;
-    file_io.SaveBuffer(buffer, path);
+    core::IOService file_io;
+    file_io.SaveBuffer(path, buffer);
     buffer = file_io.SyncOpenAndReadBinary(path);
 
     EXPECT_STREQ(content.c_str(), std::pmr::string(reinterpret_cast<const char*>(buffer.GetData()), buffer.GetDataSize()).c_str());
