@@ -12,6 +12,8 @@ export namespace hitagi::gfx {
 class MetalDevice final : public Device {
 public:
     explicit MetalDevice(std::string_view name);
+    void BeginFrame() final;
+    void EndFrame() noexcept final;
 
     // MTLDevice is shared by the OS. The address of this owning RAII handle also
     // identifies the engine device for foreign-resource/queue validation.
@@ -24,6 +26,9 @@ private:
     ns::SharedPtr<ns::AutoreleasePool> m_AutoreleasePool;
     ns::SharedPtr<mtl::Device>         m_Device;
     ns::SharedPtr<mtl4::Compiler>      m_Compiler;
+    // Younger than the native pool surrounding a live-resize callback. Only
+    // EndFrame drains it; the device-lifetime fallback above stays untouched.
+    ns::SharedPtr<ns::AutoreleasePool> m_FramePool;
 };
 
 }  // namespace hitagi::gfx
@@ -41,6 +46,16 @@ MetalDevice::MetalDevice(std::string_view name)
     m_Compiler            = ns::TransferPtr(m_Device->newCompiler(descriptor.get(), &error));
     check_metal(m_Logger, m_Compiler.get() != nullptr, "Create Metal 4 compiler failed", error);
     m_Logger->trace("Pick Metal device: {}", m_Device->name()->utf8String());
+}
+
+void MetalDevice::BeginFrame() {
+    if (m_FramePool) throw std::logic_error("Metal device frame is already active");
+    m_FramePool = ns::TransferPtr(ns::AutoreleasePool::alloc()->init());
+    Device::BeginFrame();
+}
+
+void MetalDevice::EndFrame() noexcept {
+    m_FramePool.reset();
 }
 
 }  // namespace hitagi::gfx

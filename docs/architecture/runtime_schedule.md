@@ -121,7 +121,13 @@ Query batches, with cooperative waiting on its own workers.
 `gfx::GraphicsFrameSystem` is exported directly by `gfx`. It borrows Device and
 CommandQueues, accepts an `ecs::Group` from its host, and declares Device.BeginFrame
 before Queues.NewFrame within that group. Engine places it and DebugManager in
-First. Neither module imports engine or names FrameStage. USDViewer declares Input in
+First. The host calls `Device::EndFrame()` on the same thread after the whole frame,
+including exceptional exits. Engine's frame guard supplies this pairing; EndFrame
+is safe when schedule preparation failed before BeginFrame. It releases CPU-side
+frame state without waiting for GPU completion. Metal owns its per-frame
+autorelease pool behind these device methods; Engine contains no Apple pool code.
+Standalone hosts using GraphicsFrameSystem must supply the same cleanup guard.
+Neither module imports engine or names FrameStage. USDViewer declares Input in
 PreUpdate, Scene in Update, Render in Render, and Publish in Last. Its renderer
 objects are private graph-building utilities, not nested tickable modules.
 Standalone PBR/Toon/Deferred systems register a task consuming queued snapshots
@@ -134,8 +140,12 @@ stage. This keeps reusable rendering/GUI modules independent of engine policy.
 ## Event loop and shutdown
 
 Engine::Tick polls native events through Application::PollEvents, then runs the
-frame World. A Windows modal resize callback runs the frame World directly,
-without re-entering the native event pump. Frame guards reset on exceptions.
+frame World. A native modal resize callback runs the frame World directly,
+without re-entering the native event pump. Frame guards end the device frame and
+reset reentry state on exceptions. On macOS, Metal's frame pool nests inside the
+Cocoa callback's native pool and drains before that callback returns. Device
+initialization, frame-external operations and other threads have separate native
+object lifetimes; the frame pool does not cover them.
 Clock advancement stays at frame end, preserving the previous delta-time contract.
 This change does not alter event-loop pacing or introduce reactive rendering.
 

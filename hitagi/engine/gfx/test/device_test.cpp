@@ -1313,17 +1313,34 @@ TEST_P(DeviceTest, DrawTriangle) {
 }
 
 #ifdef __APPLE__
-TEST(MetalDeviceTest, TickPreservesEnclosingNativeAutoreleasePools) {
-    namespace ns = hitagi::interop::ns;
-    auto device = create_device(Device::Type::Metal);
+TEST(MetalDeviceTest, FrameDrainsTemporaryReferencesAndPreservesNativePool) {
+    namespace ns  = hitagi::interop::ns;
+    namespace mtl = hitagi::interop::mtl;
+    auto device   = create_device(Device::Type::Metal);
+    // These descriptors are test-owned and never handed to Metal. Their counts
+    // observe precisely the extra reference registered with each pool.
+    auto       native_object = ns::TransferPtr(mtl::TextureDescriptor::alloc()->init());
+    auto       frame_object  = ns::TransferPtr(mtl::TextureDescriptor::alloc()->init());
+    const auto native_count  = native_object->retainCount();
+    const auto frame_count   = frame_object->retainCount();
+    device->EndFrame();  // Schedule preparation can fail before BeginFrame.
     for (int frame = 0; frame < 3; ++frame) {
-        // Model Cocoa's pool around a live-resize callback, then the frame pool.
-        auto native_pool = ns::TransferPtr(ns::AutoreleasePool::alloc()->init());
         {
-            auto frame_pool = ns::TransferPtr(ns::AutoreleasePool::alloc()->init());
+            // Model Cocoa's live-resize callback around the backend frame.
+            auto native_pool = ns::TransferPtr(ns::AutoreleasePool::alloc()->init());
+            native_object->retain()->autorelease();
             device->BeginFrame();
+            frame_object->retain()->autorelease();
+            EXPECT_EQ(frame_object->retainCount(), frame_count + 1);
+            // Reject reentry rather than replacing a pool that is still active.
+            EXPECT_THROW(device->BeginFrame(), std::logic_error);
+            EXPECT_EQ(frame_object->retainCount(), frame_count + 1);
+            device->EndFrame();
+            EXPECT_EQ(frame_object->retainCount(), frame_count);
+            EXPECT_EQ(native_object->retainCount(), native_count + 1);
+            device->EndFrame();
         }
-        // Both pools must remain valid until their own scope ends.
+        EXPECT_EQ(native_object->retainCount(), native_count);
     }
 }
 #endif

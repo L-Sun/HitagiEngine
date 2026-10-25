@@ -4,6 +4,8 @@ import ecs;
 
 export namespace hitagi::gfx {
 // The host owns the facilities and chooses where this work belongs in its schedule.
+// Run on the calling thread and call Device::EndFrame after the entire frame,
+// including on exceptions; an ordinary final task could be skipped on failure.
 class GraphicsFrameSystem {
 public:
     GraphicsFrameSystem(Device& device, CommandQueues& queues, ecs::Group group);
