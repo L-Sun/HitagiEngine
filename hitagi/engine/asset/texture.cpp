@@ -13,7 +13,7 @@ using ImageLoader = std::function<ImageData()>;
 
 // Loader that reads `path` through `file_io` and decodes it with the codec picked
 // by the file extension. `file_io` must outlive every texture holding the loader.
-auto MakeFileImageLoader(core::FileIOManager& file_io, std::filesystem::path path) -> ImageLoader;
+auto MakeFileImageLoader(core::IOService& file_io, std::filesystem::path path) -> ImageLoader;
 
 class Texture : public Resource {
 public:
@@ -98,7 +98,7 @@ Texture::Texture(ImageData image_data, std::string_view name, std::filesystem::p
       m_ImageData(std::move(image_data)),
       m_Path(std::move(path)) {}
 
-auto MakeFileImageLoader(core::FileIOManager& file_io, std::filesystem::path path) -> ImageLoader {
+auto MakeFileImageLoader(core::IOService& file_io, std::filesystem::path path) -> ImageLoader {
     return [&file_io, path = std::move(path)]() -> ImageData {
         const auto codec = create_image_codec_for(path.extension());
         if (codec == nullptr) {

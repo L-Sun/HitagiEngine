@@ -1,3 +1,3 @@
 export module hid;
 export import :types;
-export import :input_manager;
+export import :input_state;

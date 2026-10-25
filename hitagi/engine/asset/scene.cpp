@@ -1,6 +1,7 @@
 export module asset:scene;
 import std;
 import ecs;
+import core;
 import :resource;
 import :mesh;
 import :transform;
@@ -8,6 +9,12 @@ import :animation;
 import :skin;
 
 export namespace hitagi::asset {
+
+struct ScenePlugin {
+    void Build(ecs::World& world) const {
+        world.RegisterSystem<RelationShipSystem, AnimationSystem, TransformSystem, SkinningSystem>();
+    }
+};
 
 class Scene : public Resource {
 public:
@@ -26,7 +33,8 @@ private:
 namespace hitagi::asset {
 
 Scene::Scene(std::string_view name) : Resource(Type::Scene, name), m_World(name) {
-    m_World.RegisterSystem<RelationShipSystem, AnimationSystem, TransformSystem, SkinningSystem>();
+    core::PluginSet<ecs::World> plugins;
+    plugins.Add(m_World, ScenePlugin{});
 }
 
 void Scene::Load(const ResourceLoadContext& context) {
@@ -63,6 +71,5 @@ void Scene::Unload() {
     }
     SetLoadState(ResourceLoadState::Unloaded);
 }
-
 
 }  // namespace hitagi::asset

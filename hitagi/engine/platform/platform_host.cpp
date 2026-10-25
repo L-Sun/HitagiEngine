@@ -1,4 +1,4 @@
-export module app:application;
+export module platform:host;
 import interop.spdlog;
 
 import std;
@@ -7,7 +7,7 @@ import math;
 import core;
 import hid;
 
-export namespace hitagi {
+export namespace hitagi::platform {
 enum struct Cursor : std::uint8_t {
     None,
     Arrow,
@@ -21,42 +21,42 @@ enum struct Cursor : std::uint8_t {
     Forbid,
 };
 
-struct AppConfig {
-    std::pmr::string      title           = "Hitagi Engine";
-    std::pmr::string      version         = "v0.2.0";
-    std::uint32_t         width           = 800;
-    std::uint32_t         height          = 800;
-    bool                  maximized       = false;
-    std::filesystem::path asset_root_path = "assets";
-    std::pmr::string      gfx_backend     =
+enum class Surface { Vulkan,
+                     Metal };
+struct PlatformConfig {
+    Surface surface =
 #ifdef __APPLE__
-        "Metal";
+        Surface::Metal;
 #else
-        "Vulkan";
+        Surface::Vulkan;
 #endif
-    std::pmr::string      log_level       = "info";
-    bool                  headless        = false;
+    std::pmr::string title     = "Hitagi Engine";
+    std::pmr::string version   = "v0.2.0";
+    std::uint32_t    width     = 800;
+    std::uint32_t    height    = 800;
+    bool             maximized = false;
+    bool             headless  = false;
 };
 
-class Application {
+class PlatformHost {
 public:
     struct Rect {
         std::uint32_t left = 0, top = 0, right = 0, bottom = 0;
     };
-    Application(AppConfig config);
-    virtual ~Application() = default;
+    PlatformHost(PlatformConfig config);
+    virtual ~PlatformHost() = default;
 
-    static auto CreateApp(AppConfig config = {}) -> std::unique_ptr<Application>;
+    static auto Create(PlatformConfig config = {}) -> std::unique_ptr<PlatformHost>;
 
     virtual void PollEvents();
     // A native modal move/resize loop may request a frame on the same thread.
     // The callback must advance simulation/rendering without polling native events.
     void SetModalFrameCallback(std::function<void()> callback) { m_ModalFrame = std::move(callback); }
 
-    virtual void SetInputScreenPosition(const math::vec2u& position)     = 0;
+    virtual void SetInputScreenPosition(const math::vec2u& position) = 0;
     // Zero ends the focused text-edit session. Platform implementations cancel
     // any outstanding composition before changing its owner.
-    virtual void SetTextInputSession(std::uint64_t session) { m_InputManager->SetTextInputSession(session); }
+    virtual void SetTextInputSession(std::uint64_t session) { m_Input->SetTextInputSession(session); }
     virtual void SetWindowTitle(std::string_view name)                   = 0;
     virtual void SetCursor(Cursor cursor)                                = 0;
     virtual void SetMousePosition(const math::vec2u& position)           = 0;
@@ -77,33 +77,31 @@ public:
 
     inline auto GetConfig() const noexcept { return m_Config; }
 
-    inline auto& GetInputManager() const noexcept { return *m_InputManager; }
+    inline auto& GetInputState() const noexcept { return *m_Input; }
 
 protected:
-    bool               TickModalFrame() noexcept;
-    core::Clock        m_Clock;
-    AppConfig          m_Config;
-    std::unique_ptr<hid::InputManager> m_InputManager;
-    std::shared_ptr<spdlog::logger> m_Logger;
+    bool                             TickModalFrame() noexcept;
+    core::Clock                      m_Clock;
+    PlatformConfig                   m_Config;
+    std::unique_ptr<hid::InputState> m_Input;
+    std::shared_ptr<spdlog::logger>  m_Logger;
 
 private:
     std::function<void()> m_ModalFrame;
     std::exception_ptr    m_ModalFrameError;
     bool                  m_InModalFrame = false;
 };
-}  // namespace hitagi
+}  // namespace hitagi::platform
 
-namespace hitagi {
-Application::Application(AppConfig config)
+namespace hitagi::platform {
+PlatformHost::PlatformHost(PlatformConfig config)
     : m_Config(std::move(config)),
-      m_InputManager(std::make_unique<hid::InputManager>()),
+      m_Input(std::make_unique<hid::InputState>()),
       m_Logger(utils::try_create_logger(m_Config.title)) {
-    spdlog::set_level(spdlog::level::from_str(m_Config.log_level.data()));
-
     m_Clock.Start();
 }
 
-void Application::PollEvents() {
+void PlatformHost::PollEvents() {
     if (m_ModalFrameError) std::rethrow_exception(std::exchange(m_ModalFrameError, {}));
     m_Clock.Tick();
     m_Config.maximized = WindowMaximized();
@@ -111,14 +109,14 @@ void Application::PollEvents() {
         m_Config.width  = GetWindowWidth();
         m_Config.height = GetWindowHeight();
     }
-    m_InputManager->AdvanceFrame();
+    m_Input->AdvanceFrame();
 }
 
-bool Application::TickModalFrame() noexcept {
+bool PlatformHost::TickModalFrame() noexcept {
     if (!m_ModalFrame || m_InModalFrame || m_ModalFrameError || IsQuit()) return false;
     m_InModalFrame = true;
     try {
-        Application::PollEvents();
+        PlatformHost::PollEvents();
         m_ModalFrame();
     } catch (...) {
         // Never unwind a C++ exception through a native window procedure or SDL callback.
@@ -128,14 +126,14 @@ bool Application::TickModalFrame() noexcept {
     return true;
 }
 
-auto Application::GetWindowWidth() const -> std::uint32_t {
+auto PlatformHost::GetWindowWidth() const -> std::uint32_t {
     const auto rect = GetWindowRect();
     return rect.right - rect.left;
 }
 
-auto Application::GetWindowHeight() const -> std::uint32_t {
+auto PlatformHost::GetWindowHeight() const -> std::uint32_t {
     const auto rect = GetWindowRect();
     return rect.bottom - rect.top;
 }
 
-}  // namespace hitagi
+}  // namespace hitagi::platform

@@ -21,9 +21,9 @@ TEST(GfxTest, DescHash) {
         GPUBufferDesc
             buffer_desc_1 = {},
             buffer_desc_2 = {
-                .name          = "buffer_desc_1",
-                .size = (16) * (32),
-                .usages        = GPUBufferUsageFlags::Vertex,
+                .name   = "buffer_desc_1",
+                .size   = (16) * (32),
+                .usages = GPUBufferUsageFlags::Vertex,
             };
 
         buffer_desc_2.name = "buffer_desc_2";
@@ -89,8 +89,8 @@ protected:
         ASSERT_TRUE(device) << "Failed to create device";
     }
 
-    std::string             test_name;
-    std::unique_ptr<Device> device;
+    std::string                                 test_name;
+    std::unique_ptr<Device>                     device;
     hitagi::gfx::CommandQueues                  queues{*device};
     std::unique_ptr<hitagi::gfx::BindlessUtils> bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler                 compiler{"Tests"};
@@ -149,7 +149,7 @@ TEST_P(ReadbackTextureTest, ReadbackGradientTexture) {
     std::filesystem::create_directories(output_path.parent_path());
 
     hitagi::asset::Texture image(width, height, Format::R8G8B8A8_UNORM, result);
-    const auto png = hitagi::asset::PngEncoder{}.Encode(image);
+    const auto             png = hitagi::asset::PngEncoder{}.Encode(image);
     ASSERT_FALSE(png.Empty());
-    hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
+    hitagi::core::IOService{}.SaveBuffer(output_path, png);
 }

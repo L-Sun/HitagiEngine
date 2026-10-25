@@ -19,12 +19,12 @@ auto ResolvePassTextures(const asset::Material& material, const asset::MaterialP
     return textures;
 }
 
-// Core services for the tests that build an AssetManager; declared on the
+// Core services for the tests that build an AssetService; declared on the
 // fixture so they outlive the manager and every texture it hands out.
 class AssetPipelineTest : public ::testing::Test {
 protected:
-    core::FileIOManager file_io;
-    core::JobSystem     job_system;
+    core::IOService file_io;
+    core::JobSystem job_system;
 };
 
 }  // namespace hitagi::asset_pipeline_tests
@@ -51,7 +51,7 @@ TEST_F(AssetPipelineTest, MaterialDebugDataExposesSourceAndPassBindings) {
         std::pmr::vector<asset::MaterialPass>{
             asset::MaterialPass{
                 .pass_contract = "DebugMaterial",
-                .bindings = {{"base_color", math::Color::White()}, {"roughness", 0.5f}, {"base_color_texture", std::shared_ptr<asset::Texture>{}}},
+                .bindings      = {{"base_color", math::Color::White()}, {"roughness", 0.5f}, {"base_color_texture", std::shared_ptr<asset::Texture>{}}},
             },
         },
         "debug-material");
@@ -88,7 +88,7 @@ TEST_F(AssetPipelineTest, MaterialDebugDataExposesSourceAndPassBindings) {
 }
 
 TEST_F(AssetPipelineTest, ImportsUsdSceneWithoutEditorWindow) {
-    asset::AssetManager asset_manager(file_io, job_system, "assets");
+    asset::AssetService asset_manager(file_io, job_system, "assets");
     auto                scene = ImportEditorScene(
         asset_manager,
         job_system,

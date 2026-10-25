@@ -1,11 +1,11 @@
-export module gui:manager;
+export module gui:context;
 import interop.pocketjs;
 
 import ecs;
 import std;
 import core;
 import gfx;
-import app;
+import platform;
 import math;
 import hid;
 import utils;
@@ -27,10 +27,10 @@ struct GuiAppOptions {
 
 // All calls stay on the engine thread. PocketJS owns a retained component tree;
 // callers load a bundle once rather than submitting immediate-mode draw tasks.
-class GuiManager final {
+class GuiContext final {
 public:
-    GuiManager(Application& application, core::FileIOManager& file_io, std::optional<ecs::Group> group = {});
-    ~GuiManager();
+    GuiContext(platform::PlatformHost& application, core::IOService& file_io, std::optional<ecs::Group> group = {});
+    ~GuiContext();
     void Compose();
     void ConfigureSchedule(ecs::Schedule& schedule);
     // Update layout/input before native viewport rendering; Compose later composites textures.
@@ -51,16 +51,16 @@ private:
     std::optional<ecs::Group> m_Group;
     void                      ApplyTextInputEffects();
     struct State;
-    std::unique_ptr<State> m_State;
-    Application&           m_App;
-    core::FileIOManager&   m_FileIO;
-    GuiDrawData            m_DrawData;
+    std::unique_ptr<State>  m_State;
+    platform::PlatformHost& m_App;
+    core::IOService&        m_FileIO;
+    GuiDrawData             m_DrawData;
 };
 }  // namespace hitagi::gui
 
 namespace hitagi::gui {
 
-void GuiManager::ConfigureSchedule(ecs::Schedule& schedule) {
+void GuiContext::ConfigureSchedule(ecs::Schedule& schedule) {
     schedule.Request("Gui.Compose", [this] { Compose(); }, m_Group);
 }
 using Button  = interop::pocketjs::Button;
@@ -69,7 +69,7 @@ using Runtime = std::unique_ptr<PocketApple, decltype(&pocket_apple_destroy)>;
 constexpr std::uint32_t logical_width = 960, logical_height = 540;
 constexpr double        fixed_step = 1.0 / 60.0;
 
-struct GuiManager::State {
+struct GuiContext::State {
     struct Frame {
         core::Clock clock;
         double      accumulator = fixed_step;
@@ -129,16 +129,16 @@ struct GuiManager::State {
     }
 };
 
-GuiManager::GuiManager(Application& application, core::FileIOManager& file_io, std::optional<ecs::Group> group)
+GuiContext::GuiContext(platform::PlatformHost& application, core::IOService& file_io, std::optional<ecs::Group> group)
     : m_Group(group), m_State(std::make_unique<State>()), m_App(application), m_FileIO(file_io) {}
 
-GuiManager::~GuiManager() { m_App.SetTextInputSession(0); }
+GuiContext::~GuiContext() { m_App.SetTextInputSession(0); }
 
-auto GuiManager::WantsTextInput() const noexcept -> bool {
+auto GuiContext::WantsTextInput() const noexcept -> bool {
     return m_State->text_input.session != 0 || m_State->text_input.active_this_frame;
 }
 
-void GuiManager::ApplyTextInputEffects() {
+void GuiContext::ApplyTextInputEffects() {
     // Private numeric overlay effect, deliberately independent of editor JSON.
     // session + field rectangle + caret position, all in logical coordinates.
     std::erase_if(m_State->effects.messages, [&](const std::pmr::string& line) {
@@ -166,12 +166,12 @@ void GuiManager::ApplyTextInputEffects() {
     }
 }
 
-void GuiManager::SetKeyboardNavigationEnabled(bool enabled) {
+void GuiContext::SetKeyboardNavigationEnabled(bool enabled) {
     m_State->keyboard.navigation_enabled = enabled;
     if (!enabled) m_State->keyboard.pending_buttons = Button::None;
 }
 
-void GuiManager::LoadApp(const std::filesystem::path& javascript, const std::filesystem::path& pak, GuiAppOptions options) {
+void GuiContext::LoadApp(const std::filesystem::path& javascript, const std::filesystem::path& pak, GuiAppOptions options) {
     if (options.raster_density < 1 || options.raster_density > 4)
         throw std::invalid_argument("PocketJS density must be 1..4");
 
@@ -209,30 +209,30 @@ void GuiManager::LoadApp(const std::filesystem::path& javascript, const std::fil
     }
 
     m_App.SetTextInputSession(0);
-    m_App.GetInputManager().DrainTextInput();
+    m_App.GetInputState().DrainTextInput();
     candidate->frame.clock.Start();
     m_State    = std::move(candidate);
     m_DrawData = {};
 }
 
-void GuiManager::PostEvent(std::string_view event) {
+void GuiContext::PostEvent(std::string_view event) {
     if (!m_State->runtime) throw std::logic_error("Load a PocketJS app before posting events");
     const std::pmr::string line(event);
     if (pocket_apple_post_event(m_State->runtime.get(), line.c_str()) != 0)
         throw std::runtime_error(std::format("PocketJS post event failed: {}", pocket_apple_last_error()));
 }
 
-auto GuiManager::DrainEffects() -> std::pmr::vector<std::pmr::string> {
+auto GuiContext::DrainEffects() -> std::pmr::vector<std::pmr::string> {
     if (std::exchange(m_State->effects.overflow, false))
         throw std::runtime_error("PocketJS effect queue overflow");
     return std::exchange(m_State->effects.messages, {});
 }
 
-void GuiManager::DrawTexture(rg::TextureHandle texture, math::vec4f rect) {
+void GuiContext::DrawTexture(rg::TextureHandle texture, math::vec4f rect) {
     m_State->rendering.images.emplace_back(texture, rect);
 }
 
-auto GuiManager::DisplayRect(math::vec4f rect) const -> math::vec4f {
+auto GuiContext::DisplayRect(math::vec4f rect) const -> math::vec4f {
     const auto window = m_App.GetWindowRect();
     const auto width  = static_cast<float>(window.right - window.left);
     const auto height = static_cast<float>(window.bottom - window.top);
@@ -246,15 +246,15 @@ auto GuiManager::DisplayRect(math::vec4f rect) const -> math::vec4f {
             rect.z * scale, rect.w * scale};
 }
 
-auto GuiManager::PointerIn(math::vec4f rect) const -> bool {
+auto GuiContext::PointerIn(math::vec4f rect) const -> bool {
     const auto  bounds = DisplayRect(rect);
-    const auto& input  = m_App.GetInputManager();
+    const auto& input  = m_App.GetInputState();
     const auto  x      = input.GetFloat(hid::MouseEvent::MOVE_X);
     const auto  y      = input.GetFloat(hid::MouseEvent::MOVE_Y);
     return x >= bounds.x && x < bounds.x + bounds.z && y >= bounds.y && y < bounds.y + bounds.w;
 }
 
-void GuiManager::PrepareFrame() {
+void GuiContext::PrepareFrame() {
     if (!m_State->runtime || m_State->frame.prepared) return;
     m_State->frame.prepared = true;
     if (m_State->options.single_step) {
@@ -289,7 +289,7 @@ void GuiManager::PrepareFrame() {
             m_State->frame.accumulator  = std::max(m_State->frame.accumulator, fixed_step);
             PostEvent(R"({"type":"pointer","event":{"kind":"cancel"}})");
             // A held button must not start a new press against the resized tree.
-            m_State->pointer.down = m_App.GetInputManager().GetBool(hid::VirtualKeyCode::MOUSE_L_BUTTON);
+            m_State->pointer.down = m_App.GetInputState().GetBool(hid::VirtualKeyCode::MOUSE_L_BUTTON);
             PostEvent(std::format(R"({{"type":"state","value":{{"kind":"viewport","width":{},"height":{}}}}})", next_width, next_height));
         }
     }
@@ -298,7 +298,7 @@ void GuiManager::PrepareFrame() {
     const float left = bounds.x, top = bounds.y;
     const float scale_x = bounds.z / m_State->viewport.x, scale_y = bounds.w / m_State->viewport.y;
 
-    auto& input                           = m_App.GetInputManager();
+    auto& input                           = m_App.GetInputState();
     m_State->text_input.active_this_frame = m_State->text_input.session != 0;
     for (const auto& event : input.DrainTextInput()) {
         if (!event.session || event.session != m_State->text_input.session) continue;
@@ -418,7 +418,7 @@ void GuiManager::PrepareFrame() {
     ApplyTextInputEffects();
 }
 
-void GuiManager::Compose() {
+void GuiContext::Compose() {
     PrepareFrame();
     m_State->frame.prepared = false;
     const auto images       = std::exchange(m_State->rendering.images, {});

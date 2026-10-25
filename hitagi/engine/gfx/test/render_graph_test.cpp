@@ -4,7 +4,7 @@ import interop.spdlog;
 import std;
 import gfx;
 import asset;
-import app;
+import platform;
 import core;
 import utils;
 import math;
@@ -27,12 +27,12 @@ protected:
         ASSERT_TRUE(device) << "Failed to create device";
     }
 
-    std::string             test_name;
-    std::shared_ptr<Device> device;
+    std::string                    test_name;
+    std::shared_ptr<Device>        device;
     CommandQueues                  queues{*device};
     std::unique_ptr<BindlessUtils> bindings = BindlessUtils::Create(*device);
     ShaderCompiler                 compiler{"Tests"};
-    RenderGraph             rg;
+    RenderGraph                    rg;
 };
 
 TEST_F(RenderGraphTest, ImportBuffer) {
@@ -175,9 +175,9 @@ TEST_F(RenderGraphTest, AddRenderPass) {
         GTEST_SKIP();
     }
 
-    auto app = hitagi::Application::CreateApp({
-        .log_level = spdlog::level::to_string_view(spdlog::get_level()).data(),
-        .headless  = true,
+    auto app = hitagi::platform::PlatformHost::Create({
+
+        .headless = true,
     });
 
     auto swap_chain = hitagi::gfx::SwapChain::Create(*device, queues.Get(hitagi::gfx::CommandType::Graphics), {
@@ -185,9 +185,9 @@ TEST_F(RenderGraphTest, AddRenderPass) {
                                                                                                               });
 
     const auto vertex_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                                  .name        = std::pmr::string(std::format("VS-{}", test_name)),
-                                                                                  .type        = ShaderType::Vertex,
-                                                                                  .entry       = "vs_main",
+                                                                                  .name    = std::pmr::string(std::format("VS-{}", test_name)),
+                                                                                  .type    = ShaderType::Vertex,
+                                                                                  .entry   = "vs_main",
                                                                                   .program = {.modules = {{.source_code = R"""(
             struct VSInput{
                 float3 position : POSITION;
@@ -210,9 +210,9 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     ASSERT_TRUE(vertex_shader);
 
     const auto pixel_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                                 .name        = std::pmr::string(std::format("PS-{}", test_name)),
-                                                                                 .type        = ShaderType::Pixel,
-                                                                                 .entry       = "ps_main",
+                                                                                 .name    = std::pmr::string(std::format("PS-{}", test_name)),
+                                                                                 .type    = ShaderType::Pixel,
+                                                                                 .entry   = "ps_main",
                                                                                  .program = {.modules = {{.source_code = R"""(
             struct PSInput{
                 float4 position : SV_POSITION;
@@ -227,12 +227,12 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     ASSERT_TRUE(pixel_shader);
 
     const auto& vertex_input_layout = vertex_shader->GetVertexLayout();
-    const auto pipeline            = hitagi::gfx::RenderPipeline::Create(*device, *bindings,
-                                                                         {
-                                                                             .name                = std::pmr::string(std::format("Pipeline-{}", test_name)),
-                                                                             .vertex_input_layout = vertex_input_layout,
-                                                                         },
-                                                                         {vertex_shader, pixel_shader});
+    const auto  pipeline            = hitagi::gfx::RenderPipeline::Create(*device, *bindings,
+                                                                          {
+                                                                              .name                = std::pmr::string(std::format("Pipeline-{}", test_name)),
+                                                                              .vertex_input_layout = vertex_input_layout,
+                                                                          },
+                                                                          {vertex_shader, pixel_shader});
 
     const auto output_texture = hitagi::gfx::Texture::Create(*device, queues, *bindings, {
                                                                                              .name        = std::pmr::string(std::format("Texture-{}-{}", test_name, rg.GetFrameIndex())),
@@ -328,7 +328,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
         std::move(pixels));
     const auto png = hitagi::asset::PngEncoder{}.Encode(image);
     ASSERT_FALSE(png.Empty());
-    hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
+    hitagi::core::IOService{}.SaveBuffer(output_path, png);
 }
 
 TEST_F(RenderGraphTest, GraphTest) {
@@ -459,12 +459,12 @@ protected:
             name);
     }
 
-    std::shared_ptr<Device>    device;
+    std::shared_ptr<Device>        device;
     CommandQueues                  queues{*device};
     std::unique_ptr<BindlessUtils> bindings = BindlessUtils::Create(*device);
     ShaderCompiler                 compiler{"Tests"};
-    RenderGraph                rg;
-    std::shared_ptr<SwapChain> swap_chain;
+    RenderGraph                    rg;
+    std::shared_ptr<SwapChain>     swap_chain;
 };
 
 TEST_F(RenderGraphCullingTest, CullsUnrootedPassWithoutPresent) {
@@ -518,30 +518,34 @@ TEST_F(RenderGraphCullingTest, NonCullablePassExecutesWithoutPresent) {
 }
 
 TEST_F(RenderGraphCullingTest, MovedImportsExpireAndCanBeMovedAgainNextFrame) {
-    auto buffer = GPUBuffer::Create(*device, {
-        .size = 16, .usages = GPUBufferUsageFlags::CopySrc,
-    });
-    auto texture = Texture::Create(*device, queues, *bindings, {
-        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
-        .usages = TextureUsageFlags::RenderTarget,
-    });
-    std::weak_ptr<GPUBuffer> retained_buffer = buffer;
-    std::weak_ptr<Texture> retained_texture = texture;
-    const auto imported_buffer = rg.Import(buffer, "imported_buffer");
-    const auto imported_texture = rg.Import(texture, "imported_texture");
+    auto                     buffer           = GPUBuffer::Create(*device, {
+                                                                               .size   = 16,
+                                                                               .usages = GPUBufferUsageFlags::CopySrc,
+                                                                           });
+    auto                     texture          = Texture::Create(*device, queues, *bindings, {
+                                                                                                .width  = 8,
+                                                                                                .height = 8,
+                                                                                                .format = Format::R8G8B8A8_UNORM,
+                                                                                                .usages = TextureUsageFlags::RenderTarget,
+                                                                                            });
+    std::weak_ptr<GPUBuffer> retained_buffer  = buffer;
+    std::weak_ptr<Texture>   retained_texture = texture;
+    const auto               imported_buffer  = rg.Import(buffer, "imported_buffer");
+    const auto               imported_texture = rg.Import(texture, "imported_texture");
     buffer.reset();
     texture.reset();
 
     for (unsigned frame = 0; frame < 64; ++frame) {
-        const auto moved_buffer = rg.MoveFrom(imported_buffer, "moved_buffer");
+        const auto moved_buffer  = rg.MoveFrom(imported_buffer, "moved_buffer");
         const auto moved_texture = rg.MoveFrom(imported_texture, "moved_texture");
         const auto final_texture = rg.MoveFrom(moved_texture, "final_texture");
         {
             CopyPassBuilder copy(rg);
             copy.AllowPassCulling(false);
             copy.BufferToBuffer(moved_buffer, rg.Create(GPUBufferDesc{
-                .size = 16, .usages = GPUBufferUsageFlags::CopyDst,
-            }));
+                                                  .size   = 16,
+                                                  .usages = GPUBufferUsageFlags::CopyDst,
+                                              }));
             copy.SetExecutor([](const RenderGraph&, const CopyPassNode&) {});
             ASSERT_TRUE(rg.IsValid(copy.Finish()));
 
@@ -734,12 +738,12 @@ TEST_F(RenderGraphTest, CopyTextureToBuffer) {
 }
 
 TEST(RenderGraphAccessTest, RejectsConflictingAccessesAndPhysicalDescriptors) {
-    auto        device = create_device(Device::Type::Mock, "GraphAccessValidation");
+    auto                        device = create_device(Device::Type::Mock, "GraphAccessValidation");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
     RenderGraph                 graph(*device, queues, *bindings);
-    const auto  buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite});
+    const auto                  buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::StorageWrite});
     {
         ComputePassBuilder builder(graph);
         EXPECT_TRUE(builder.Read(buffer));
@@ -763,15 +767,15 @@ TEST(RenderGraphAccessTest, RejectsConflictingAccessesAndPhysicalDescriptors) {
 }
 
 TEST(RenderGraphAccessTest, MergesReadStagesPerResource) {
-    auto              device = create_device(Device::Type::Mock, "GraphReadStages");
+    auto                        device = create_device(Device::Type::Mock, "GraphReadStages");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
     RenderGraph                 graph(*device, queues, *bindings);
-    const auto        buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
-    const auto        target = graph.Create(TextureDesc{
+    const auto                  buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
+    const auto                  target = graph.Create(TextureDesc{
         .width = 8, .height = 8, .depth = 1, .format = Format::R8G8B8A8_UNORM, .usages = TextureUsageFlags::RenderTarget});
-    RenderPassBuilder builder(graph);
+    RenderPassBuilder           builder(graph);
     builder.AllowPassCulling(false);
     builder.Read(buffer, {.element_size = 4, .element_count = 8}, PipelineStage::VertexShader);
     builder.Read(buffer, {.element_size = 8, .element_count = 4}, PipelineStage::PixelShader);
@@ -793,24 +797,24 @@ TEST(RenderGraphAccessTest, MergesReadStagesPerResource) {
 }
 
 TEST(RenderGraphAccessTest, ReusesIdenticalAccessesAndKeepsDifferentRangesSeparate) {
-    auto device = create_device(Device::Type::Mock, "GraphAccessReuse");
-    CommandQueues queues(*device);
-    auto bindings = BindlessUtils::Create(*device);
-    RenderGraph graph(*device, queues, *bindings);
-    const auto buffer = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
-    const auto texture = graph.Create(TextureDesc{
+    auto              device = create_device(Device::Type::Mock, "GraphAccessReuse");
+    CommandQueues     queues(*device);
+    auto              bindings = BindlessUtils::Create(*device);
+    RenderGraph       graph(*device, queues, *bindings);
+    const auto        buffer  = graph.Create(GPUBufferDesc{.size = 32, .usages = GPUBufferUsageFlags::StorageRead});
+    const auto        texture = graph.Create(TextureDesc{
         .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM, .mip_levels = 2, .usages = TextureUsageFlags::SRV});
-    const auto target = graph.Create(TextureDesc{
+    const auto        target  = graph.Create(TextureDesc{
         .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM, .usages = TextureUsageFlags::RenderTarget});
     RenderPassBuilder builder(graph);
     builder.AllowPassCulling(false);
     builder.SetRenderTarget(target);
-    const auto first = builder.Read(buffer, {.element_size = 4, .element_count = 4}, PipelineStage::VertexShader);
-    const auto repeated = builder.Read(buffer, {.element_size = 4, .element_count = 4}, PipelineStage::PixelShader);
-    const auto offset = builder.Read(buffer, {.offset = 16, .element_size = 4, .element_count = 4}, PipelineStage::VertexShader);
-    const auto mip0 = builder.Read(texture, {.mip_levels = 1}, PipelineStage::VertexShader);
+    const auto first        = builder.Read(buffer, {.element_size = 4, .element_count = 4}, PipelineStage::VertexShader);
+    const auto repeated     = builder.Read(buffer, {.element_size = 4, .element_count = 4}, PipelineStage::PixelShader);
+    const auto offset       = builder.Read(buffer, {.offset = 16, .element_size = 4, .element_count = 4}, PipelineStage::VertexShader);
+    const auto mip0         = builder.Read(texture, {.mip_levels = 1}, PipelineStage::VertexShader);
     const auto repeated_mip = builder.Read(texture, {.mip_levels = 1}, PipelineStage::PixelShader);
-    const auto mip1 = builder.Read(texture, {.base_mip_level = 1, .mip_levels = 1}, PipelineStage::VertexShader);
+    const auto mip1         = builder.Read(texture, {.base_mip_level = 1, .mip_levels = 1}, PipelineStage::VertexShader);
     EXPECT_EQ(first, repeated);
     EXPECT_NE(first, offset);
     EXPECT_EQ(mip0, repeated_mip);
@@ -824,7 +828,7 @@ TEST(RenderGraphAccessTest, ReusesIdenticalAccessesAndKeepsDifferentRangesSepara
         EXPECT_EQ(&pass.Resolve(mip0), &pass.Resolve(repeated_mip));
         EXPECT_NE(&pass.Resolve(mip0), &pass.Resolve(mip1));
         EXPECT_EQ(pass.Resolve(mip1).GetDesc().base_mip_level, 1u);
-        const auto stages = PipelineStage::VertexShader | PipelineStage::PixelShader;
+        const auto stages  = PipelineStage::VertexShader | PipelineStage::PixelShader;
         const auto barrier = pass.Resolve(buffer).Transition(BarrierAccess::ShaderRead, stages);
         EXPECT_EQ(barrier.src_stage, stages);
         pass.GetCmd().ResourceBarrier({}, std::array{barrier});
@@ -836,20 +840,22 @@ TEST(RenderGraphAccessTest, ReusesIdenticalAccessesAndKeepsDifferentRangesSepara
 }
 
 TEST(RenderGraphAccessTest, ExternalViewsKeepProducerMergeStagesAndPreserveIdentity) {
-    auto device = create_device(Device::Type::Mock, "GraphTextureDependencies");
-    CommandQueues queues(*device);
-    auto bindings = BindlessUtils::Create(*device);
-    RenderGraph graph(*device, queues, *bindings);
+    auto              device = create_device(Device::Type::Mock, "GraphTextureDependencies");
+    CommandQueues     queues(*device);
+    auto              bindings = BindlessUtils::Create(*device);
+    RenderGraph       graph(*device, queues, *bindings);
     const TextureDesc desc{
-        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
+        .width  = 8,
+        .height = 8,
+        .format = Format::R8G8B8A8_UNORM,
         .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
     };
-    auto texture = Texture::Create(*device, queues, *bindings, desc);
-    auto view = TextureView::Create(*device, *bindings, {.texture = texture});
-    auto other_view = TextureView::Create(*device, *bindings, {.texture = texture});
-    const auto source = graph.Import(texture);
-    const auto target = graph.Create(desc);
-    bool produced = false, consumed = false;
+    auto              texture    = Texture::Create(*device, queues, *bindings, desc);
+    auto              view       = TextureView::Create(*device, *bindings, {.texture = texture});
+    auto              other_view = TextureView::Create(*device, *bindings, {.texture = texture});
+    const auto        source     = graph.Import(texture);
+    const auto        target     = graph.Create(desc);
+    bool              produced = false, consumed = false;
     RenderPassBuilder producer(graph);
     producer.SetRenderTarget(source);
     producer.SetExecutor([&](const RenderGraph&, const RenderPassNode&) { produced = true; });
@@ -858,9 +864,9 @@ TEST(RenderGraphAccessTest, ExternalViewsKeepProducerMergeStagesAndPreserveIdent
     RenderPassBuilder consumer(graph);
     consumer.AllowPassCulling(false);
     consumer.SetRenderTarget(target);
-    const auto access = consumer.Read(view, PipelineStage::VertexShader);
-    const auto repeated = consumer.Read(view, PipelineStage::PixelShader);
-    const auto other = consumer.Read(other_view, PipelineStage::PixelShader);
+    const auto access    = consumer.Read(view, PipelineStage::VertexShader);
+    const auto repeated  = consumer.Read(view, PipelineStage::PixelShader);
+    const auto other     = consumer.Read(other_view, PipelineStage::PixelShader);
     const auto generated = consumer.Read(source, {}, PipelineStage::PixelShader);
     EXPECT_EQ(access, repeated);
     EXPECT_NE(access, other);
@@ -872,7 +878,7 @@ TEST(RenderGraphAccessTest, ExternalViewsKeepProducerMergeStagesAndPreserveIdent
         EXPECT_EQ(&pass.Resolve(other), other_view.get());
         EXPECT_NE(&pass.Resolve(generated), view.get());
         EXPECT_EQ(pass.Resolve(access).GetBindlessHandle(), view->GetBindlessHandle());
-        const auto stages = PipelineStage::VertexShader | PipelineStage::PixelShader;
+        const auto stages  = PipelineStage::VertexShader | PipelineStage::PixelShader;
         const auto barrier = pass.Resolve(source).Transition(BarrierAccess::ShaderRead, TextureLayout::ShaderRead, stages);
         EXPECT_EQ(barrier.src_access, BarrierAccess::ShaderRead);
         EXPECT_EQ(barrier.src_stage, stages);
@@ -887,23 +893,27 @@ TEST(RenderGraphAccessTest, ExternalViewsKeepProducerMergeStagesAndPreserveIdent
 }
 
 TEST(RenderGraphAccessTest, ExternalViewsImportAndRetainViewAndTexture) {
-    auto device = create_device(Device::Type::Mock, "GraphDependencyLifetime");
-    CommandQueues queues(*device);
-    auto bindings = BindlessUtils::Create(*device);
-    RenderGraph graph(*device, queues, *bindings);
-    auto source = Texture::Create(*device, queues, *bindings, {
-        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
-        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
-    });
-    auto view = TextureView::Create(*device, *bindings, {.texture = source});
+    auto                       device = create_device(Device::Type::Mock, "GraphDependencyLifetime");
+    CommandQueues              queues(*device);
+    auto                       bindings = BindlessUtils::Create(*device);
+    RenderGraph                graph(*device, queues, *bindings);
+    auto                       source        = Texture::Create(*device, queues, *bindings, {
+                                                                                               .width  = 8,
+                                                                                               .height = 8,
+                                                                                               .format = Format::R8G8B8A8_UNORM,
+                                                                                               .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
+                                                                                           });
+    auto                       view          = TextureView::Create(*device, *bindings, {.texture = source});
     std::weak_ptr<TextureView> retained_view = view;
-    std::weak_ptr<Texture> retained = source;
+    std::weak_ptr<Texture>     retained      = source;
     source.reset();
     {
         RenderPassBuilder consumer(graph);
         consumer.AllowPassCulling(false);
         consumer.SetRenderTarget(graph.Create(TextureDesc{
-            .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
+            .width  = 8,
+            .height = 8,
+            .format = Format::R8G8B8A8_UNORM,
             .usages = TextureUsageFlags::RenderTarget,
         }));
         const auto access = consumer.Read(view);
@@ -929,27 +939,30 @@ TEST(RenderGraphAccessTest, ExternalViewsImportAndRetainViewAndTexture) {
 }
 
 TEST(RenderGraphAccessTest, ExternalViewReadsRejectNullWrongTypesAndConflicts) {
-    auto device = create_device(Device::Type::Mock, "GraphInvalidExternalViews");
+    auto          device = create_device(Device::Type::Mock, "GraphInvalidExternalViews");
     CommandQueues queues(*device);
-    auto bindings = BindlessUtils::Create(*device);
-    RenderGraph graph(*device, queues, *bindings);
+    auto          bindings = BindlessUtils::Create(*device);
+    RenderGraph   graph(*device, queues, *bindings);
     {
         RenderPassBuilder builder(graph);
         EXPECT_FALSE(builder.Read(std::shared_ptr<TextureView>{}));
         EXPECT_FALSE(graph.IsValid(builder.Finish()));
     }
-    auto texture = Texture::Create(*device, queues, *bindings, {
-        .width = 8, .height = 8, .format = Format::R8G8B8A8_UNORM,
-        .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
-    });
-    auto view = TextureView::Create(*device, *bindings, {
-        .texture = texture, .type = TextureViewType::RenderTarget,
-    });
+    auto              texture = Texture::Create(*device, queues, *bindings, {
+                                                                                .width  = 8,
+                                                                                .height = 8,
+                                                                                .format = Format::R8G8B8A8_UNORM,
+                                                                                .usages = TextureUsageFlags::SRV | TextureUsageFlags::RenderTarget,
+                                                                            });
+    auto              view    = TextureView::Create(*device, *bindings, {
+                                                                            .texture = texture,
+                                                                            .type    = TextureViewType::RenderTarget,
+                                                                        });
     RenderPassBuilder builder(graph);
     EXPECT_FALSE(builder.Read(view));
     EXPECT_FALSE(graph.IsValid(builder.Finish()));
     RenderPassBuilder conflict(graph);
-    auto read_view = TextureView::Create(*device, *bindings, {.texture = texture});
+    auto              read_view = TextureView::Create(*device, *bindings, {.texture = texture});
     ASSERT_TRUE(conflict.Read(read_view));
     EXPECT_FALSE(conflict.SetRenderTarget(graph.Import(texture)));
     EXPECT_FALSE(graph.IsValid(conflict.Finish()));
@@ -997,12 +1010,12 @@ protected:
         return result;
     }
 
-    std::shared_ptr<Device>    device;
+    std::shared_ptr<Device>        device;
     CommandQueues                  queues{*device};
     std::unique_ptr<BindlessUtils> bindings = BindlessUtils::Create(*device);
     ShaderCompiler                 compiler{"Tests"};
-    RenderGraph                rg;
-    std::shared_ptr<SwapChain> swap_chain;
+    RenderGraph                    rg;
+    std::shared_ptr<SwapChain>     swap_chain;
 };
 
 TEST_F(TransientResourcePoolTest, BufferAndTextureReuse) {
@@ -1108,19 +1121,19 @@ TEST_F(TransientResourcePoolTest, NameIndependentReuse) {
 
 TEST_F(TransientResourcePoolTest, ClearValueIsPartOfTextureCompatibility) {
     const GPUBufferDesc buffer_desc{
-        .size = 64,
+        .size   = 64,
         .usages = GPUBufferUsageFlags::StorageRead,
     };
     TextureDesc texture_desc{
-        .width = 16,
-        .height = 16,
-        .format = Format::R8G8B8A8_UNORM,
+        .width       = 16,
+        .height      = 16,
+        .format      = Format::R8G8B8A8_UNORM,
         .clear_value = Color::Red(),
-        .usages = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
+        .usages      = TextureUsageFlags::RenderTarget | TextureUsageFlags::CopySrc,
     };
-    const auto red = RunFrame(buffer_desc, texture_desc);
+    const auto red           = RunFrame(buffer_desc, texture_desc);
     texture_desc.clear_value = Color::Blue();
-    const auto blue = RunFrame(buffer_desc, texture_desc);
+    const auto blue          = RunFrame(buffer_desc, texture_desc);
     EXPECT_NE(red.texture, blue.texture);
     EXPECT_EQ(std::get<ClearColor>(*blue.texture->GetDesc().clear_value), Color::Blue());
     texture_desc.clear_value = Color::Red();

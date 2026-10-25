@@ -10,7 +10,7 @@ import interop.metal;
 import std;
 import gfx;
 import asset;
-import app;
+import platform;
 import core;
 import math;
 import utils;
@@ -61,8 +61,8 @@ protected:
         : test_name(UnitTest::GetInstance()->current_test_info()->name()),
           device(create_device(GetParam(), test_name)) {}
 
-    std::string             test_name;
-    std::unique_ptr<Device> device;
+    std::string                                 test_name;
+    std::unique_ptr<Device>                     device;
     hitagi::gfx::CommandQueues                  queues{*device};
     std::unique_ptr<hitagi::gfx::BindlessUtils> bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler                 compiler{"Tests"};
@@ -417,9 +417,9 @@ TEST_P(DeviceTest, CreateShader) {
     // Test Vertex Shader
     {
         auto vs_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                            .name        = "vertex_test_shader",
-                                                                            .type        = ShaderType::Vertex,
-                                                                            .entry       = "VSMain",
+                                                                            .name    = "vertex_test_shader",
+                                                                            .type    = ShaderType::Vertex,
+                                                                            .entry   = "VSMain",
                                                                             .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
         switch (device->device_type) {
@@ -435,9 +435,9 @@ TEST_P(DeviceTest, CreateShader) {
     }
     {
         auto ps_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                            .name        = "pixel_test_shader",
-                                                                            .type        = ShaderType::Pixel,
-                                                                            .entry       = "PSMain",
+                                                                            .name    = "pixel_test_shader",
+                                                                            .type    = ShaderType::Pixel,
+                                                                            .entry   = "PSMain",
                                                                             .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
         switch (device->device_type) {
@@ -475,17 +475,17 @@ TEST_P(DeviceTest, CreateRenderPipeline) {
         )""";
 
         auto vs_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                            .name        = std::pmr::string(test_name),
-                                                                            .type        = ShaderType::Vertex,
-                                                                            .entry       = "VSMain",
+                                                                            .name    = std::pmr::string(test_name),
+                                                                            .type    = ShaderType::Vertex,
+                                                                            .entry   = "VSMain",
                                                                             .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
         ASSERT_TRUE(vs_shader);
 
         auto ps_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                            .name        = std::pmr::string(test_name),
-                                                                            .type        = ShaderType::Pixel,
-                                                                            .entry       = "PSMain",
+                                                                            .name    = std::pmr::string(test_name),
+                                                                            .type    = ShaderType::Pixel,
+                                                                            .entry   = "PSMain",
                                                                             .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
         ASSERT_TRUE(ps_shader);
@@ -513,9 +513,9 @@ TEST_P(DeviceTest, CreateComputePipeline) {
     )""";
 
     auto cs_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                        .name        = std::pmr::string(test_name),
-                                                                        .type        = ShaderType::Compute,
-                                                                        .entry       = "main",
+                                                                        .name    = std::pmr::string(test_name),
+                                                                        .type    = ShaderType::Compute,
+                                                                        .entry   = "main",
                                                                         .program = {.modules = {{.source_code = cs_code}}},
                                                                     });
     ASSERT_TRUE(cs_shader);
@@ -689,17 +689,17 @@ TEST_P(GraphicsCommandTest, PushBindlessInfo) {
         )""";
 
     auto vs_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                        .name        = std::pmr::string(std::format("{}-vs", test_name)),
-                                                                        .type        = ShaderType::Vertex,
-                                                                        .entry       = "VSMain",
+                                                                        .name    = std::pmr::string(std::format("{}-vs", test_name)),
+                                                                        .type    = ShaderType::Vertex,
+                                                                        .entry   = "VSMain",
                                                                         .program = {.modules = {{.source_code = shader_code}}},
                                                                     });
     ASSERT_TRUE(vs_shader);
 
     auto ps_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                        .name        = std::pmr::string(std::format("{}-ps", test_name)),
-                                                                        .type        = ShaderType::Pixel,
-                                                                        .entry       = "PSMain",
+                                                                        .name    = std::pmr::string(std::format("{}-ps", test_name)),
+                                                                        .type    = ShaderType::Pixel,
+                                                                        .entry   = "PSMain",
                                                                         .program = {.modules = {{.source_code = shader_code}}},
                                                                     });
     ASSERT_TRUE(ps_shader);
@@ -833,9 +833,9 @@ TEST_P(ComputeCommandTest, PushBindlessInfo) {
         )""";
 
     auto cs_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                        .name        = std::pmr::string(std::format("{}-cs", test_name)),
-                                                                        .type        = ShaderType::Compute,
-                                                                        .entry       = "main",
+                                                                        .name    = std::pmr::string(std::format("{}-cs", test_name)),
+                                                                        .type    = ShaderType::Compute,
+                                                                        .entry   = "main",
                                                                         .program = {.modules = {{.source_code = cs_shader_code}}},
                                                                     });
     ASSERT_TRUE(cs_shader);
@@ -1015,17 +1015,17 @@ TEST_P(CopyCommandTest, CopyTextureToBuffer) {
         hitagi::core::Buffer(std::span{reinterpret_cast<const std::byte*>(readback.data()), static_cast<std::size_t>(dst_buffer->Size())}));
     const auto png = hitagi::asset::PngEncoder{}.Encode(image);
     ASSERT_FALSE(png.Empty());
-    hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
+    hitagi::core::IOService{}.SaveBuffer(output_path, png);
 }
 
 class SwapChainTest : public DeviceTest {
 protected:
     SwapChainTest()
         : DeviceTest(),
-          app(hitagi::Application::CreateApp(hitagi::AppConfig{
-              .title     = std::pmr::string{std::format("App/{}", test_name)},
-              .log_level = spdlog::level::to_string_view(spdlog::get_level()).data(),
-              .headless  = true,
+          app(hitagi::platform::PlatformHost::Create(hitagi::platform::PlatformConfig{
+              .title = std::pmr::string{std::format("App/{}", test_name)},
+
+              .headless = true,
           })) {}
 
     void SetUp() override {
@@ -1037,8 +1037,8 @@ protected:
         ASSERT_TRUE(swap_chain != nullptr);
     }
 
-    std::unique_ptr<hitagi::Application> app;
-    std::shared_ptr<SwapChain>           swap_chain;
+    std::unique_ptr<hitagi::platform::PlatformHost> app;
+    std::shared_ptr<SwapChain>                      swap_chain;
 };
 INSTANTIATE_TEST_SUITE_P(
     SwapChainTest,
@@ -1067,11 +1067,11 @@ TEST_P(SwapChainTest, SwapChainResizing) {
 }
 
 TEST_P(DeviceTest, DrawTriangle) {
-    auto app = hitagi::Application::CreateApp(
-        hitagi::AppConfig{
-            .title     = std::pmr::string{std::format("App/{}", test_name)},
-            .log_level = spdlog::level::to_string_view(spdlog::get_level()).data(),
-            .headless  = true,
+    auto app = hitagi::platform::PlatformHost::Create(
+        hitagi::platform::PlatformConfig{
+            .title = std::pmr::string{std::format("App/{}", test_name)},
+
+            .headless = true,
         });
 
     auto rect = app->GetWindowRect();
@@ -1125,17 +1125,17 @@ TEST_P(DeviceTest, DrawTriangle) {
         )""";
 
     auto vertex_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                            .name        = std::pmr::string(std::format("VS-{}", test_name)),
-                                                                            .type        = ShaderType::Vertex,
-                                                                            .entry       = "VSMain",
+                                                                            .name    = std::pmr::string(std::format("VS-{}", test_name)),
+                                                                            .type    = ShaderType::Vertex,
+                                                                            .entry   = "VSMain",
                                                                             .program = {.modules = {{.source_code = shader_code}}},
                                                                         });
     ASSERT_TRUE(vertex_shader);
 
     auto pixel_shader = hitagi::gfx::Shader::Create(*device, compiler, {
-                                                                           .name        = std::pmr::string(std::format("PS-{}", test_name)),
-                                                                           .type        = ShaderType::Pixel,
-                                                                           .entry       = "PSMain",
+                                                                           .name    = std::pmr::string(std::format("PS-{}", test_name)),
+                                                                           .type    = ShaderType::Pixel,
+                                                                           .entry   = "PSMain",
                                                                            .program = {.modules = {{.source_code = shader_code}}},
                                                                        });
     ASSERT_TRUE(pixel_shader);
@@ -1187,57 +1187,57 @@ TEST_P(DeviceTest, DrawTriangle) {
             { 0.25f, -0.25f, 0.00f}, {0.0f, 0.0f, 1.0f},  // point 2
         }};
     // clang-format on
-        auto vertex_buffer = hitagi::gfx::GPUBuffer::Create(*device,
-                                                            {
-                                                                .name   = "I know DirectX12 positions buffer",
-                                                                .size   = (sizeof(vec3f)) * (triangle.size()),
-                                                                .usages = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
-                                                            },
-                                                            {reinterpret_cast<const std::byte*>(triangle.data()), sizeof(triangle)});
+    auto vertex_buffer = hitagi::gfx::GPUBuffer::Create(*device,
+                                                        {
+                                                            .name   = "I know DirectX12 positions buffer",
+                                                            .size   = (sizeof(vec3f)) * (triangle.size()),
+                                                            .usages = GPUBufferUsageFlags::Vertex | GPUBufferUsageFlags::CopyDst,
+                                                        },
+                                                        {reinterpret_cast<const std::byte*>(triangle.data()), sizeof(triangle)});
 
-        std::array pink_color = {
-            R8G8B8A8Unorm(0xa9, 0xC0, 0x61, 0xFF),
-            R8G8B8A8Unorm(0x28, 0xC0, 0xCB, 0xFF),
-            R8G8B8A8Unorm(0x31, 0xC0, 0x34, 0xFF),
-            R8G8B8A8Unorm(0x00, 0x90, 0xCB, 0xFF),
-        };
+    std::array pink_color = {
+        R8G8B8A8Unorm(0xa9, 0xC0, 0x61, 0xFF),
+        R8G8B8A8Unorm(0x28, 0xC0, 0xCB, 0xFF),
+        R8G8B8A8Unorm(0x31, 0xC0, 0x34, 0xFF),
+        R8G8B8A8Unorm(0x00, 0x90, 0xCB, 0xFF),
+    };
 
-        auto texture = hitagi::gfx::Texture::Create(*device, queues, *bindings,
-                                                    {
-                                                        .name   = std::pmr::string(std::format("Texture-{}", test_name)),
-                                                        .width  = 2,
-                                                        .height = 2,
-                                                        .format = Format::R8G8B8A8_UNORM,
-                                                        .usages = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
-                                                    },
-                                                    {reinterpret_cast<const std::byte*>(pink_color.data()), sizeof(pink_color)});
+    auto texture = hitagi::gfx::Texture::Create(*device, queues, *bindings,
+                                                {
+                                                    .name   = std::pmr::string(std::format("Texture-{}", test_name)),
+                                                    .width  = 2,
+                                                    .height = 2,
+                                                    .format = Format::R8G8B8A8_UNORM,
+                                                    .usages = TextureUsageFlags::SRV | TextureUsageFlags::CopyDst,
+                                                },
+                                                {reinterpret_cast<const std::byte*>(pink_color.data()), sizeof(pink_color)});
 
-        auto sampler      = hitagi::gfx::Sampler::Create(*device, *bindings, {
-                                                                                 .name = std::pmr::string(std::format("Sampler-{}", test_name)),
+    auto sampler      = hitagi::gfx::Sampler::Create(*device, *bindings, {
+                                                                             .name = std::pmr::string(std::format("Sampler-{}", test_name)),
+                                                                         });
+    auto texture_view = hitagi::gfx::TextureView::Create(*device, *bindings, {
+                                                                                 .name    = std::pmr::string(std::format("{}-TextureView", test_name)),
+                                                                                 .texture = texture,
+                                                                                 .type    = TextureViewType::ShaderRead,
                                                                              });
-        auto texture_view = hitagi::gfx::TextureView::Create(*device, *bindings, {
-                                                                                     .name    = std::pmr::string(std::format("{}-TextureView", test_name)),
-                                                                                     .texture = texture,
-                                                                                     .type    = TextureViewType::ShaderRead,
-                                                                                 });
 
-        struct Constant {
-            mat4f rotation;
-        };
-        auto constant_buffer                                             = hitagi::gfx::GPUBuffer::Create(*device, {
-                                                                                                                       .name   = std::pmr::string(std::format("{}-Buffer", test_name)),
-                                                                                                                       .size   = sizeof(Constant),
-                                                                                                                       .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
-                                                                                                                   });
-        auto constant_buffer_view                                        = CreateBufferView(*device, *bindings, constant_buffer, sizeof(Constant));
-        constant_buffer_view->GetMappedSpan<Constant>().front().rotation = translate(vec3f(.5f, 0, 0)) * rotate_z<float>(20.0_deg);
+    struct Constant {
+        mat4f rotation;
+    };
+    auto constant_buffer                                             = hitagi::gfx::GPUBuffer::Create(*device, {
+                                                                                                                   .name   = std::pmr::string(std::format("{}-Buffer", test_name)),
+                                                                                                                   .size   = sizeof(Constant),
+                                                                                                                   .usages = GPUBufferUsageFlags::StorageRead | GPUBufferUsageFlags::MapWrite,
+                                                                                                               });
+    auto constant_buffer_view                                        = CreateBufferView(*device, *bindings, constant_buffer, sizeof(Constant));
+    constant_buffer_view->GetMappedSpan<Constant>().front().rotation = translate(vec3f(.5f, 0, 0)) * rotate_z<float>(20.0_deg);
 
-        struct BindlessInfo {
-            BindlessHandle constant_buffer;
-            BindlessHandle texture;
-            BindlessHandle sampler;
-            uint32_t       padding;
-        };
+    struct BindlessInfo {
+        BindlessHandle constant_buffer;
+        BindlessHandle texture;
+        BindlessHandle sampler;
+        uint32_t       padding;
+    };
 
     BindlessInfo bindless_info{
         .constant_buffer = constant_buffer_view->GetBindlessHandle(),
@@ -1308,8 +1308,7 @@ TEST_P(DeviceTest, DrawTriangle) {
         std::move(pixels));
     const auto png = hitagi::asset::PngEncoder{}.Encode(image);
     ASSERT_FALSE(png.Empty());
-    hitagi::core::FileIOManager{}.SaveBuffer(png, output_path);
-
+    hitagi::core::IOService{}.SaveBuffer(output_path, png);
 }
 
 #ifdef __APPLE__

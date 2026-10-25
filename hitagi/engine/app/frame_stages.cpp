@@ -1,15 +1,17 @@
-export module engine:frame_stages;
+export module app:frame_stages;
 import ecs;
 
 export namespace hitagi {
 
 // Engine frame policy, independent of the generic ECS scheduling mechanism.
-enum class FrameStage { First,
-                        PreUpdate,
-                        Update,
-                        PostUpdate,
-                        Render,
-                        Last };
+enum class FrameStage {
+    First,
+    PreUpdate,
+    Update,
+    PostUpdate,
+    Render,
+    Last,
+};
 
 void ConfigureFrameStages(ecs::Schedule& schedule);
 

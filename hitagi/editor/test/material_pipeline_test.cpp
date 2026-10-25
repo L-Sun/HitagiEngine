@@ -32,7 +32,7 @@ void ExpectCompilesForAvailableBackends(const MaterialPass& pass) {
 #ifdef __APPLE__
     // Exercise native Metal lowering too; DXIL's downstream compiler is not
     // available on this host. Other hosts retain their existing offline checks.
-    auto device = gfx::create_device(gfx::Device::Type::Metal);
+    auto                 device = gfx::create_device(gfx::Device::Type::Metal);
     constexpr std::array targets{gfx::ShaderTarget::SPIRV};
 #else
     constexpr std::array targets{gfx::ShaderTarget::DXIL, gfx::ShaderTarget::SPIRV};
@@ -123,8 +123,8 @@ float4 PSMain<M : IMaterial>(PSInput input) : SV_TARGET {
 
 class EditorMaterialCookTest : public ::testing::Test {
 protected:
-    core::FileIOManager file_io;
-    core::JobSystem     job_system;
+    core::IOService file_io;
+    core::JobSystem job_system;
 };
 
 }  // namespace hitagi::material_pipeline_tests
@@ -133,17 +133,17 @@ using namespace hitagi::material_pipeline_tests;
 
 TEST(MaterialContractCookTest, RejectsMissingAndMistypedParameters) {
     const auto missing = std::make_shared<Material>(MaterialParameters{},
-        std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "Missing");
+                                                    std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "Missing");
     EXPECT_THROW(CookEditorMaterial(EditorMaterial{.material = missing}), std::invalid_argument);
     const auto wrong = std::make_shared<Material>(MaterialParameters{{.name = "roughness", .value = std::uint32_t{1}}},
-        std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "WrongType");
+                                                  std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"roughness", 0.5f}}}}, "WrongType");
     EXPECT_THROW(CookEditorMaterial(EditorMaterial{.material = wrong}), std::invalid_argument);
 }
 
 TEST(MaterialGraphCompilerTest, RequiresMatchingContractDefaults) {
     MaterialGraph graph;
-    const auto value = graph.AddNode("roughness", "parameter", {}, {{"value", ShaderValueType::Float}});
-    const auto surface = graph.AddNode("surface", "surface_output", {{"roughness", ShaderValueType::Float}}, {{"out", ShaderValueType::Surface}});
+    const auto    value   = graph.AddNode("roughness", "parameter", {}, {{"value", ShaderValueType::Float}});
+    const auto    surface = graph.AddNode("surface", "surface_output", {{"roughness", ShaderValueType::Float}}, {{"out", ShaderValueType::Surface}});
     graph.AddEdge(value, "value", surface, "roughness");
     graph.AddTerminal("surface", surface, "out", ShaderValueType::Surface);
     const auto pass_template = render::pbr::PbrForwardPassTemplate();
@@ -160,7 +160,7 @@ TEST_F(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPass
     const auto                  base_texture = std::make_shared<Texture>(base_texture_path, MakeFileImageLoader(file_io, base_texture_path), "base");
     MaterialPass                gbuffer_pass{
         .pass_contract = "GBuffer",
-        .bindings = {{"base_color", Color::White()}, {"metallic", 0.0f}, {"base_color_texture", std::shared_ptr<Texture>{}}},
+        .bindings      = {{"base_color", Color::White()}, {"metallic", 0.0f}, {"base_color_texture", std::shared_ptr<Texture>{}}},
     };
     const auto material = std::make_shared<Material>(
         MaterialParameters{
@@ -178,14 +178,14 @@ TEST_F(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPass
     ASSERT_FALSE(cooked.Empty());
     EXPECT_TRUE(IsCookedBinary(cooked.Span<std::byte>()));
 
-    AssetManager asset_manager(file_io, job_system, "assets");
+    AssetService asset_manager(file_io, job_system, "assets");
     const auto   loaded = asset_manager.LoadCookedMaterial(cooked, "assets");
     ASSERT_TRUE(loaded);
     EXPECT_EQ(loaded->GetName(), "BinaryCookedMaterial");
 
     ASSERT_EQ(loaded->GetPasses().size(), 1);
     EXPECT_EQ(loaded->GetPasses().front().pass_contract, "GBuffer");
-    const auto loaded_passes = loaded->GetPasses();
+    const auto  loaded_passes   = loaded->GetPasses();
     const auto& loaded_bindings = loaded_passes.front().bindings;
     ASSERT_EQ(loaded_bindings.size(), 3);
     EXPECT_EQ(loaded_bindings[0].name, "base_color");
@@ -211,7 +211,7 @@ TEST_F(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPass
     ASSERT_TRUE(loaded_null_texture);
     EXPECT_EQ(*loaded_null_texture, nullptr);
 
-    // P0 registry: both parameters reference the same path, so the AssetManager
+    // P0 registry: both parameters reference the same path, so the AssetService
     // must resolve them to a single texture instance.
     const auto loaded_detail_texture = loaded->GetParameter<std::shared_ptr<Texture>>("detail_texture");
     ASSERT_TRUE(loaded_detail_texture);
@@ -221,13 +221,13 @@ TEST_F(EditorMaterialCookTest, CookedMaterialRoundTripPreservesParametersAndPass
 
 TEST_F(EditorMaterialCookTest, ContractTextureDefaultsRoundTripThroughRegistry) {
     const std::filesystem::path path{"assets/test/test.png"};
-    const auto texture = std::make_shared<Texture>(path, MakeFileImageLoader(file_io, path), "default");
-    const auto material = std::make_shared<Material>(
+    const auto                  texture  = std::make_shared<Texture>(path, MakeFileImageLoader(file_io, path), "default");
+    const auto                  material = std::make_shared<Material>(
         MaterialParameters{{.name = "albedo", .value = texture}},
         std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .bindings = {{"albedo", texture}}}});
-    const auto cooked = CookEditorMaterial(EditorMaterial{.material = material}, {.asset_root_path = "assets"});
-    AssetManager manager(file_io, job_system, "assets");
-    const auto loaded = manager.LoadCookedMaterial(cooked, "assets");
+    const auto   cooked = CookEditorMaterial(EditorMaterial{.material = material}, {.asset_root_path = "assets"});
+    AssetService manager(file_io, job_system, "assets");
+    const auto   loaded = manager.LoadCookedMaterial(cooked, "assets");
     ASSERT_TRUE(loaded);
     const MaterialPass* pass = loaded->FindPass("Forward");
     ASSERT_NE(pass, nullptr);
@@ -236,7 +236,7 @@ TEST_F(EditorMaterialCookTest, ContractTextureDefaultsRoundTripThroughRegistry) 
     EXPECT_EQ(default_texture->GetPath().generic_string(), "assets/test/test.png");
     EXPECT_EQ(default_texture, loaded->GetParameter<std::shared_ptr<Texture>>("albedo").value());
 
-    core::Buffer old_version(cooked.GetDataSize(), cooked.GetData());
+    core::Buffer     old_version(cooked.GetDataSize(), cooked.GetData());
     CookedFileHeader header;
     std::memcpy(&header, old_version.GetData(), sizeof(header));
     header.version = kCookedVersion - 1;
@@ -246,23 +246,23 @@ TEST_F(EditorMaterialCookTest, ContractTextureDefaultsRoundTripThroughRegistry) 
 
 TEST_F(EditorMaterialCookTest, CookPreservesSlangModulesAndSpecializationTypes) {
     const gfx::ShaderDesc shader_desc{
-        .name = "SpecializedMaterial",
-        .type = gfx::ShaderType::Pixel,
-        .entry = "shade",
-        .program = {.modules = {
-            {.name = "material_types", .source_code = "public struct Material {}", .path = "assets/shaders/material_types.slang"},
-            {.name = "material_pass", .source_code = "import material_types;", .path = "assets/shaders/material_pass.slang"},
-        }},
+        .name                 = "SpecializedMaterial",
+        .type                 = gfx::ShaderType::Pixel,
+        .entry                = "shade",
+        .program              = {.modules = {
+                                     {.name = "material_types", .source_code = "public struct Material {}", .path = "assets/shaders/material_types.slang"},
+                                     {.name = "material_pass", .source_code = "import material_types;", .path = "assets/shaders/material_pass.slang"},
+                                 }},
         .specialization_types = {"Material"},
     };
     auto pipeline = std::make_shared<asset::RenderPipeline>(
         gfx::RenderPipelineDesc{.name = "SpecializedPipeline"},
         std::pmr::vector<std::shared_ptr<asset::Shader>>{std::make_shared<asset::Shader>(shader_desc)});
-    const auto material = std::make_shared<Material>(MaterialParameters{},
-        std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .pipeline = pipeline}});
-    const auto cooked = CookEditorMaterial(EditorMaterial{.material = material}, {.asset_root_path = "assets"});
-    AssetManager manager(file_io, job_system, "assets");
-    const auto loaded = manager.LoadCookedMaterial(cooked, "assets");
+    const auto   material = std::make_shared<Material>(MaterialParameters{},
+                                                       std::pmr::vector<MaterialPass>{{.pass_contract = "Forward", .pipeline = pipeline}});
+    const auto   cooked   = CookEditorMaterial(EditorMaterial{.material = material}, {.asset_root_path = "assets"});
+    AssetService manager(file_io, job_system, "assets");
+    const auto   loaded = manager.LoadCookedMaterial(cooked, "assets");
     ASSERT_TRUE(loaded);
     const auto* pass = loaded->FindPass("Forward");
     ASSERT_NE(pass, nullptr);
@@ -282,7 +282,7 @@ TEST_F(EditorMaterialCookTest, CookPreservesSlangModulesAndSpecializationTypes) 
 }
 
 TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) {
-    auto scene = std::make_shared<Scene>("binary-cooked-scene");
+    auto              scene = std::make_shared<Scene>("binary-cooked-scene");
     VertexArray::Data vertex_data;
     core::Buffer      index_data(3 * sizeof(std::uint16_t));
     {
@@ -330,7 +330,7 @@ TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) 
     ASSERT_FALSE(cooked.Empty());
     EXPECT_TRUE(IsCookedBinary(cooked.Span<std::byte>()));
 
-    AssetManager asset_manager(file_io, job_system, "assets");
+    AssetService asset_manager(file_io, job_system, "assets");
     const auto   loaded = asset_manager.LoadCookedScene(cooked, "assets");
     ASSERT_TRUE(loaded);
     ASSERT_EQ(loaded->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().size(), 1);
@@ -356,7 +356,6 @@ TEST_F(EditorMaterialCookTest, CookedSceneRoundTripPreservesVertexDataBitExact) 
     EXPECT_TRUE(std::ranges::equal(
         std::as_bytes(loaded_indices),
         std::as_bytes(original_indices)));
-
 
     ASSERT_FALSE(loaded_mesh->sub_meshes.empty());
     ASSERT_TRUE(loaded_mesh->sub_meshes.front().material);
@@ -654,7 +653,7 @@ TEST_F(EditorMaterialCookTest, VertexLayoutIsCookedWithoutMutatingPipelineDefini
     EXPECT_EQ(clone->FindPass("Test")->pipeline, pipeline);
     auto bytes = CookEditorMaterial({.material = material});
     EXPECT_TRUE(pipeline->GetDesc().vertex_input_layout.empty());
-    AssetManager manager(file_io, job_system, "assets");
+    AssetService manager(file_io, job_system, "assets");
     auto         loaded = manager.LoadCookedMaterial(bytes, "assets");
     const auto&  layout = loaded->FindPass("Test")->pipeline->GetDesc().vertex_input_layout;
     ASSERT_EQ(layout.size(), 1);

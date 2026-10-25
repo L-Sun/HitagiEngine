@@ -7,27 +7,27 @@ import interop.win32;
 import interop.sdl;
 #endif
 import std;
-import app;
+import platform;
 import test_utils;
 
 using namespace hitagi;
 
-class AppTest : public ::testing::Test {
+class PlatformHostTest : public ::testing::Test {
 protected:
-    AppTest()
-        : app(Application::CreateApp({
-              .title     = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-              .log_level = spdlog::level::to_string_view(spdlog::get_level()).data(),
-              .headless  = true,
+    PlatformHostTest()
+        : app(platform::PlatformHost::Create({
+              .title = ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+
+              .headless = true,
           })) {}
-    std::unique_ptr<Application> app;
+    std::unique_ptr<platform::PlatformHost> app;
 };
 
-TEST_F(AppTest, CreateApp) {
+TEST_F(PlatformHostTest, Create) {
     EXPECT_NE(app, nullptr);
 }
 
-TEST_F(AppTest, ResizeWindow) {
+TEST_F(PlatformHostTest, ResizeWindow) {
     app->ResizeWindow(800, 600);
     auto rect = app->GetWindowRect();
     EXPECT_EQ(rect.right - rect.left, 800);
@@ -35,21 +35,21 @@ TEST_F(AppTest, ResizeWindow) {
 }
 
 #ifdef _WIN32
-TEST_F(AppTest, BackgroundErasePreservesRenderedPixels) {
-    const auto window = static_cast<HWND>(app->GetWindow().ptr);
+TEST_F(PlatformHostTest, BackgroundErasePreservesRenderedPixels) {
+    const auto window    = static_cast<HWND>(app->GetWindow().ptr);
     const auto window_dc = GetDC(window);
-    const auto dc = CreateCompatibleDC(window_dc);
-    const auto bitmap = CreateCompatibleBitmap(window_dc, 16, 16);
+    const auto dc        = CreateCompatibleDC(window_dc);
+    const auto bitmap    = CreateCompatibleBitmap(window_dc, 16, 16);
     ASSERT_NE(dc, nullptr);
     ASSERT_NE(bitmap, nullptr);
-    const auto previous = SelectObject(dc, bitmap);
-    constexpr unsigned color = 0x00332211;
+    const auto         previous = SelectObject(dc, bitmap);
+    constexpr unsigned color    = 0x00332211;
     SetPixel(dc, 8, 8, color);
 
     // The native erase runs between GPU presents during move/resize. Read back
     // its supplied DC, not the render target (which cannot see a GDI overwrite).
     const auto handled = SendMessageW(window, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
-    const auto pixel = GetPixel(dc, 8, 8);
+    const auto pixel   = GetPixel(dc, 8, 8);
     SelectObject(dc, previous);
     DeleteObject(bitmap);
     DeleteDC(dc);
@@ -59,7 +59,7 @@ TEST_F(AppTest, BackgroundErasePreservesRenderedPixels) {
     EXPECT_EQ(pixel, color);
 }
 
-TEST_F(AppTest, MoveLoopWithoutResizeDoesNotInvalidateWindowSize) {
+TEST_F(PlatformHostTest, MoveLoopWithoutResizeDoesNotInvalidateWindowSize) {
     app->PollEvents();
     ASSERT_FALSE(app->WindowSizeChanged());
     const auto window = static_cast<HWND>(app->GetWindow().ptr);
@@ -68,7 +68,7 @@ TEST_F(AppTest, MoveLoopWithoutResizeDoesNotInvalidateWindowSize) {
     EXPECT_FALSE(app->WindowSizeChanged());
 }
 
-TEST_F(AppTest, ModalSizingFramesAreNonReentrantAndStopOnExit) {
+TEST_F(PlatformHostTest, ModalSizingFramesAreNonReentrantAndStopOnExit) {
     const auto window = static_cast<HWND>(app->GetWindow().ptr);
     int        frames = 0;
     app->SetModalFrameCallback([&] {
@@ -90,7 +90,7 @@ TEST_F(AppTest, ModalSizingFramesAreNonReentrantAndStopOnExit) {
     app->SetModalFrameCallback({});
 }
 
-TEST_F(AppTest, ModalFrameErrorsReturnThroughTickNotWindowProc) {
+TEST_F(PlatformHostTest, ModalFrameErrorsReturnThroughTickNotWindowProc) {
     const auto window = static_cast<HWND>(app->GetWindow().ptr);
     app->SetModalFrameCallback([] { throw std::runtime_error("modal frame failure"); });
     SendMessageW(window, WM_ENTERSIZEMOVE, 0, 0);
@@ -102,13 +102,13 @@ TEST_F(AppTest, ModalFrameErrorsReturnThroughTickNotWindowProc) {
 #endif
 
 #ifndef _WIN32
-TEST_F(AppTest, LiveResizeFramesAreImmediateAndNonReentrant) {
+TEST_F(PlatformHostTest, LiveResizeFramesAreImmediateAndNonReentrant) {
     app->PollEvents();
     SDL_Event event{};
-    event.type = SDL_EVENT_WINDOW_EXPOSED;
+    event.type            = SDL_EVENT_WINDOW_EXPOSED;
     event.window.windowID = SDL_GetWindowID(static_cast<SDL_Window*>(app->GetWindow().ptr));
-    event.window.data1 = 1;
-    int frames = 0;
+    event.window.data1    = 1;
+    int frames            = 0;
     app->SetModalFrameCallback([&] {
         ++frames;
         if (frames == 1) SDL_PushEvent(&event);
@@ -134,11 +134,11 @@ TEST_F(AppTest, LiveResizeFramesAreImmediateAndNonReentrant) {
     EXPECT_EQ(frames, 2);
 }
 
-TEST_F(AppTest, LiveResizeErrorsReturnThroughTickNotSDL) {
+TEST_F(PlatformHostTest, LiveResizeErrorsReturnThroughTickNotSDL) {
     SDL_Event event{};
-    event.type = SDL_EVENT_WINDOW_EXPOSED;
+    event.type            = SDL_EVENT_WINDOW_EXPOSED;
     event.window.windowID = SDL_GetWindowID(static_cast<SDL_Window*>(app->GetWindow().ptr));
-    event.window.data1 = 1;
+    event.window.data1    = 1;
     app->SetModalFrameCallback([] { throw std::runtime_error("modal frame failure"); });
     EXPECT_NO_THROW(SDL_PushEvent(&event));
     EXPECT_THROW(app->PollEvents(), std::runtime_error);

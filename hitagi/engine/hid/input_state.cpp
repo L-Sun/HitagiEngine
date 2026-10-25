@@ -1,4 +1,4 @@
-export module hid:input_manager;
+export module hid:input_state;
 import interop.magic_enum;
 
 import std;
@@ -32,9 +32,9 @@ struct TextInputEvent {
     bool                            control = false;
 };
 
-class InputManager {
+class InputState {
 public:
-    InputManager();
+    InputState();
     void AdvanceFrame();
 
     inline void UpdateKeyState(VirtualKeyCode key, bool state) noexcept {
@@ -80,7 +80,7 @@ private:
 }  // namespace hitagi::hid
 
 namespace hitagi::hid {
-InputManager::InputManager()
+InputState::InputState()
     : m_KeyState(utils::create_array<KeyState, static_cast<std::size_t>(VirtualKeyCode::NUM)>(
           KeyState{
               .current  = false,
@@ -88,7 +88,7 @@ InputManager::InputManager()
               .dirty    = false,
           })) {}
 
-void InputManager::AdvanceFrame() {
+void InputState::AdvanceFrame() {
     for (auto&& state : m_KeyState) {
         state.ClearDirty();
     }
@@ -103,7 +103,7 @@ void InputManager::AdvanceFrame() {
     }
 }
 
-void InputManager::ResetInputState() noexcept {
+void InputState::ResetInputState() noexcept {
     for (auto&& state : m_KeyState) {
         state.current  = false;
         state.previous = false;
@@ -119,7 +119,7 @@ void InputManager::ResetInputState() noexcept {
     m_TextInputDirty = false;
 }
 
-bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const {
+bool InputState::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
         utils::Overloaded{
             [&](const VirtualKeyCode& key) -> bool {
@@ -142,7 +142,7 @@ bool InputManager::GetBool(std::variant<VirtualKeyCode, MouseEvent> event) const
         event);
 }
 
-bool InputManager::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) const {
+bool InputState::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
         utils::Overloaded{
             [&](const VirtualKeyCode& key) -> bool {
@@ -165,12 +165,12 @@ bool InputManager::GetBoolNew(std::variant<VirtualKeyCode, MouseEvent> event) co
         event);
 }
 
-bool InputManager::GetBoolReleased(VirtualKeyCode key) const {
+bool InputState::GetBoolReleased(VirtualKeyCode key) const {
     const auto& state = m_KeyState[static_cast<std::size_t>(key)];
     return !state.current && state.previous;
 }
 
-float InputManager::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) const {
+float InputState::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
         utils::Overloaded{
             [&](const VirtualKeyCode& key) -> float {
@@ -193,7 +193,7 @@ float InputManager::GetFloat(std::variant<VirtualKeyCode, MouseEvent> event) con
         event);
 }
 
-float InputManager::GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event) const {
+float InputState::GetFloatDelta(std::variant<VirtualKeyCode, MouseEvent> event) const {
     return std::visit(
         utils::Overloaded{
             [&](const VirtualKeyCode& key) -> float {

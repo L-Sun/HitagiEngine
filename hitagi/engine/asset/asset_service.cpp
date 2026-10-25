@@ -15,35 +15,35 @@ import :cooked_binary;
 
 namespace hitagi::asset {
 
-AssetManager::AssetLoadToken::AssetLoadToken()
+AssetService::AssetLoadToken::AssetLoadToken()
     : m_CancelRequested(std::make_shared<std::atomic_bool>(false)) {}
 
-void AssetManager::AssetLoadToken::RequestCancel() const noexcept {
+void AssetService::AssetLoadToken::RequestCancel() const noexcept {
     m_CancelRequested->store(true, std::memory_order_relaxed);
 }
 
-auto AssetManager::AssetLoadToken::IsCancellationRequested() const noexcept -> bool {
+auto AssetService::AssetLoadToken::IsCancellationRequested() const noexcept -> bool {
     return m_CancelRequested->load(std::memory_order_relaxed);
 }
 
-AssetManager::AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root_path)
+AssetService::AssetService(core::IOService& file_io, core::JobSystem& job_system, std::filesystem::path asset_root_path)
     : m_FileIO(file_io),
       m_JobSystem(job_system),
       m_AssetRootPath(std::move(asset_root_path)) {}
 
-AssetManager::~AssetManager() {
+AssetService::~AssetService() {
     WaitForAsyncJobs();
     Texture::DestroyDefaultTexture();
 }
 
-auto AssetManager::ImportScene(const std::filesystem::path& path, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
+auto AssetService::ImportScene(const std::filesystem::path& path, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
     if (!is_cooked_scene_path(path)) {
         throw std::runtime_error(std::format("Unsupported scene format: {}", path.string()));
     }
     return LoadCookedScene(m_FileIO.SyncOpenAndReadBinary(path), asset_root_path);
 }
 
-auto AssetManager::ImportTexture(const std::filesystem::path& path) -> std::shared_ptr<Texture> {
+auto AssetService::ImportTexture(const std::filesystem::path& path) -> std::shared_ptr<Texture> {
     const auto codec = create_image_codec_for(path.extension());
     if (!codec) {
         throw std::runtime_error(std::format("Unsupported image format: {}", path.string()));
@@ -62,11 +62,11 @@ auto AssetManager::ImportTexture(const std::filesystem::path& path) -> std::shar
     return texture;
 }
 
-auto AssetManager::ImportMaterial(const std::filesystem::path& path) -> std::shared_ptr<Material> {
+auto AssetService::ImportMaterial(const std::filesystem::path& path) -> std::shared_ptr<Material> {
     return LoadCookedMaterial(m_FileIO.SyncOpenAndReadBinary(path));
 }
 
-auto AssetManager::LoadCookedMaterial(std::span<const std::byte> data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Material> {
+auto AssetService::LoadCookedMaterial(std::span<const std::byte> data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Material> {
     auto material = ParseCookedMaterial(
         data,
         asset_root_path.empty() ? m_AssetRootPath : asset_root_path,
@@ -75,11 +75,11 @@ auto AssetManager::LoadCookedMaterial(std::span<const std::byte> data, const std
     return material;
 }
 
-auto AssetManager::LoadCookedMaterial(const core::Buffer& data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Material> {
+auto AssetService::LoadCookedMaterial(const core::Buffer& data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Material> {
     return LoadCookedMaterial(data.Span<const std::byte>(), asset_root_path);
 }
 
-auto AssetManager::LoadCookedScene(std::span<const std::byte> data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
+auto AssetService::LoadCookedScene(std::span<const std::byte> data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
     auto scene = ParseCookedScene(
         data,
         asset_root_path.empty() ? m_AssetRootPath : asset_root_path,
@@ -89,11 +89,11 @@ auto AssetManager::LoadCookedScene(std::span<const std::byte> data, const std::f
     return scene;
 }
 
-auto AssetManager::LoadCookedScene(const core::Buffer& data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
+auto AssetService::LoadCookedScene(const core::Buffer& data, const std::filesystem::path& asset_root_path) -> std::shared_ptr<Scene> {
     return LoadCookedScene(data.Span<const std::byte>(), asset_root_path);
 }
 
-auto AssetManager::ImportTextureAsync(const std::filesystem::path& path, AssetLoadToken token) -> AssetLoadJob<std::shared_ptr<Texture>> {
+auto AssetService::ImportTextureAsync(const std::filesystem::path& path, AssetLoadToken token) -> AssetLoadJob<std::shared_ptr<Texture>> {
     auto promise = std::make_shared<std::promise<std::shared_ptr<Texture>>>();
     auto future  = promise->get_future().share();
 
@@ -116,19 +116,19 @@ auto AssetManager::ImportTextureAsync(const std::filesystem::path& path, AssetLo
     return {.future = std::move(future), .token = std::move(token)};
 }
 
-void AssetManager::RegisterResource(const std::shared_ptr<Resource>& resource) {
+void AssetService::RegisterResource(const std::shared_ptr<Resource>& resource) {
     // Caller holds m_AssetsMutex.
     std::erase_if(m_Registry.resources_by_uuid, [](const auto& entry) { return entry.second.expired(); });
     m_Registry.resources_by_uuid.insert_or_assign(resource->GetUUID(), resource);
 }
 
-void AssetManager::AddScene(const std::shared_ptr<Scene>& scene) {
+void AssetService::AddScene(const std::shared_ptr<Scene>& scene) {
     if (!scene) return;
     std::scoped_lock lock(m_AssetsMutex);
     RegisterResource(scene);
 }
 
-void AssetManager::AddTexture(std::shared_ptr<Texture> texture) {
+void AssetService::AddTexture(std::shared_ptr<Texture> texture) {
     if (!texture) return;
     std::scoped_lock lock(m_AssetsMutex);
     if (!texture->GetPath().empty()) {
@@ -137,7 +137,7 @@ void AssetManager::AddTexture(std::shared_ptr<Texture> texture) {
     RegisterResource(texture);
 }
 
-void AssetManager::AddMaterial(std::shared_ptr<Material> material) {
+void AssetService::AddMaterial(std::shared_ptr<Material> material) {
     if (!material) return;
     std::scoped_lock lock(m_AssetsMutex);
     if (!material->GetName().empty()) {
@@ -147,7 +147,7 @@ void AssetManager::AddMaterial(std::shared_ptr<Material> material) {
     RegisterResource(material);
 }
 
-auto AssetManager::AcquireTexture(const std::filesystem::path& path, std::string_view name) -> std::shared_ptr<Texture> {
+auto AssetService::AcquireTexture(const std::filesystem::path& path, std::string_view name) -> std::shared_ptr<Texture> {
     if (path.empty()) return nullptr;
     const auto key = path.lexically_normal();
 
@@ -163,26 +163,26 @@ auto AssetManager::AcquireTexture(const std::filesystem::path& path, std::string
     return texture;
 }
 
-auto AssetManager::GetMaterial(std::string_view name) -> std::shared_ptr<Material> {
+auto AssetService::GetMaterial(std::string_view name) -> std::shared_ptr<Material> {
     std::scoped_lock lock(m_AssetsMutex);
     const auto       iter = m_Registry.materials_by_name.find(name);
     return iter == m_Registry.materials_by_name.end() ? nullptr : iter->second.lock();
 }
 
-auto AssetManager::FindResource(const utils::UUID& uuid) -> std::shared_ptr<Resource> {
+auto AssetService::FindResource(const utils::UUID& uuid) -> std::shared_ptr<Resource> {
     std::scoped_lock lock(m_AssetsMutex);
     const auto       iter = m_Registry.resources_by_uuid.find(uuid);
     return iter == m_Registry.resources_by_uuid.end() ? nullptr : iter->second.lock();
 }
 
-void AssetManager::UnloadScene(const std::shared_ptr<Scene>& scene) {
+void AssetService::UnloadScene(const std::shared_ptr<Scene>& scene) {
     if (!scene) return;
     scene->Unload();
     std::scoped_lock lock(m_AssetsMutex);
     m_Registry.resources_by_uuid.erase(scene->GetUUID());
 }
 
-void AssetManager::TrackAsyncJob(std::shared_future<void> completion) {
+void AssetService::TrackAsyncJob(std::shared_future<void> completion) {
     std::scoped_lock lock(m_AsyncJobsMutex);
     std::erase_if(m_AsyncJobs, [](const auto& job) {
         return job.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
@@ -190,7 +190,7 @@ void AssetManager::TrackAsyncJob(std::shared_future<void> completion) {
     m_AsyncJobs.emplace_back(std::move(completion));
 }
 
-void AssetManager::WaitForAsyncJobs() noexcept {
+void AssetService::WaitForAsyncJobs() noexcept {
     std::pmr::vector<std::shared_future<void>> jobs;
     {
         std::scoped_lock lock(m_AsyncJobsMutex);

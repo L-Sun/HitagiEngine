@@ -2,7 +2,7 @@
 import interop.gtest;
 
 import std;
-import app;
+import platform;
 import core;
 import gui;
 
@@ -10,14 +10,14 @@ using namespace hitagi;
 
 class PocketGuiManagerTest : public ::testing::Test {
 protected:
-    core::FileIOManager          file_io;
-    std::unique_ptr<Application> app = Application::CreateApp({
+    core::IOService                         file_io;
+    std::unique_ptr<platform::PlatformHost> app = platform::PlatformHost::Create({
         .title    = "PocketJS test",
         .width    = 800,
         .height   = 800,
         .headless = true,
     });
-    gui::GuiManager              manager{*app, file_io};
+    gui::GuiContext                         manager{*app, file_io};
 };
 
 TEST_F(PocketGuiManagerTest, EmptyUntilExplicitLoad) {

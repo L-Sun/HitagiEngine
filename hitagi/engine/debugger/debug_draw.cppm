@@ -6,9 +6,9 @@ import core;
 import gfx;
 
 export namespace hitagi::debugger {
-class DebugManager {
+class DebugDraw {
 public:
-    explicit DebugManager(std::optional<ecs::Group> group = {}) : m_Group(group) {}
+    explicit DebugDraw(std::optional<ecs::Group> group = {}) : m_Group(group) {}
     void ConfigureSchedule(ecs::Schedule& schedule);
 
     inline void EnableDebugDraw() noexcept { m_DrawDebugInfo = true; }

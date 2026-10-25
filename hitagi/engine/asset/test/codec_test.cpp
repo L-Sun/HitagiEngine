@@ -17,7 +17,7 @@ using namespace hitagi::testing;
 
 class ImageDecoderTest : public ::testing::Test {
 protected:
-    FileIOManager file_io;
+    IOService file_io;
 };
 
 TEST_F(ImageDecoderTest, Jpeg) {
@@ -74,9 +74,9 @@ TEST_F(ImageEncoderTest, PngRoundTrip) {
 class AssetManagerTest : public ::testing::Test {
 protected:
     // Declaration order matters: the manager holds references to both services.
-    FileIOManager file_io;
-    JobSystem     job_system;
-    AssetManager  assets{file_io, job_system, "assets"};
+    IOService    file_io;
+    JobSystem    job_system;
+    AssetService assets{file_io, job_system, "assets"};
 };
 
 TEST_F(AssetManagerTest, AsyncTextureImportUsesJobSystem) {
@@ -89,7 +89,7 @@ TEST_F(AssetManagerTest, AsyncTextureImportUsesJobSystem) {
 }
 
 TEST_F(AssetManagerTest, AsyncTextureImportCanBeCanceledBeforeStart) {
-    AssetManager::AssetLoadToken token;
+    AssetService::AssetLoadToken token;
     token.RequestCancel();
 
     auto job = assets.ImportTextureAsync("assets/test/test.png", token);

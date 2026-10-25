@@ -5,12 +5,11 @@ using namespace hitagi::math;
 
 namespace hitagi::debugger {
 
-void DebugManager::ConfigureSchedule(ecs::Schedule& schedule) {
+void DebugDraw::ConfigureSchedule(ecs::Schedule& schedule) {
     schedule.Request("Debug.Clear", [this] { ClearFrame(); }, m_Group);
 }
 
-
-void DebugManager::ClearFrame() {
+void DebugDraw::ClearFrame() {
     if (m_DrawDebugInfo) {
         // TODO
     }
@@ -18,7 +17,7 @@ void DebugManager::ClearFrame() {
     m_DrawItems.clear();
 }
 
-void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const Color& color, bool depth_enabled) {
+void DebugDraw::DrawLine(const vec3f& from, const vec3f& to, const Color& color, bool depth_enabled) {
     if (!m_DrawDebugInfo) return;
     vec3f dir = normalize(to - from);
 
@@ -33,11 +32,11 @@ void DebugManager::DrawLine(const vec3f& from, const vec3f& to, const Color& col
     });
 }
 
-void DebugManager::DrawAxis(const math::mat4f& transform, bool depth_enabled) {
+void DebugDraw::DrawAxis(const math::mat4f& transform, bool depth_enabled) {
     // TODO
 }
 
-void DebugManager::DrawBox(const mat4f& transform, const Color& color, bool depth_enabled) {
+void DebugDraw::DrawBox(const mat4f& transform, const Color& color, bool depth_enabled) {
     if (!m_DrawDebugInfo) return;
 
     m_DrawItems.emplace_back(DrawItem{

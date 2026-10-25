@@ -60,7 +60,7 @@ def Mesh "Triangle" {
 
 TEST(UsdRigImportTest, InstanceStateAndCookBoundary) {
     core::JobSystem jobs;
-    auto source = usd_skel_test::Source();
+    auto            source = usd_skel_test::Source();
     usd_skel_test::Replace(source, "def Skeleton \"Skeleton\" {", R"(def Skeleton "Skeleton" {
         custom int[] hitagi:rig:bodies = [1,1,0,1,65535]
         custom float[] hitagi:rig:properties = [0.1,0,0,1,0.5,0.5,0,0]
@@ -91,15 +91,15 @@ TEST(UsdRigImportTest, InstanceStateAndCookBoundary) {
 
 TEST(UsdRigImportTest, RejectsRemovedSpringPrototypeMetadata) {
     core::JobSystem jobs;
-    auto source = usd_skel_test::Source();
+    auto            source = usd_skel_test::Source();
     usd_skel_test::Replace(source, "def Skeleton \"Skeleton\" {", "def Skeleton \"Skeleton\" {\n custom int[] hitagi:spring:joints = [1]");
     EXPECT_THROW(UsdSceneImporter{}.Import(jobs, usd_skel_test::Write("runtime-physics/legacy.usda", source)), std::runtime_error);
 }
 
 TEST(UsdSkelImportTest, NativeInstancesShareMeshAndMatchUsdReferenceDeformation) {
     core::JobSystem jobs;
-    const auto path  = std::filesystem::path("examples/usd-viewer/assets/skinned.usda");
-    const auto scene = UsdSceneImporter{}.Import(jobs, path);
+    const auto      path  = std::filesystem::path("examples/usd-viewer/assets/skinned.usda");
+    const auto      scene = UsdSceneImporter{}.Import(jobs, path);
     ASSERT_TRUE(scene);
     ASSERT_EQ(scene->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().size(), 4u);
     const auto left  = usd_skel_test::MeshNamed(*scene, "Body", "Left");
@@ -146,7 +146,7 @@ TEST(UsdSkelImportTest, NativeInstancesShareMeshAndMatchUsdReferenceDeformation)
 
 TEST(UsdSkelImportTest, GeometryBindAndSkeletonPlacementMatchUsdWorldSpace) {
     core::JobSystem jobs;
-    auto source = usd_skel_test::Source();
+    auto            source = usd_skel_test::Source();
     usd_skel_test::Replace(source, "def Skeleton \"Skeleton\" {", R"(def Skeleton "Skeleton" {
         double3 xformOp:translate = (0,3,2)
         uniform token[] xformOpOrder = ["xformOp:translate"])");
@@ -186,7 +186,7 @@ TEST(UsdSkelImportTest, GeometryBindAndSkeletonPlacementMatchUsdWorldSpace) {
 
 TEST(UsdSkelImportTest, RestPoseAndImplicitAnimationRange) {
     core::JobSystem jobs;
-    auto source = usd_skel_test::Source();
+    auto            source = usd_skel_test::Source();
     usd_skel_test::Replace(source, "    startTimeCode = 24\n", "");
     usd_skel_test::Replace(source, "    endTimeCode = 48\n", "");
     usd_skel_test::Replace(source, "rel skel:animationSource = </SwingRight>", "");
@@ -224,7 +224,7 @@ TEST(UsdSkelImportTest, RejectsUnsupportedSkinningAndInvalidInfluences) {
 
 TEST(UsdSkelImportTest, SharedClipKeepsIndependentPlayersAndUnweightedMeshStaysStatic) {
     core::JobSystem jobs;
-    auto source = usd_skel_test::Source();
+    auto            source = usd_skel_test::Source();
     usd_skel_test::Replace(source, "rel skel:animationSource = </SwingRight>", "rel skel:animationSource = </SwingLeft>");
     usd_skel_test::Replace(source, "int[] primvars:skel:jointIndices = [0] (interpolation = \"constant\"; elementSize = 1)", "");
     usd_skel_test::Replace(source, "float[] primvars:skel:jointWeights = [1] (interpolation = \"constant\"; elementSize = 1)", "");
@@ -248,9 +248,9 @@ TEST(UsdSkelImportTest, SharedClipKeepsIndependentPlayersAndUnweightedMeshStaysS
 }
 
 TEST(UsdSkelImportTest, CookedRoundTripRetainsDifferentClipsAndSharedMeshBindings) {
-    core::FileIOManager files;
+    core::IOService     files;
     core::JobSystem     jobs;
-    asset::AssetManager manager(files, jobs, "assets");
+    asset::AssetService manager(files, jobs, "assets");
     auto                source = UsdSceneImporter{}.Import(jobs, "examples/usd-viewer/assets/skinned.usda");
     const auto          cooked = CookEditorScene(*source);
     const auto          path   = std::filesystem::path("temp/htgc/skinned.hcscene");

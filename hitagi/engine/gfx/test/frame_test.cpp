@@ -29,13 +29,9 @@ TEST(GraphicsFrameTest, EngineEndsFrameAfterFailureAndCanRunNextFrame) {
     using namespace hitagi;
     namespace ns  = interop::ns;
     namespace mtl = interop::mtl;
-    // Engine owns a MemoryManager; restore the test runner's default resource
-    // after the engine and all of its PMR state have been destroyed.
-    struct RestoreResource {
-        std::pmr::memory_resource* previous = std::pmr::get_default_resource();
-        ~RestoreResource() { std::pmr::set_default_resource(previous); }
-    } restore;
-    Engine     engine({.title = "GraphicsFrameTest", .gfx_backend = "Metal", .headless = true});
+    core::Runtime runtime;
+    App           engine(runtime);
+    engine.AddPlugin(DefaultPlugins{runtime, {.title = "GraphicsFrameTest", .headless = true}, gfx::Device::Type::Metal});
     auto       temporary = ns::TransferPtr(mtl::TextureDescriptor::alloc()->init());
     const auto count     = temporary->retainCount();
     auto&      task      = engine.GetWorld().RegisterSystem<graphics_frame_test::FrameTask>(*temporary.get());
@@ -51,12 +47,12 @@ TEST(GraphicsFrameTest, EngineEndsFrameAfterFailureAndCanRunNextFrame) {
     // Engine::Tick. Cleanup must finish before returning to the native caller.
     SDL_Event event{};
     event.type            = SDL_EVENT_WINDOW_EXPOSED;
-    event.window.windowID = SDL_GetWindowID(static_cast<SDL_Window*>(engine.App().GetWindow().ptr));
+    event.window.windowID = SDL_GetWindowID(static_cast<SDL_Window*>(engine.GetWorld().GetResource<platform::PlatformHost>().GetWindow().ptr));
     event.window.data1    = 1;
     EXPECT_TRUE(SDL_PushEvent(&event));
     EXPECT_EQ(task.calls, 2u);
     EXPECT_EQ(temporary->retainCount(), count);
-    EXPECT_THROW(engine.App().PollEvents(), std::runtime_error);
+    EXPECT_THROW(engine.GetWorld().GetResource<platform::PlatformHost>().PollEvents(), std::runtime_error);
 
     task.fail_frame = false;  // Both exception paths must leave the next frame usable.
     EXPECT_TRUE(SDL_PushEvent(&event));

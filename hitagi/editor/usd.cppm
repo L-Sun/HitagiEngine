@@ -51,7 +51,7 @@ private:
 // Cooked scenes are loaded (and registered) through `asset_manager`; USD scenes
 // are converted in place and are NOT registered automatically (callers decide).
 auto ImportEditorScene(
-    asset::AssetManager&                asset_manager,
+    asset::AssetService&                asset_manager,
     core::JobSystem&                    job_system,
     const std::filesystem::path&        path,
     const std::filesystem::path&        resource_base_path = {},
@@ -393,7 +393,7 @@ static auto BuildMesh(
         throw std::overflow_error("USD mesh is too large for uint32 index buffers");
     }
 
-    const auto mesh_name    = usd_mesh.GetPrim().GetName().GetString();
+    const auto mesh_name = usd_mesh.GetPrim().GetName().GetString();
     MeshData   data{.vertex_count = topology.point_indices.size(), .name = mesh_name};
     auto       position_cpu = std::vector<vec3f>(topology.point_indices.size());
 
@@ -668,8 +668,8 @@ static void ImportSkeletons(Scene& scene, const std::vector<std::pair<pxr::UsdPr
         if (!header) continue;
         const auto found = skeletons.find(prim.GetPath().GetString());
         if (found == skeletons.end()) throw std::runtime_error("Rigid rig metadata requires Skeleton");
-        pxr::VtArray<int> body_ids, joint_ids;
-        pxr::VtArray<float> properties, limits;
+        pxr::VtArray<int>             body_ids, joint_ids;
+        pxr::VtArray<float>           properties, limits;
         pxr::VtArray<pxr::GfMatrix4d> bind, offsets, frames;
         if (!header.Get(&body_ids) || body_ids.size() % 5 != 0 ||
             !prim.GetAttribute(pxr::TfToken("hitagi:rig:properties")).Get(&properties) ||
@@ -678,33 +678,36 @@ static void ImportSkeletons(Scene& scene, const std::vector<std::pair<pxr::UsdPr
             !prim.GetAttribute(pxr::TfToken("hitagi:rig:joints")).Get(&joint_ids) ||
             !prim.GetAttribute(pxr::TfToken("hitagi:rig:frames")).Get(&frames) ||
             !prim.GetAttribute(pxr::TfToken("hitagi:rig:limits")).Get(&limits) ||
-            properties.size() != body_ids.size()/5*8 || bind.size() != body_ids.size()/5 ||
-            offsets.size() != bind.size() || joint_ids.size()%2 != 0 ||
-            frames.size() != joint_ids.size()/2 || limits.size() != frames.size()*18)
+            properties.size() != body_ids.size() / 5 * 8 || bind.size() != body_ids.size() / 5 ||
+            offsets.size() != bind.size() || joint_ids.size() % 2 != 0 ||
+            frames.size() != joint_ids.size() / 2 || limits.size() != frames.size() * 18)
             throw std::runtime_error("Invalid rigid rig array sizes");
-        for (float value : properties) if (!std::isfinite(value)) throw std::runtime_error("Nonfinite rig property");
-        for (float value : limits) if (!std::isfinite(value)) throw std::runtime_error("Nonfinite rig limit");
+        for (float value : properties)
+            if (!std::isfinite(value)) throw std::runtime_error("Nonfinite rig property");
+        for (float value : limits)
+            if (!std::isfinite(value)) throw std::runtime_error("Nonfinite rig limit");
         auto& rig  = entity.Emplace<physics::CharacterPhysics>();
         rig.joints = found->second.joints;
         for (unsigned i = 0; i < bind.size(); ++i) {
-            const auto* ids = body_ids.data()+i*5;
-            const auto* p = properties.data()+i*8;
+            const auto* ids = body_ids.data() + i * 5;
+            const auto* p   = properties.data() + i * 8;
             if (ids[0] < -1 || ids[0] >= static_cast<int>(rig.joints.size()) ||
                 ids[3] <= 0 || ids[3] > 65535 || ids[4] < 0 || ids[4] > 65535 ||
                 p[4] < 0 || p[4] > 1 || p[5] < 0 || p[5] > 1 || p[6] < 0 || p[7] < 0)
                 throw std::runtime_error("Invalid rigid rig body properties");
-            rig.bodies.push_back({.joint=ids[0], .mode=ids[1], .shape=ids[2],
-                .size=vec3f(p[0],p[1],p[2]), .bind=ToMat4f(bind[i]), .bone_offset=ToMat4f(offsets[i]),
-                .mass=p[3], .linear_damping=p[4], .angular_damping=p[5], .friction=p[6], .restitution=p[7],
-                .group=static_cast<unsigned>(ids[3]), .mask=static_cast<unsigned>(ids[4])});
+            rig.bodies.push_back({.joint = ids[0], .mode = ids[1], .shape = ids[2], .size = vec3f(p[0], p[1], p[2]), .bind = ToMat4f(bind[i]), .bone_offset = ToMat4f(offsets[i]), .mass = p[3], .linear_damping = p[4], .angular_damping = p[5], .friction = p[6], .restitution = p[7], .group = static_cast<unsigned>(ids[3]), .mask = static_cast<unsigned>(ids[4])});
         }
         for (unsigned i = 0; i < frames.size(); ++i) {
-            const auto* p = limits.data()+i*18;
-            rig.constraints.push_back({.a=static_cast<unsigned>(joint_ids[i*2]),
-                .b=static_cast<unsigned>(joint_ids[i*2+1]), .bind=ToMat4f(frames[i]),
-                .linear_min=vec3f(p[0],p[1],p[2]), .linear_max=vec3f(p[3],p[4],p[5]),
-                .angular_min=vec3f(p[6],p[7],p[8]), .angular_max=vec3f(p[9],p[10],p[11]),
-                .linear_spring=vec3f(p[12],p[13],p[14]), .angular_spring=vec3f(p[15],p[16],p[17])});
+            const auto* p = limits.data() + i * 18;
+            rig.constraints.push_back({.a              = static_cast<unsigned>(joint_ids[i * 2]),
+                                       .b              = static_cast<unsigned>(joint_ids[i * 2 + 1]),
+                                       .bind           = ToMat4f(frames[i]),
+                                       .linear_min     = vec3f(p[0], p[1], p[2]),
+                                       .linear_max     = vec3f(p[3], p[4], p[5]),
+                                       .angular_min    = vec3f(p[6], p[7], p[8]),
+                                       .angular_max    = vec3f(p[9], p[10], p[11]),
+                                       .linear_spring  = vec3f(p[12], p[13], p[14]),
+                                       .angular_spring = vec3f(p[15], p[16], p[17])});
         }
     }
 
@@ -800,12 +803,12 @@ static void ImportSkeletons(Scene& scene, const std::vector<std::pair<pxr::UsdPr
 
             for (std::size_t i = 0; i < topology.point_indices.size(); ++i) values[i] = weights_per_point.at(topology.point_indices[i]);
         }
-        const auto key        = UsdResourceKey(prim);
-        auto& skin_candidates = skins[key];
-        auto  skin_found      = std::ranges::find_if(skin_candidates, [&](const auto& skin) {
+        const auto key             = UsdResourceKey(prim);
+        auto&      skin_candidates = skins[key];
+        auto       skin_found      = std::ranges::find_if(skin_candidates, [&](const auto& skin) {
             return std::ranges::equal(skin->GetInverseBindMatrices(), inverse_bind);
         });
-        auto  skin            = skin_found == skin_candidates.end() ? skin_candidates.emplace_back(std::make_shared<Skin>(std::move(inverse_bind), prim.GetName().GetString())) : *skin_found;
+        auto       skin            = skin_found == skin_candidates.end() ? skin_candidates.emplace_back(std::make_shared<Skin>(std::move(inverse_bind), prim.GetName().GetString())) : *skin_found;
         entity.Emplace<SkinnedMesh>(skin, std::move(joints));
     }
 }
@@ -936,7 +939,7 @@ auto UsdSceneImporter::Import(
 }
 
 auto ImportEditorScene(
-    asset::AssetManager&                asset_manager,
+    asset::AssetService&                asset_manager,
     core::JobSystem&                    job_system,
     const std::filesystem::path&        path,
     const std::filesystem::path&        resource_base_path,

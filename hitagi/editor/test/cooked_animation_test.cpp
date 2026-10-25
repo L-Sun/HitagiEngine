@@ -25,7 +25,7 @@ auto Find(Scene& scene, std::string_view name) -> ecs::Entity {
     throw std::runtime_error("Missing test entity");
 }
 auto Fixture(bool invalid_influence = false, bool unweighted = false) -> std::shared_ptr<Scene> {
-    auto scene = std::make_shared<Scene>("animation");
+    auto              scene = std::make_shared<Scene>("animation");
     VertexArray::Data vertex_data;
     core::Buffer      index_data(3 * sizeof(std::uint16_t));
     {
@@ -63,8 +63,8 @@ auto Fixture(bool invalid_influence = false, bool unweighted = false) -> std::sh
         vertex_data[VertexAttribute::BlendIndex].Span<vec4u>()[0]  = vec4u(0xFFFFFFFFu);
         vertex_data[VertexAttribute::BlendWeight].Span<vec4f>()[0] = vec4f(0);
     }
-    const auto mesh           = std::make_shared<Mesh>(std::make_shared<VertexArray>(3, std::move(vertex_data)), std::make_shared<IndexArray>(IndexType::UINT16, std::move(index_data)), std::pmr::vector<Mesh::SubMesh>{{.index_count = 3}}, "shared mesh");
-    auto affine         = mat4f::identity();
+    const auto mesh     = std::make_shared<Mesh>(std::make_shared<VertexArray>(3, std::move(vertex_data)), std::make_shared<IndexArray>(IndexType::UINT16, std::move(index_data)), std::pmr::vector<Mesh::SubMesh>{{.index_count = 3}}, "shared mesh");
+    auto       affine   = mat4f::identity();
     affine[0]           = {-2, .25f, 0, 1};
     affine[1]           = {0, 3, 0, -2};
     affine[2]           = {0, 0, .5f, 4};
@@ -113,9 +113,9 @@ void Compare(Scene& a, Scene& b) {
 using namespace cooked_animation_test;
 class CookedAnimationTest : public testing::Test {
 protected:
-    core::FileIOManager files;
-    core::JobSystem     jobs;
-    AssetManager        manager{files, jobs, "assets"};
+    core::IOService files;
+    core::JobSystem jobs;
+    AssetService    manager{files, jobs, "assets"};
 };
 
 TEST_F(CookedAnimationTest, SharedAssetsIndependentInstancesAndHierarchyRoundTrip) {
@@ -297,7 +297,7 @@ TEST_F(CookedAnimationTest, SourceMatrixAndInfluenceValidationDoesNotLoseInvalid
     EXPECT_THROW((void)std::make_shared<Skin>(std::vector{perspective}), std::invalid_argument);
     auto source = Fixture(true);
     EXPECT_THROW(CookEditorScene(*source), std::runtime_error);
-    source = Fixture();
+    source                                           = Fixture();
     Find(*source, "mesh0").Get<MeshComponent>().mesh = std::make_shared<Mesh>();
     EXPECT_THROW(CookEditorScene(*source), std::runtime_error);
 }

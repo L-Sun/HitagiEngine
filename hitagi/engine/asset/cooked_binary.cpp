@@ -2,7 +2,7 @@ module;
 
 // Implementation partition (not exported from the module interface): the cooked
 // parsers stay internal to hitagi::asset. Module implementation units such as
-// asset_manager.cpp import :cooked_binary to use these declarations.
+// asset_service.cpp import :cooked_binary to use these declarations.
 module asset:cooked_binary;
 import std;
 import core;
@@ -27,7 +27,7 @@ using namespace hitagi::math;
 
 namespace hitagi::asset {
 
-// Injected by AssetManager to create/deduplicate texture instances by path. It is
+// Injected by AssetService to create/deduplicate texture instances by path. It is
 // required: only the manager knows how a lazily loaded texture reads its pixels
 // and where its decode runs.
 using CookedTextureResolver = std::function<std::shared_ptr<Texture>(const std::filesystem::path& path, std::string_view name)>;
@@ -274,7 +274,7 @@ auto MaterialFromRecord(const CookedReader& reader, const MaterialRecord& record
 }
 
 auto MeshFromRecord(const CookedReader& reader, const MeshRecord& record, std::span<const std::shared_ptr<Material>> materials) -> std::shared_ptr<Mesh> {
-    const auto name = reader.GetString(record.name);
+    const auto                          name = reader.GetString(record.name);
     VertexArray::Data                   data;
     std::unordered_set<VertexAttribute> seen;
     for (const auto attribute_record : reader.ReadArray<VertexAttributeRecord>(record.attributes)) {

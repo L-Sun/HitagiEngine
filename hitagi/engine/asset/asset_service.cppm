@@ -1,4 +1,4 @@
-export module asset:manager;
+export module asset:service;
 import interop.spdlog;
 import std;
 import core;
@@ -23,12 +23,12 @@ inline auto is_cooked_scene_path(const std::filesystem::path& path) noexcept -> 
     return extension == ".hcscene" || extension == ".hitagiscene";
 }
 
-class AssetManager final {
+class AssetService final {
 public:
     // Both services must outlive this manager and every texture it creates: lazily
     // loaded textures read through `file_io` and decode on `job_system`.
-    AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root_path = {});
-    ~AssetManager();
+    AssetService(core::IOService& file_io, core::JobSystem& job_system, std::filesystem::path asset_root_path = {});
+    ~AssetService();
 
     inline auto GetAssetRootPath() const noexcept -> const std::filesystem::path& {
         return m_AssetRootPath;
@@ -53,7 +53,7 @@ public:
         auto IsCancellationRequested() const noexcept -> bool;
 
     private:
-    std::shared_ptr<spdlog::logger> m_Logger = utils::try_create_logger("AssetManager");
+        std::shared_ptr<spdlog::logger>   m_Logger = utils::try_create_logger("AssetService");
         std::shared_ptr<std::atomic_bool> m_CancelRequested;
     };
 
@@ -97,14 +97,14 @@ private:
     void TrackAsyncJob(std::shared_future<void> completion);
     void RegisterResource(const std::shared_ptr<Resource>& resource);
 
-    core::FileIOManager&  m_FileIO;
+    core::IOService&      m_FileIO;
     core::JobSystem&      m_JobSystem;
     std::filesystem::path m_AssetRootPath;
 
     struct Registry {
-        std::pmr::map<std::filesystem::path, std::weak_ptr<Texture>>            textures_by_path;
-        std::pmr::map<std::pmr::string, std::weak_ptr<Material>, std::less<>>   materials_by_name;
-        std::pmr::map<utils::UUID, std::weak_ptr<Resource>>                     resources_by_uuid;
+        std::pmr::map<std::filesystem::path, std::weak_ptr<Texture>>          textures_by_path;
+        std::pmr::map<std::pmr::string, std::weak_ptr<Material>, std::less<>> materials_by_name;
+        std::pmr::map<utils::UUID, std::weak_ptr<Resource>>                   resources_by_uuid;
     } m_Registry;
     std::mutex m_AssetsMutex;
 

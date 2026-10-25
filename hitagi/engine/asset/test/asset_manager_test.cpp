@@ -26,12 +26,12 @@ auto ReadStoredHandle(const Material& material) -> gfx::BindlessHandle {
     return handle;
 }
 
-// Services every AssetManager under test depends on. Declared on the fixture so
+// Services every AssetService under test depends on. Declared on the fixture so
 // they outlive the manager (and any texture/scene that captured them).
 class AssetFixture : public ::testing::Test {
 protected:
-    core::FileIOManager file_io;
-    core::JobSystem     job_system;
+    core::IOService file_io;
+    core::JobSystem job_system;
 };
 
 using AssetRegistryTest    = AssetFixture;
@@ -44,7 +44,7 @@ using AsyncTextureLoadTest = AssetFixture;
 // ---------------------------------------------------------------------------
 
 TEST_F(AssetRegistryTest, AcquireTextureDeduplicatesByPath) {
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService assets(file_io, job_system, "assets");
 
     const auto first  = assets.AcquireTexture(kTestImagePath);
     const auto second = assets.AcquireTexture(kTestImagePath);
@@ -57,15 +57,15 @@ TEST_F(AssetRegistryTest, AcquireTextureDeduplicatesByPath) {
 }
 
 TEST_F(AssetRegistryTest, AcquireTextureNormalizesPath) {
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService assets(file_io, job_system, "assets");
 
-    const auto direct  = assets.AcquireTexture(kTestImagePath);
+    const auto direct   = assets.AcquireTexture(kTestImagePath);
     const auto indirect = assets.AcquireTexture("assets/test/../test/test.png");
     EXPECT_EQ(direct, indirect);
 }
 
 TEST_F(AssetRegistryTest, RegistryDoesNotExtendTextureLifetime) {
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService assets(file_io, job_system, "assets");
 
     std::weak_ptr<Texture> observer;
     {
@@ -81,7 +81,7 @@ TEST_F(AssetRegistryTest, RegistryDoesNotExtendTextureLifetime) {
 }
 
 TEST_F(AssetRegistryTest, GetMaterialReflectsLifetime) {
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService assets(file_io, job_system, "assets");
 
     auto material = std::make_shared<Material>(MaterialParameters{}, std::pmr::vector<MaterialPass>{}, "TestRegistryMaterial");
     assets.AddMaterial(material);
@@ -92,7 +92,7 @@ TEST_F(AssetRegistryTest, GetMaterialReflectsLifetime) {
 }
 
 TEST_F(AssetRegistryTest, FindResourceByUUID) {
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService assets(file_io, job_system, "assets");
 
     auto       texture = assets.AcquireTexture(kTestImagePath);
     const auto uuid    = texture->GetUUID();
@@ -103,7 +103,7 @@ TEST_F(AssetRegistryTest, FindResourceByUUID) {
 }
 
 TEST_F(AssetRegistryTest, ImportTextureDeduplicatesByPath) {
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService assets(file_io, job_system, "assets");
 
     const auto first  = assets.ImportTexture(kTestImagePath);
     const auto second = assets.ImportTexture(kTestImagePath);
@@ -118,13 +118,13 @@ TEST_F(AssetRegistryTest, ImportTextureDeduplicatesByPath) {
 // ---------------------------------------------------------------------------
 
 TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
-    // Device must outlive the AssetManager: its destructor releases the default
+    // Device must outlive the AssetService: its destructor releases the default
     // texture whose GPU view still references the device.
-    auto         device = gfx::create_device(gfx::Device::Type::Mock, "SceneResidencyTest");
+    auto                        device = gfx::create_device(gfx::Device::Type::Mock, "SceneResidencyTest");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService                assets(file_io, job_system, "assets");
 
     const auto material = std::make_shared<Material>(
         MaterialParameters{{.name = "base_color", .value = vec4f{1, 1, 1, 1}}},
@@ -197,11 +197,11 @@ TEST_F(SceneResidencyTest, UnloadSceneReleasesMeshAndMaterialGPUData) {
 // ---------------------------------------------------------------------------
 
 TEST_F(AsyncTextureLoadTest, FileBackedTextureLoadsAsynchronously) {
-    auto         device = gfx::create_device(gfx::Device::Type::Mock, "AsyncTextureLoadTest");
+    auto                        device = gfx::create_device(gfx::Device::Type::Mock, "AsyncTextureLoadTest");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService                assets(file_io, job_system, "assets");
 
     const ResourceLoadContext context{.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler};
 
@@ -226,12 +226,12 @@ TEST_F(AsyncTextureLoadTest, FileBackedTextureLoadsAsynchronously) {
 }
 
 TEST_F(AsyncTextureLoadTest, MaterialUsesPlaceholderUntilTextureReady) {
-    // Device must outlive the AssetManager (default-texture GPU view teardown).
-    auto         device = gfx::create_device(gfx::Device::Type::Mock, "AsyncMaterialTest");
+    // Device must outlive the AssetService (default-texture GPU view teardown).
+    auto                        device = gfx::create_device(gfx::Device::Type::Mock, "AsyncMaterialTest");
     hitagi::gfx::CommandQueues  queues(*device);
     auto                        bindings = hitagi::gfx::BindlessUtils::Create(*device);
     hitagi::gfx::ShaderCompiler compiler{"Tests"};
-    AssetManager assets(file_io, job_system, "assets");
+    AssetService                assets(file_io, job_system, "assets");
 
     const ResourceLoadContext context{.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler};
 
