@@ -9,6 +9,8 @@ export namespace hitagi {
 
 class App {
 public:
+    using Extraction = std::function<void(ecs::World&, ecs::World&)>;
+
     explicit App(core::Runtime& runtime, std::string_view name = "App");
     ~App();
 
@@ -43,15 +45,25 @@ public:
     void Tick();
     void TickFrame();
 
-    auto AddSubApp(std::string_view name, std::function<void(ecs::World&, ecs::World&)> extract = {}) -> App&;
+    // Keep this inline: MSVC loses World's module identity when mangling an
+    // out-of-class definition with this std::function parameter.
+    inline auto AddSubApp(std::string_view name, Extraction extract = {}) -> App& {
+        if (m_InFrame || m_Stopped) throw std::logic_error("Cannot add SubApp now");
+        for (const auto& sub : m_SubApps)
+            if (sub.name == name) throw std::logic_error("Duplicate SubApp");
+        auto  app    = std::make_unique<App>(m_Runtime, name);
+        auto& result = *app;
+        m_SubApps.push_back({.name = std::pmr::string(name), .app = std::move(app), .extract = std::move(extract)});
+        return result;
+    }
 
 private:
     void Shutdown();
 
     struct SubApp {
-        std::pmr::string                              name;
-        std::unique_ptr<App>                          app;
-        std::function<void(ecs::World&, ecs::World&)> extract;
+        std::pmr::string     name;
+        std::unique_ptr<App> app;
+        Extraction           extract;
     };
 
     core::Runtime&                          m_Runtime;
@@ -135,16 +147,6 @@ void App::TickFrame() {
         sub.app->TickFrame();
     }
     m_Clock.Tick();
-}
-
-auto App::AddSubApp(std::string_view name, std::function<void(ecs::World&, ecs::World&)> extract) -> App& {
-    if (m_InFrame || m_Stopped) throw std::logic_error("Cannot add SubApp now");
-    for (const auto& sub : m_SubApps)
-        if (sub.name == name) throw std::logic_error("Duplicate SubApp");
-    auto  app    = std::make_unique<App>(m_Runtime, name);
-    auto& result = *app;
-    m_SubApps.push_back({.name = std::pmr::string(name), .app = std::move(app), .extract = std::move(extract)});
-    return result;
 }
 
 void App::Shutdown() {
