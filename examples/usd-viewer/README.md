@@ -28,7 +28,7 @@ scene intact and display an error in the open panel.
 | Scene tree | Select objects, expand/collapse hierarchy, scroll long lists |
 | Search field | Type a name and press Enter; clear it to restore the hierarchy |
 | Inspector | Local position/scale, mesh triangle count, material names, frame/hide/show |
-| PBR / Toon / Deferred, or Tab | Replace the renderer child while retaining scene, camera and animation state |
+| PBR / Toon / Deferred, or Tab | Select an installed renderer while retaining scene, camera and animation state |
 | Lit / Color / Normals / Roughness | Deferred output selection; unavailable modes are disabled |
 | Left mouse drag in viewport | Orbit |
 | Middle mouse drag in viewport | Pan |
@@ -49,20 +49,24 @@ native text/IME session path. Keyboard shortcuts are suppressed while editing.
 
 | File | Responsibility |
 | --- | --- |
-| `main.cpp`, `options.cpp` | Engine creation, command-line options, run loop |
-| `viewer.cpp` | Runtime module, injected services, concrete renderer selection, frame coordination |
+| `main.cpp`, `options.cpp` | Runtime / App / DefaultPlugins assembly, command-line options, run loop |
+| `viewer.cpp` | Viewer plugin, injected services, concrete renderer selection, frame coordination |
 | `document.cpp` | Scene replacement, hierarchy, selection, visibility, commands |
 | `scene.cpp`, `scene_loader.cpp` | Scene loading interface, USD import and material conversion |
-| `camera.cpp` | Orbit/pan/zoom controller composed with `asset::Camera` |
-| `presentation.cpp` | Application-owned render graph: scene viewport → GUI composition → present; capture |
+| `camera.cpp` | Orbit/pan/zoom controller using `asset::CameraComponent` projection settings |
+| `presentation.cpp` | Scene and GUI composition in RenderContext's shared graph; capture |
 | `ui_bridge.cpp` | Host state and named layout/control effects |
 | `ui/` | PocketJS layout, inspector, reusable controls and text editing |
 | `test/e2e.cpp` | Tick driver, interaction journey, pixel/state replay checks |
 
-The viewer owns GUI composition and its swapchain. It is registered as an ECS system, with separate input, scene, render and publish
-tasks. Its concrete renderer is an owned graph-building utility; the viewer
-calls `Build()` to put the scene into its graph. Engine has no renderer accessor or special rendering
-slot. Camera parameters remain an ordinary cookable `asset::Camera`.
+USDViewerPlugin installs RenderPlugin and the PBR, Toon and deferred plugins.
+The main World handles input, scene updates and selecting the frame builder.
+RenderApp owns the concrete renderer resources and RenderContext, which builds
+scene and GUI passes into one graph and owns the swapchain and presentation.
+The viewer publishes after rendering in the child World's Last group. Switching
+renderers selects an installed resource. App itself has no renderer accessor or
+special renderer slot. The viewer owns its inspection camera projection and pose;
+scene cameras are ordinary CameraComponent / Transform components.
 
 The importer supports static/skinned meshes and basic `UsdPreviewSurface` color,
 base-color texture, metallic, roughness, opacity and emissive values. This is a
@@ -88,7 +92,7 @@ loops over the stage range using `timeCodesPerSecond`; the Viewer updates deform
 bounds for framing. See the [USD import contract](../../docs/assets/animation.md#usd-import-and-preview)
 for supported bindings and explicit limitations, including four nonzero
 influences per point, classic linear skinning, and no blend shapes. The editor
-Cook API supports HTGC v5 animation export; this Viewer has no export UI.
+Cook API supports HTGC v8 animation export; this Viewer has no export UI.
 
 ## Deterministic E2E
 
@@ -110,10 +114,10 @@ has separate press and release ticks. Text replacement is one ordered text-input
 transaction. Planned idle ticks expose the following UI snapshot; there are no
 poll-until-success loops, sleeps, or retries.
 
-`GuiAppOptions::single_step` makes each `PrepareFrame()` / `Tick()` pair advance
+`GuiAppOptions::single_step` makes each `PrepareFrame()` / `Compose()` pair advance
 exactly one PocketJS frame. Ordinary application execution retains the existing
 clock accumulator. The test owns a hidden native window, injects input through
-`InputManager`, and does not pump the uncontrolled OS input queue. Resize and
+`InputState`, and does not pump the uncontrolled OS input queue. Resize and
 Windows close messages are explicit synchronous actions. Asset loading is
 synchronous, so completion timing is not an unrecorded input.
 Skeletal playback advances by exactly 1/60 second per test tick; interactive

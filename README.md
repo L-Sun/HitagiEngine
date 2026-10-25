@@ -12,11 +12,11 @@ Hitagi Engine is an experimental game engine written with C++23 modules and buil
 
 ## Features
 
-- **Core**: pmr-based memory pools, file I/O, a [Taskflow](https://github.com/taskflow/taskflow)-based job system, timers, and an ECS runtime World composed by `Engine` with explicit dependency injection
+- **Core**: `core::Runtime` bootstraps logging, pmr memory pools, IO and [Taskflow](https://github.com/taskflow/taskflow) jobs; `App` assembles ECS Worlds through plugins with explicit dependency injection
 - **Math**: a 3D math library with swizzle support and optional [ISPC](https://github.com/ispc/ispc) acceleration; matrices are row-major on both CPU and GPU
-- **Graphics (gfx)**: a graphics API abstraction with DX12, Vulkan, and mock backends, bindless resources, and a render graph
-- **Render**: concrete PBR and deferred renderers built on RenderGraph, registered as ECS systems with scheduled Render-group work; GUI drawing, including PocketJS text, remains a separate composable utility
-- **Asset**: runtime resources (textures, materials, meshes, cameras, lights, scenes) loaded from a cooked binary format, with GPU residency management in `AssetManager`
+- **Graphics (gfx)**: a graphics API abstraction with DX12, Vulkan, Metal, and mock backends, bindless resources, and a render graph
+- **Render**: PBR, Toon and deferred renderer plugins sharing a `RenderContext` in a child App/World for graph execution and presentation; GUI drawing, including PocketJS text, remains a separate composable utility
+- **Asset**: runtime resources (textures, materials, meshes, cameras, lights, scenes) loaded from a cooked binary format, with GPU residency management in `AssetService`
 - **ECS**: archetype-based entities, filters, and system scheduling
 - **Physics**: integration of [Jolt Physics](https://github.com/jrouwe/JoltPhysics)
 - **GUI and input**: [PocketJS](https://pocketjs.dev/) with Solid/TSX components and engine HID input
@@ -29,10 +29,10 @@ Platform status: Windows is the primary target. One CI workflow uses a matrix fo
 
 | Path | Contents |
 | --- | --- |
-| [hitagi/engine/](hitagi/engine) | Runtime modules (`core`, `math`, `gfx`, `render`, `asset`, `ecs`, `physics`, `gui`, `hid`, `platform`, ...), Engine composition, and runtime tests |
+| [hitagi/engine/](hitagi/engine) | Runtime modules (`core`, `app`, `math`, `gfx`, `render`, `asset`, `ecs`, `physics`, `gui`, `hid`, `platform`, ...), App/plugin composition, and runtime tests |
 | [hitagi/editor/](hitagi/editor) | Editor Framework: USD import, material graphs, and asset cooking |
 | [hitagi/interop/](hitagi/interop) | Module bridges for third-party dependencies (`interop.<library>`) |
-| [hitagi/engine/render/](hitagi/engine/render) | Concrete PBR and deferred runtime renderers; the PBR material pass template |
+| [hitagi/engine/render/](hitagi/engine/render) | PBR, Toon and deferred renderer resources/plugins; shared render execution and material pass templates |
 | [assets/](assets) | Shaders, fonts, materials, scenes, and cooked assets |
 | [docs/](docs) | Architecture, asset, and development documentation |
 | [tools/](tools) | Blender extension for static-mesh USD export, import, and validation |

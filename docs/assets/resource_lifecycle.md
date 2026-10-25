@@ -1,6 +1,6 @@
 # Resource lifecycle
 
-A good runtime resource layer has to answer three questions: where this resource is right now (CPU or GPU), who decides when it goes up to the GPU, and who decides when it comes back down. `hitagi::asset` splits those three jobs across `ResourceLoadState`, `Resource::Load`, and `AssetManager` together with `Scene::Unload`.
+A good runtime resource layer has to answer three questions: where this resource is right now (CPU or GPU), who decides when it goes up to the GPU, and who decides when it comes back down. `hitagi::asset` splits those three jobs across `ResourceLoadState`, `Resource::Load`, and `AssetService` together with `Scene::Unload`.
 
 The core rule is one sentence: **CPU data stays resident, GPU data is on demand**. `Unload` releases only the GPU side. Vertices, pixels, and parameters stay in memory, so a later `Load` is cheap.
 
@@ -127,17 +127,17 @@ using ImageLoader = std::function<ImageData()>;   // how to obtain pixels
 Texture(path, ImageLoader loader, name = {}, core::JobSubmitter decode_submitter = {});
 ```
 
-`AssetManager::AcquireTexture` passes `MakeFileImageLoader(m_FileIO, path)` (read through `FileIOManager` and pick a codec by extension) and `m_JobSystem.MakeSubmitter()`. `path` is only an identity (the dedup key, and the reference written at cook time). Whether and how the file is read is the loader's decision. `ResourceLoadContext` carries explicit graphics creation services (`device`, `queues`, `bindings`, and `shader_compiler`), not a CPU job executor. The caller of `Load` does not need to know the async policy; the code that created the texture decides that. A texture with no submitter takes the synchronous decode path. A texture with no loader has only in-memory pixels.
+`AssetService::AcquireTexture` passes `MakeFileImageLoader(m_FileIO, path)` (read through `IOService` and pick a codec by extension) and `m_JobSystem.MakeSubmitter()`. `path` is only an identity (the dedup key, and the reference written at cook time). Whether and how the file is read is the loader's decision. `ResourceLoadContext` carries explicit graphics creation services (`device`, `queues`, `bindings`, and `shader_compiler`), not a CPU job executor. The caller of `Load` does not need to know the async policy; the code that created the texture decides that. A texture with no submitter takes the synchronous decode path. A texture with no loader has only in-memory pixels.
 
 `Unload` is safe while a decode is in flight: the worker still finishes and pushes the state to `Staged`. The GPU side has already been released, the CPU data is kept, and the next `Load` uploads straight from `Staged`.
 
-## AssetManager
+## AssetService
 
-`AssetManager` is an ordinary service without per-frame work. Its job is **identity** and **policy**, not ownership. It does not own `FileIOManager` or `JobSystem`. It holds references injected at construction, and it uses them to equip the textures it creates with capabilities (`ImageLoader` + `JobSubmitter`). `Scene` needs no service of its own: the executor is passed in at the call, through `scene.GetWorld().Update(job_system)`.
+`AssetService` is an ordinary service without per-frame work. Its job is **identity** and **policy**, not ownership. It does not own `IOService` or `JobSystem`. It holds references injected at construction, and it uses them to equip the textures it creates with capabilities (`ImageLoader` + `JobSubmitter`). `Scene` needs no service of its own: the executor is passed in at the call, through `scene.GetWorld().Update(job_system)`.
 
 ```cpp
-class AssetManager final {
-    AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root = {});
+class AssetService final {
+    AssetService(core::IOService& file_io, core::JobSystem& job_system, std::filesystem::path asset_root = {});
 
     // Import
     auto ImportScene(path)     -> std::shared_ptr<Scene>;      // .hcscene / .hitagiscene
@@ -202,7 +202,7 @@ Cancellation is cooperative: the task checks the token once at the start and onc
 ### Unload policy
 
 ```cpp
-void AssetManager::UnloadScene(const std::shared_ptr<Scene>& scene) {
+void AssetService::UnloadScene(const std::shared_ptr<Scene>& scene) {
     scene->Unload();                                   // cascade mesh + material + pipeline
     m_Registry.resources_by_uuid.erase(scene->GetUUID());
 }
@@ -210,4 +210,4 @@ void AssetManager::UnloadScene(const std::shared_ptr<Scene>& scene) {
 
 The caller also has to make the renderer drop its own cache (through the application renderer's own API). Otherwise the renderer may still hold GPU handles that have already been released.
 
-Destruction order is a dependency contract: `AssetManager`'s destructor calls `Texture::DestroyDefaultTexture()`, and the placeholder texture holds GPU resources and a view. **Device and binding facilities must outlive AssetManager**; queues must also outlive consumers that submit or wait for work during teardown. Tests should construct Device, queues/bindings, then graphics consumers, so destruction runs in reverse.
+Destruction order is a dependency contract: `AssetService`'s destructor calls `Texture::DestroyDefaultTexture()`, and the placeholder texture holds GPU resources and a view. **Device and binding facilities must outlive AssetService**; queues must also outlive consumers that submit or wait for work during teardown. Tests should construct Device, queues/bindings, then graphics consumers, so destruction runs in reverse.

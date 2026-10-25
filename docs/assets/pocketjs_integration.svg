@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1200" viewBox="0 0 1440 1200" role="img" aria-labelledby="title desc">
   <title id="title">PocketJS Integration · Components to Engine Pixels</title>
-  <desc id="desc">GuiManager runs QuickJS and the Rust UI core, receives DrawList commands and resource views, and produces owned geometry and resource snapshots. Hitagi caches font and image textures and draws UI triangles directly through its GPU GUI pass. Arrows show data flow, not thread boundaries.</desc>
+  <desc id="desc">GuiContext runs QuickJS and the Rust UI core, receives DrawList commands and resource views, and produces owned geometry and resource snapshots. Hitagi caches font and image textures and draws UI triangles directly through its GPU GUI pass. Arrows show data flow, not thread boundaries.</desc>
   <defs>
     <style>
       text { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; fill: #263443; }
@@ -56,13 +56,13 @@
   <text x="870" y="399" class="small">Application explicitly calls LoadApp(js, pak)</text>
   <path d="M1404 215 H1420 V466 H1404" class="arrow"/>
   <rect x="360" y="438" width="1040" height="396" rx="8" class="panel"/>
-  <text x="384" y="474" class="label">GuiManager / Owns the runtime, geometry and resource snapshots</text>
+  <text x="384" y="474" class="label">GuiContext / Owns the runtime, geometry and resource snapshots</text>
   <text x="384" y="504" class="small">Fixed 60 Hz UI ticks · No UI loaded means no draw data</text>
 
   <rect x="40" y="534" width="260" height="202" rx="5" class="orange"/>
   <text x="64" y="568" class="label">Engine HID input</text>
   <text x="64" y="602" class="body">Mouse + keyboard</text>
-  <text x="64" y="635" class="small">GuiManager maps:</text>
+  <text x="64" y="635" class="small">GuiContext maps:</text>
   <text x="64" y="665" class="small">Window → UI coordinates</text>
   <text x="64" y="695" class="small">Keys → button mask</text>
   <path d="M304 614 H380" class="arrow"/>
@@ -88,12 +88,12 @@
   <text x="408" y="739" class="code">GuiDrawData</text>
   <text x="618" y="739" class="body">Vertices + indices + resource snapshots</text>
   <text x="618" y="765" class="small">Ordered batches · DPI / letterboxing · Native scene overlays</text>
-  <text x="384" y="812" class="small">The application builds GuiPass after GuiManager::Tick(); draw data outlives graph execution.</text>
+  <text x="384" y="812" class="small">The application builds GuiPass after GuiContext::Compose(); draw data outlives graph execution.</text>
 
   <path d="M380 751 H330 V854 H20 V996 H36" class="arrow"/>
   <text x="40" y="886" class="section">03   DISPLAY THROUGH HITAGI'S GPU RENDERER</text>
   <rect x="40" y="916" width="410" height="160" rx="5" class="purple"/>
-  <text x="64" y="952" class="label">Application renderer / GUI pass</text>
+  <text x="64" y="952" class="label">RenderContext / GUI pass</text>
   <text x="64" y="990" class="code">GuiRenderUtils::GuiPass()</text>
   <text x="64" y="1022" class="small">Reads backend-neutral GuiDrawData</text>
   <text x="64" y="1052" class="small">Uses the existing GUI shader and pipeline</text>
@@ -111,6 +111,6 @@
   <text x="1004" y="1052" class="small">Native scene textures stay on the GPU</text>
 
   <rect x="40" y="1104" width="1360" height="64" rx="5" class="gray"/>
-  <text x="64" y="1131" class="small">DPI-aware editor · Resizable panels + scrolling · Docking, text/IME and full inspectors remain unported.</text>
+  <text x="64" y="1131" class="small">USD Viewer · DPI-aware layout, scrolling and Windows text/IME · SDL text/IME remains outstanding.</text>
   <text x="64" y="1156" class="small">PocketJS is the only GUI backend. Arrows show artifact / data flow, not thread boundaries.</text>
 </svg>

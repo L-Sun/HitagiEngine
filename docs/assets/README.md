@@ -9,13 +9,13 @@ What it does **not** do matters just as much: it does not parse USD, compile mat
 | Document | Contents |
 | --- | --- |
 | [animation.md](animation.md) | Joint entities, shared clips/skins, playback and CPU skinning, render snapshots and current limits |
-| [resource_lifecycle.md](resource_lifecycle.md) | The `Resource` base class, the `ResourceLoadState` state machine, Load/Unload behavior per resource, asynchronous texture decode, and the `AssetManager` registry and unload policy |
+| [resource_lifecycle.md](resource_lifecycle.md) | The `Resource` base class, the `ResourceLoadState` state machine, Load/Unload behavior per resource, asynchronous texture decode, and the `AssetService` registry and unload policy |
 | [material.md](material.md) | The `Material` / `MaterialPass` boundary, the parameter-value model, GPU ABI packing rules for `material_data`, and the placeholder-texture mechanism |
 | [cooked_binary_format.md](cooked_binary_format.md) | The HTGC binary container specification, and the full contract between the writer (editor cook) and the reader (runtime parser) |
 
 ## Module structure
 
-`asset` is a C++20 module with one interface and many partitions. `asset.cppm` only re-exports:
+`asset` is a C++23 module with one interface and many partitions. `asset.cppm` only re-exports:
 
 ```text
 asset.cppm
@@ -33,10 +33,10 @@ asset.cppm
   :scene           Scene (owns an ecs::World)
   :shader          Shader
   :pipeline        RenderPipeline / ComputePipeline
-  :manager         AssetManager
+  :service         AssetService
 ```
 
-There is also an implementation partition, `:cooked_binary`, that is not exported. It implements `ParseCookedMaterial` / `ParseCookedScene`. It is invisible outside the module; `:manager` uses it through `import :cooked_binary;`.
+There is also an implementation partition, `:cooked_binary`, that is not exported. It implements `ParseCookedMaterial` / `ParseCookedScene`. It is invisible outside the module; `:service` uses it through `import :cooked_binary;`.
 
 ## Resource types
 
@@ -54,7 +54,7 @@ AnimationClip      Skin
 ## Dependency direction
 
 ```text
-asset -> core   (Buffer, FileIOManager, JobSystem)
+asset -> core   (Buffer, IOService, JobSystem)
       -> gfx    (Device, Texture, GPUBuffer, Shader, RenderPipeline, BindlessHandle)
       -> math   (vec/mat/Color)
       -> ecs    (entity storage for Scene)
@@ -66,19 +66,22 @@ asset -> core   (Buffer, FileIOManager, JobSystem)
 ## Quick entry points
 
 ```cpp
-// AssetManager is not a global singleton: FileIOManager and JobSystem are injected by the caller.
-// Inside the engine: auto& assets = engine.Assets();
+// AssetService is not a global singleton: IOService and JobSystem are injected by the caller.
+// With AssetPlugin installed: auto& assets = app.GetWorld().GetResource<asset::AssetService>();
 // Standalone (tools / tests):
-core::FileIOManager file_io;
-core::JobSystem     job_system;
-asset::AssetManager assets(file_io, job_system, "assets");
+core::IOService file_io;
+core::JobSystem job_system;
+asset::AssetService assets(file_io, job_system, "assets");
 
 auto scene    = assets.ImportScene("scenes/demo.hcscene");    // HTGC scene (validated by extension)
 auto material = assets.ImportMaterial("materials/pbr.bin");   // HTGC material (validated by content)
 auto texture  = assets.ImportTexture("textures/albedo.png");  // decode immediately
 auto lazy     = assets.AcquireTexture("textures/albedo.png"); // lazy load + dedup
 
-scene->Load({.device = device});   // establish GPU residency
+scene->Load({.device          = device,
+             .queues          = queues,
+             .bindings        = bindings,
+             .shader_compiler = shader_compiler}); // establish GPU residency
 assets.UnloadScene(scene);         // release GPU residency, keep CPU data
 ```
 
@@ -101,9 +104,8 @@ temporary buffers and publishes it only after completion; previous frames retain
 
 Scene owns a World and exposes Load, Unload, and GetWorld (plus construction and
 inherited resource metadata). A newly constructed Scene has no entities. There
-is no implicit root, current camera, or mesh/camera/light registry. Scene still
-registers the built-in hierarchy, animation, transform, and
-skinning systems; the host advances them with GetWorld().Update(jobs, seconds).
+is no implicit root, current camera, or mesh/camera/light registry. Scene installs `ScenePlugin` into its World to register the built-in
+hierarchy, animation, transform, and skinning systems; the host advances them with GetWorld().Update(jobs, seconds).
 
 Create entities by composing components through EntityManager::Create(values...),
 or Create() followed by Emplace. GetEntities<Component...>() returns a filtered

@@ -1,6 +1,6 @@
 # Toon renderer
 
-`render::toon::ToonRenderer` is a concrete renderer system alongside PBR and
+`render::toon::ToonRenderer` is a concrete pass builder alongside PBR and
 deferred. It owns shading and graph construction; it does not import USD,
 evaluate animation, or own skeletons. The USD Viewer selects it with
 `--renderer=toon` or its **Toon** button.
@@ -25,16 +25,18 @@ import render;
 hitagi::render::toon::ToonRenderer renderer(load_context);
 std::vector<hitagi::render::RenderDrawItem> items;
 items.push_back(hitagi::render::RenderDrawItem::FromEntity(entity));
-renderer.Submit({.view = view, .draw_items = items}, output_texture);
-renderer.RenderPending(); // or register the renderer with World and call World::Update(frame_jobs)
+hitagi::render::RenderContext rendering(load_context.device, load_context.queues, load_context.bindings);
+rendering.Submit(renderer.Capture({.view = view, .draw_items = items}), output_texture);
+rendering.RenderPending(); // RenderPlugin schedules this when using App
 ```
 
-`Submit` copies frame spans and retains shared resources until execution.
+`Capture` copies frame spans and retains shared resources; it borrows the renderer.
 It does not deep-copy shared material or mesh contents. The host serializes
-resource mutation and submission. The constructor accepting `Application&`
-also supports `SetFrame`, window resize and presentation. `Build(graph, request)`
-adds passes to a caller-owned graph and returns color and depth handles; execute
-that graph before the next `Build` or `RenderPending` on the renderer.
+resource mutation and submission. RenderContext owns offscreen execution and,
+when constructed with a PlatformHost pointer, window resize and presentation.
+Build(graph, request) adds passes and returns color/depth handles; execute the
+graph before another Build on the same renderer. With App, install RenderPlugin
+followed by ToonPlugin to create these resources in the render World.
 
 ## Rendering
 

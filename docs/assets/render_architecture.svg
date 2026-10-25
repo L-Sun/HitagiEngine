@@ -1,39 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980" role="img"><title>Render · 系统调度与图组合</title><defs><style>text{font-family:'Segoe UI','Microsoft YaHei',sans-serif;fill:#263443}.title{font-size:32px;font-weight:700}.section{font-size:24px;font-weight:700}.label{font-size:21px;font-weight:600}.body{font-size:20px}.small{font-size:18px;fill:#596878}.code{font-family:Consolas,'Microsoft YaHei',monospace;font-size:20px}.panel{fill:#fff;stroke:#c6d1dc}.blue{fill:#e1eef9;stroke:#8db3d3}.green{fill:#e2f1e7;stroke:#91b69b}.orange{fill:#fbead8;stroke:#d6ac7a}.purple{fill:#eee6f5;stroke:#b19acb}.gray{fill:#edf0f4;stroke:#b1bdca}rect{stroke-width:1.5}.arrow{fill:none;stroke:#738293;stroke-width:1.5;marker-end:url(#arrow)}</style><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#738293"/></marker></defs><rect width="1440" height="980" fill="#f8fafc"/>
 <rect x="40" y="32" width="6" height="64" rx="7" class="blue"/>
 <text x="64" y="62" class="title">Render · 系统调度与图组合</text>
-<text x="64" y="98" class="small">当前实现 · 没有共同的 Renderer 基类；宿主选择具体实现与窗口 / 离屏策略</text>
+<text x="64" y="98" class="small">当前实现 · 插件安装资源；RenderApp 统一执行；具体 Renderer 负责构建 pass</text>
 <rect x="40" y="150" width="650" height="300" rx="7" class="green"/>
 <text x="64" y="190" class="section">宿主组装</text>
 <rect x="64" y="216" width="602" height="78" rx="7" class="purple"/>
-<text x="82" y="246" class="code">World.RegisterSystem&lt;Renderer&gt;(deps...)</text>
-<text x="82" y="276" class="small">World 持有实例；ConfigureSchedule 声明 Render 组任务</text>
+<text x="82" y="246" class="code">App.AddPlugin(RenderPlugin / PbrPlugin …)</text>
+<text x="82" y="276" class="small">插件把 RenderContext 与 Renderer 安装进子 World</text>
 <rect x="64" y="316" width="602" height="78" rx="7" class="orange"/>
-<text x="82" y="346" class="code">SetFrame(frame) / Submit(frame, target)</text>
-<text x="82" y="376" class="small">窗口快照持续使用；离屏提交执行一次</text>
+<text x="82" y="346" class="code">SetFrame(builder) / Submit(builder, target)</text>
+<text x="82" y="376" class="small">Capture(frame) 复制帧数组；builder 借用 Renderer</text>
 <rect x="734" y="150" width="666" height="300" rx="7" class="blue"/>
 <text x="758" y="190" class="section">注入的基础设施</text>
 <rect x="758" y="216" width="618" height="78" rx="7" class="purple"/>
 <text x="776" y="246" class="code">Device / Queues / Bindings / Compiler</text>
-<text x="776" y="276" class="small">Engine 拥有；设施存活时间长于渲染消费者</text>
+<text x="776" y="276" class="small">World 资源拥有；设施存活时间长于渲染消费者</text>
 <rect x="758" y="316" width="618" height="78" rx="7" class="panel"/>
-<text x="776" y="346" class="code">Application&amp; · 可选窗口依赖</text>
-<text x="776" y="376" class="small">注入窗口时，渲染器拥有 SwapChain 和窗口目标</text>
+<text x="776" y="346" class="code">PlatformHost&amp; · 可选窗口依赖</text>
+<text x="776" y="376" class="small">RenderContext 拥有 SwapChain 和窗口目标</text>
 <rect x="40" y="494" width="1360" height="278" rx="7" class="panel"/>
-<text x="64" y="535" class="section">具体实例 · PbrRenderer / ToonRenderer / DeferredRenderer</text>
+<text x="64" y="535" class="section">RenderApp · 独立 World，顺序运行在主 World 之后</text>
 <rect x="64" y="568" width="390" height="78" rx="7" class="green"/>
-<text x="82" y="598" class="code">RenderPending()</text>
+<text x="82" y="598" class="code">RenderContext.RenderPending()</text>
 <text x="82" y="628" class="small">消费快照，检查窗口尺寸和最小化</text>
 <rect x="500" y="568" width="390" height="78" rx="7" class="purple"/>
-<text x="518" y="598" class="code">Build / Compile / Execute</text>
+<text x="518" y="598" class="code">Renderer.Build → 图执行</text>
 <text x="518" y="628" class="small">图保持 GPU 资源直到本次执行完成</text>
 <rect x="936" y="568" width="440" height="78" rx="7" class="blue"/>
 <text x="954" y="598" class="code">呈现 / 输出纹理</text>
 <text x="954" y="628" class="small">失败后释放图；后续帧可重建</text>
 <path d="M456 607 L494 607" class="arrow"/>
 <path d="M892 607 L930 607" class="arrow"/>
-<text x="64" y="717" class="small">World 的调用线程执行 Render 任务；图内部仍负责 GPU 依赖、屏障、命令录制与提交。</text>
+<text x="64" y="717" class="small">关闭子 App 时先等待 GPU、清除图与 builder，再释放 PBR / Toon / Deferred 资源。</text>
 <rect x="40" y="820" width="1360" height="78" rx="7" class="orange"/>
-<text x="58" y="850" class="code">另一条路径：宿主自己拥有 renderer，调用 Build(graph, request)</text>
-<text x="58" y="880" class="small">USDViewer 使用此路径，把场景与 GUI 放入自己的图；系统调度仍由外层 World 负责。</text>
+<text x="58" y="850" class="code">组合：builder 内调用 Renderer.Build(graph, request)，再加入 GUI pass</text>
+<text x="58" y="880" class="small">USDViewer 使用同一张图完成场景与 GUI；RenderContext 最后统一提交和呈现。</text>
 <text x="40" y="943" class="small">对象所有权、CPU 系统依赖图与 GPU RenderGraph 是三个边界；它们不共享一棵模块树。</text>
 </svg>

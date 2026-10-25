@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img" aria-labelledby="title desc">
   <title id="title">Texture Decode · Stored Capabilities and Worker Execution</title>
-  <desc id="desc">Engine creates FileIOManager, JobSystem and AssetManager. AssetManager constructs Texture with path, ImageLoader capturing file_io and path, and JobSubmitter from JobSystem. Later Texture submits DecodeCPU; JobSystem runs it on a worker. The task holds a shared_ptr to Texture. The loader reads bytes through FileIOManager and decodes them into ImageData.</desc>
+  <desc id="desc">Runtime and App create IOService, JobSystem and AssetService. AssetService constructs Texture with path, ImageLoader capturing file_io and path, and JobSubmitter from JobSystem. Later Texture submits DecodeCPU; JobSystem runs it on a worker. The task holds a shared_ptr to Texture. The loader reads bytes through IOService and decodes them into ImageData.</desc>
   <defs><style>
     text { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; fill: #263443; }
     .title { font-size: 32px; font-weight: 700; }
@@ -27,13 +27,13 @@
   <text x="64" y="94" class="body" text-anchor="start">Two moments in the lifecycle · Assemble the object first, then invoke its capabilities</text>
   <text x="40" y="148" class="section" text-anchor="start">01   ASSEMBLE THE TEXTURE</text>
   <rect x="40" y="174" width="470" height="370" rx="8" class="panel"/>
-  <text x="64" y="213" class="label" text-anchor="start">Engine / Service Lifetime</text>
+  <text x="64" y="213" class="label" text-anchor="start">Runtime / App Lifetime</text>
   <rect x="64" y="238" width="202" height="52" rx="5" class="blue"/>
-  <text x="80" y="270" class="code" text-anchor="start">FileIOManager</text>
+  <text x="80" y="270" class="code" text-anchor="start">IOService</text>
   <rect x="282" y="238" width="204" height="52" rx="5" class="purple"/>
   <text x="298" y="270" class="code" text-anchor="start">JobSystem</text>
   <rect x="64" y="314" width="422" height="130" rx="5" class="green"/>
-  <text x="84" y="347" class="label" text-anchor="start">AssetManager</text>
+  <text x="84" y="347" class="label" text-anchor="start">AssetService</text>
   <text x="84" y="380" class="small" text-anchor="start">Constructor receives file_io + job_system</text>
   <text x="84" y="413" class="small" text-anchor="start">Creates Texture and supplies its functions</text>
   <text x="64" y="483" class="code" text-anchor="start">MakeFileImageLoader(file_io, path)</text>
@@ -50,7 +50,7 @@
   <text x="806" y="291" class="small" text-anchor="start">Also used as the external reference written during Cook</text>
   <rect x="618" y="322" width="758" height="82" rx="0" class="orange"/>
   <text x="638" y="351" class="code" text-anchor="start">ImageLoader</text>
-  <text x="872" y="351" class="code" text-anchor="start">Captured: FileIOManager&amp; + path</text>
+  <text x="872" y="351" class="code" text-anchor="start">Captured: IOService&amp; + path</text>
   <text x="638" y="382" class="small" text-anchor="start">Returns ImageData; performs file I/O and image decoding when invoked.</text>
   <rect x="618" y="424" width="758" height="82" rx="0" class="purple"/>
   <text x="638" y="453" class="code" text-anchor="start">JobSubmitter</text>
@@ -83,7 +83,7 @@
   <text x="878" y="665" class="label" text-anchor="start">Worker / DecodeCPU</text>
   <rect x="878" y="692" width="498" height="52" rx="5" class="orange"/>
   <text x="898" y="725" class="code" text-anchor="start">loader()</text>
-  <text x="1050" y="725" class="small" text-anchor="start">Reads using FileIOManager</text>
+  <text x="1050" y="725" class="small" text-anchor="start">Reads using IOService</text>
   <rect x="878" y="784" width="134" height="56" rx="5" class="blue"/>
   <text x="945" y="819" class="small" text-anchor="middle">File bytes</text>
   <path d="M1016 812H1052" class="arrow"/>

@@ -42,7 +42,7 @@ performed by the callback are not rolled back.
 There is one execution entry: `Update(job_system, delta_seconds)`. The host
 chooses `JobSystem::Execution::CallingThread` for frame work or a thread pool for
 simulation. The World never creates an executor or selects a thread policy.
-See [runtime scheduling](runtime_schedule.md) for Engine integration.
+See [runtime scheduling](runtime_schedule.md) for App integration.
 
 Registration moved from `GetSystemManager().Register<T>()` to
 `World::RegisterSystem<T>()`. Entity access, bulk creation, dynamic components,
@@ -201,3 +201,24 @@ cross-world handles, cross-chunk compaction and dynamic-component migration.
 Additional regression cases cover constructor/batch rollback, raw dynamic data
 preservation, descriptor stability, large/aligned layouts, multi-successor and
 cyclic graphs, parameter validation, mutable filters and newly created archetypes.
+
+## World resources
+
+Each World has its own type-indexed resource store. `EmplaceResource<T>(args...)`
+creates owned state, `BorrowResource(value)` records an explicit borrow, and
+`GetResource<T>()` provides assembly-time access. Duplicate types and installation
+during Update throw. There is no global World singleton.
+
+```cpp
+struct Counter { int value = 0; };
+world.EmplaceResource<Counter>();
+world.AddTask("increment", [](ecs::ResMut<Counter> counter) { ++counter->value; });
+```
+
+Schedule Request accepts zero arguments, resource parameters, or one Query plus
+resource parameters. `Res<T>` declares read access; `ResMut<T>` declares write
+access. Missing resources and unordered resource conflicts fail during schedule
+preparation before any task runs. Order dependent tasks with SetOrder, as for
+component access. Captured references bypass declarations; cross-World borrowed
+aliases require host synchronization. Resources are destroyed in reverse insertion
+order after systems and entity storage. Borrowed providers must outlive the World.

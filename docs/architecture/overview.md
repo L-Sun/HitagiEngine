@@ -28,40 +28,75 @@ The game editor can also use engine APIs directly. Engine has no dependency on e
 
 ## Current render architecture
 
-The `render` module provides concrete PBR, Toon and deferred renderer systems.
-Each exposes `ConfigureSchedule(ecs::Schedule&)` and declares Render-group work; none
-inherits a runtime module base. Applications register systems in the Engine's
-World with explicit constructor dependencies, or own renderer utilities while
-composing their own graph. Engine creates no default renderer, owns no renderer
-slot, and does not re-export `render`. See [ECS-driven runtime](runtime_schedule.md).
+The `gfx` module exports `gfx::GraphicsPlugin` and its `GraphicsContext` resource.
+The `render` module exports `render::RenderPlugin` and the concrete
+`render::pbr::PbrPlugin`, `render::toon::ToonPlugin`, and
+`render::deferred::DeferredPlugin`. They live in interface partitions of their
+owning modules, without separate public plugin modules. App depends on core and
+ECS; gfx/render plugin code imports app. Engine provides the default combination
+and does not re-export render or choose a rendering pipeline.
 
-![Hitagi render architecture: explicit construction, concrete renderer systems, frame submission, and RenderGraph execution.](../assets/render_architecture.svg)
+![Render plugins install pipeline resources into RenderApp; RenderContext owns shared execution and presentation.](../assets/render_architecture.svg)
 
-Editable [SVG](../assets/render_architecture.svg) and matching [PNG preview](../assets/render_architecture.png). Arrows show execution flow; containers and annotations identify ownership and injected dependencies.
-
-The host creates Engine's infrastructure first, then injects individual services at the composition root. Renderers never receive or look up an Engine instance:
+Install RenderPlugin before the pipeline plugins. RenderPlugin creates a child
+App with its own World, exposed by the main World's `render::RenderApp` resource.
+Pipeline plugins install renderer resources there. GraphicsContext remains in
+the parent World and outlives rendering. The composition root assembles explicit
+`asset::ResourceLoadContext` references; gfx does not depend on asset.
 
 ```cpp
 import engine;
 import render;
 
-hitagi::Engine engine(config);
-auto& renderer = engine.GetWorld().RegisterSystem<hitagi::render::pbr::PbrRenderer>(
-    engine.ResourceLoadContext(), engine.App());
-renderer.SetFrame(frame); // camera, draw items and lights; retained until replaced
-
-engine.Tick(); // renderer handles its window target, graph execution and presentation
+hitagi::core::Runtime runtime;
+hitagi::App app(runtime);
+app.AddPlugin(hitagi::DefaultPlugins{.runtime = runtime});
+auto& world = app.GetWorld();
+auto& graphics = world.GetResource<hitagi::gfx::GraphicsContext>();
+app.AddPlugin(hitagi::render::RenderPlugin{
+    .device = *graphics.device, .queues = graphics.queues, .bindings = *graphics.bindings,
+    .window = &world.GetResource<hitagi::platform::PlatformHost>(),
+});
+app.AddPlugin(hitagi::render::pbr::PbrPlugin{.resources = {
+    .device = *graphics.device, .queues = graphics.queues,
+    .bindings = *graphics.bindings, .shader_compiler = graphics.compiler,
+}});
+auto& render_world = world.GetResource<hitagi::render::RenderApp>().app.GetWorld();
+auto& renderer = render_world.GetResource<hitagi::render::pbr::PbrRenderer>();
+auto& rendering = render_world.GetResource<hitagi::render::RenderContext>();
+rendering.SetFrame(renderer.Capture({})); // replace with camera, draw items and lights
+app.Tick();
 ```
 
-Constructing a renderer with `Application&` enables window rendering. The renderer owns its SwapChain and color target, skips window rendering while minimized or zero-sized, resizes the SwapChain and recreates its target when dimensions change, and presents after graph execution. `SetFrame(frame)` snapshots the scene inputs and retains them until replaced; each scheduled `RenderPending()` renders the current snapshot, which is empty by default. The application must outlive the renderer. No child adapter or callback is required.
+`RenderContext` owns the common RenderGraph, optional SwapChain, window target,
+retained window builder and one-shot offscreen submissions. `SetFrame(builder)`
+replaces the window composition; without a builder no window frame is rendered.
+`Submit(builder, target)` queues one offscreen composition. Each render tick
+consumes those submissions and then presents at most one window composition.
+Window resize, minimization and final presentation are handled centrally.
 
-For offscreen rendering, use the constructor without Application and call `Submit(frame, target)`. Each submission renders once on the next Render-group execution, writing the caller-owned texture. A window renderer can also consume offscreen submissions before drawing its window. `SetFrame` rejects renderers created without Application; use `Submit` or `Build` for those instances.
+A renderer's `Capture(frame)` copies views, draw items and lights into an owning
+builder that borrows the renderer. It retains shared assets without deep-copying
+mesh/material contents. Keep the renderer and its dependencies alive through
+execution. Calls and shared-resource mutation remain host-serialized. Deferred
+Capture also accepts a debug view. A failed composition discards the graph;
+subsequent ticks can rebuild it. Shutdown drains GPU work and clears graph and
+builder captures before renderer resources are destroyed.
 
-Both `SetFrame` and `Submit` copy views, draw items, and lights and retain shared resources. They do not deep-copy mesh/material contents; calls and resource mutation must be serialized by the host. `ConfigureSchedule` declares the task that calls `RenderPending()`, consumes offscreen submissions, then renders its window. A failed execution retires the graph before propagating the error; later executions can create a fresh graph. World releases cached tasks before destroying registered renderer state.
+All three renderers retain `Build(graph, request)` for explicit graph composition.
+They own shading state and add passes; they have no window, frame queue or
+ConfigureSchedule method. Execute the graph before building another frame with
+the same renderer. PBR owns PBRForward, Toon owns ToonForward/ToonOutline, and
+deferred owns its debug views and IDeferredRenderExtension. See the
+[Toon contract](toon_renderer.md).
 
-For custom composition, all three renderers expose `Build(graph, request)`, which only adds passes and returns graph handles. The caller then owns compilation, execution, import cleanup, and presentation. Execute that graph before the next `Build()` or `RenderPending()` on the same renderer, and keep the renderer and any borrowed resources alive until execution completes. Deferred exposes debug views and `IDeferredRenderExtension`; PBR owns the `PBRForward` material contract. Toon owns `ToonForward` and `ToonOutline`; see its [rendering and material contract](toon_renderer.md). PBR and Toon share renderer-neutral scene draw inputs; ECS remains responsible for instance animation and skinning. Custom application renderers remain ordinary system types with their own APIs.
-
-GUI is an opt-in component: `gui::GuiRenderUtils` adds drawing passes, including PocketJS text, to the application graph. A UI host owns `GuiManager`, prepares layout before rendering native overlays, finishes GUI composition, and builds the GUI pass before executing the graph. No implicit GUI submission is performed by Engine.
+Main and render Worlds currently run sequentially on the calling thread. App's
+optional extraction callback can transfer data before a child update; this is
+not a parallel render pipeline or an automatic scene extractor. USDViewer queues
+its composition in the main World, then RenderApp builds scene and GUI passes
+into one graph and presents once. Its final publish task runs in the render
+World after rendering. The viewer and its GUI state outlive these callbacks.
+GUI remains opt-in; GuiRenderUtils contributes drawing passes to the same graph.
 
 ## Current authoring library
 
@@ -76,7 +111,7 @@ The engine build target contains the runtime render implementations. The Editor 
 
 ## Shared runtime objects and authoring metadata
 
-Both branches use `asset::Scene`, `Mesh`, `Material`, `Texture`, `Camera`, and `Light`. Source import produces these resource types directly, so the editor can render and manipulate them before cooking. Runtime cooked loading reconstructs the same types. Sharing the model means sharing APIs and semantics; loading a cooked file creates new objects rather than restoring process pointers or editor object identity.
+Both branches use `asset::Scene`, `Mesh`, `Material` and `Texture`, plus scene entities with `CameraComponent`, `LightComponent` and `Transform`. Source import produces these assets and components directly, so authoring tools can render and manipulate them before cooking. Runtime cooked loading reconstructs the same types. Sharing the model means sharing APIs and semantics; loading a cooked file creates new objects rather than restoring process pointers or editor object identity.
 
 Editor-specific provenance is attached outside the runtime material:
 
@@ -101,7 +136,7 @@ Source assets
     -> asset::Scene / Material / Mesh ...
     -> Editor Cook API
     -> HTGC bytes + referenced external files
-    -> AssetManager cooked loader
+    -> AssetService cooked loader
     -> asset::Scene / Material / Mesh ...
     -> Game renderer
 ```
@@ -116,17 +151,21 @@ See [Cooked binary format](../assets/cooked_binary_format.md) for the file layou
 
 Engine owns bindless descriptors, handles, residency, and the raw-storage shader layout API. Each renderer owns its pass shaders: the PBR frame, instance, and draw records are mirrored by hand in `assets/shaders/pbr_forward.slang`, like the deferred shaders; reflection-based layout validation is follow-up work. Material shader fields are generated from the same typed defaults that govern runtime packing. A game chooses what a draw references, but does not manage descriptor indices.
 
-Applications explicitly import `render` to select a built-in renderer or implement their own system. The built-ins own their frame/request/result types and rendering policy. Their source files are in `hitagi/engine/render/`, collected by the engine build target; the `engine` C++ module does not import or re-export `render`. This keeps Engine's composition class independent of specific renderer APIs without creating a circular target dependency.
+Applications explicitly import `render` to select a built-in renderer or implement their own system. The built-ins own their frame/request/result types and rendering policy. Their source files are in `hitagi/engine/render/`, collected by the engine build target; the `engine` C++ module does not import or re-export `render`. This keeps App's assembly independent of specific renderer APIs without creating a circular target dependency.
 
 The material graph compiler lives in `hitagi/editor/material_compiler.cppm` and depends only on engine; PBR lighting stays in the renderer's Slang shell. Generic USD import does not depend on PBR; game editor supplies the conversion adapter. The former material cache and hot-reload placeholder API are removed rather than presented as completed facilities.
 
 ## Service composition and resource lifetime
 
-`Engine` assembles and owns runtime infrastructure, including file I/O, jobs, graphics services, and `AssetManager`. The host application supplies configuration, chooses game and editor modules, and installs a renderer. Configuration persistence belongs to the host. A headless tool or test can assemble just the services it needs, as the asset pipeline tests do.
+`core::Runtime` owns logging, memory, IOService and background jobs. `App` borrows
+Runtime and installs optional plugins into its World. DefaultPlugins supplies
+platform, input, graphics, assets, time and debug; GUI and physics are opt-in.
+Plugins describe assembly; resources own persistent state and systems declare work.
+A tool can use Runtime without a platform or App. Configuration persistence belongs
+to the host. See [Dependency injection](dependency_injection.md) for dependency
+boundaries, resource access and destruction order.
 
-Consumers receive explicit dependencies. For example, `AssetManager` receives `FileIOManager` and `JobSystem`; resource GPU loading receives a `ResourceLoadContext` containing device, queues, bindings, and shader compiler. The game editor uses the engine instance it owns to connect these services to editor and game code. See [Dependency injection](dependency_injection.md) for injection forms and destruction order.
-
-The asset manager provides lookup, texture deduplication, and loading policy through weak-reference registries. Actual resource ownership follows `shared_ptr` relationships, such as Scene components holding Mesh objects and SubMesh objects holding Materials. GPU residency is controlled by `Resource::Load` and `Unload`, independently of whether the consumer is an editor preview or a running game. See [Resource lifecycle](../assets/resource_lifecycle.md) for asynchronous texture decode and unload coordination.
+AssetService provides lookup, texture deduplication, and loading policy through weak-reference registries. Actual resource ownership follows `shared_ptr` relationships, such as Scene components holding Mesh objects and SubMesh objects holding Materials. GPU residency is controlled by `Resource::Load` and `Unload`, independently of whether the consumer is an editor preview or a running game. See [Resource lifecycle](../assets/resource_lifecycle.md) for asynchronous texture decode and unload coordination.
 
 ## Placing new functionality
 

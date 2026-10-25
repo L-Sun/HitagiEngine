@@ -223,7 +223,7 @@ Every later `Read<T>`, `GetString`, and `GetBlob` checks the range and throws on
 lazy view, preventing count/stride overflow. Curve lengths and encodings,
 finite values, key ordering, quaternion validity, hierarchy cycles, component
 duplicates and entity/asset indices are checked. Invalid loads throw before the
-Scene is published to AssetManager. Partial scene objects are destroyed.
+Scene is published to AssetService. Partial scene objects are destroyed.
 
 ### Injected texture resolution
 
@@ -234,7 +234,7 @@ using CookedTextureResolver =
     std::function<std::shared_ptr<Texture>(const std::filesystem::path&, std::string_view)>;
 ```
 
-`AssetManager` passes `AcquireTexture`, so one path has one `Texture` instance for the whole scene. The texture resolver is an explicit required dependency of the internal parser.
+`AssetService` passes `AcquireTexture`, so one path has one `Texture` instance for the whole scene. The texture resolver is an explicit required dependency of the internal parser.
 
 `ResolveCookedPath` restores paths: an absolute path is returned as-is; a relative path is used as-is if it exists in the current working directory, otherwise it is joined onto the asset root.
 

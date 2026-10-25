@@ -181,7 +181,7 @@
   <g transform="translate(56 1226)">
     <rect width="354" height="120" rx="6" class="gray"/>
     <text x="20" y="34" class="label">Read HTGC Bytes</text>
-    <text x="20" y="66" class="code">AssetManager.LoadCooked*</text>
+    <text x="20" y="66" class="code">AssetService.LoadCooked*</text>
     <text x="20" y="96" class="small">File bytes in a CPU buffer / span</text>
   </g>
   <path d="M414 1286H452" class="arrow"/>

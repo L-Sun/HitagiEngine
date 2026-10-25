@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1890" viewBox="0 0 1920 1890" role="img" aria-labelledby="title desc">
   <title id="title">Hitagi Asset Module — Editor, Cook and Runtime</title>
   <desc id="desc">Current resource architecture: editor import and cooking, shared asset objects, weak-reference registries, renderer contracts, service injection, and GPU residency.</desc>
-  <metadata>Source: hitagi/editor/{editor.cpp,editor.cppm,usd.cppm,cook.cppm,material_compiler.cppm,editor_asset_browser.cppm}; hitagi/engine/asset/{asset_manager.cpp,asset_manager.cppm,resource.cpp,scene.cpp,mesh.cpp,material.cpp,texture.cpp,pipeline.cpp,shader.cpp,cooked_binary.cpp,cooked_format.cpp}; hitagi/engine/engine.cppm; hitagi/engine/render/deferred/renderer.cpp. Current implementation, not a proposed API. Visual language follows the companion cooked_asset_layout.svg.</metadata>
+  <metadata>Source: hitagi/editor/{editor.cppm,usd.cppm,cook.cppm,material_compiler.cppm}; hitagi/engine/asset/{asset_service.cpp,asset_service.cppm,resource.cpp,scene.cpp,mesh.cpp,material.cpp,texture.cpp,pipeline.cpp,shader.cpp,cooked_binary.cpp,cooked_format.cpp}; hitagi/engine/plugins.cpp; hitagi/engine/core/runtime.cpp; hitagi/engine/app/host.cpp; hitagi/engine/render/deferred/renderer.cpp. Current implementation, not a proposed API. Visual language follows the companion cooked_asset_layout.svg.</metadata>
   <defs>
     <style>
       text { font-family: 'Segoe UI', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: #263443; }
@@ -36,7 +36,7 @@
 
   <!-- Editor: conversion, editing and cooking share the runtime data model. -->
   <rect x="56" y="153" width="1808" height="440" rx="10" class="panel"/>
-  <text x="80" y="191" class="section">01   editor / Import, Edit and Cook</text>
+  <text x="80" y="191" class="section">01   editor / Import, Compile and Cook</text>
   <text x="1840" y="191" class="small" text-anchor="end">Editor accesses asset through engine; resource types belong to asset.</text>
   <rect x="80" y="218" width="340" height="130" rx="5" class="gray"/>
   <text x="100" y="250" class="label">Source Assets / Authoring</text>
@@ -53,7 +53,7 @@
   <rect x="886" y="218" width="440" height="130" rx="5" class="green"/>
   <text x="906" y="250" class="label">Asset Objects in the Editor</text>
   <text x="906" y="282" class="code">Scene / Mesh / Material / Texture</text>
-  <text x="906" y="316" class="small">Direct preview; AssetManager loads cooked objects</text>
+  <text x="906" y="316" class="small">Direct preview; AssetService loads cooked objects</text>
   <path d="M1330 283H1382" class="arrow"/>
 
   <rect x="1386" y="218" width="454" height="350" rx="5" class="blue"/>
@@ -71,11 +71,11 @@
   <path d="M250 398V352" class="arrow"/>
   <text x="274" y="381" class="small">Select / Import</text>
   <rect x="80" y="400" width="340" height="168" rx="5" class="gray"/>
-  <text x="100" y="432" class="label">Editor Workflow</text>
-  <text x="100" y="466" class="body">AssetBrowser: scan and classify files</text>
-  <text x="100" y="496" class="body">EditorState + CommandStack: editing</text>
-  <text x="100" y="526" class="body">SceneViewPort / ImageViewer: preview</text>
-  <text x="100" y="552" class="small">Engine provides asset and render services</text>
+  <text x="100" y="432" class="label">Host / Tool Composition</text>
+  <text x="100" y="466" class="body">Host selects source files and options</text>
+  <text x="100" y="496" class="body">Tools call import and cook APIs</text>
+  <text x="100" y="526" class="body">USD Viewer previews shared assets</text>
+  <text x="100" y="552" class="small">App plugins assemble runtime services</text>
 
   <path d="M652 398V352" class="inject"/>
   <text x="676" y="381" class="small">Inject MaterialProcessor</text>
@@ -89,10 +89,10 @@
   <path d="M1106 352V396" class="arrow"/>
   <text x="1128" y="381" class="small">Editor-only state</text>
   <rect x="886" y="400" width="440" height="168" rx="5" class="orange"/>
-  <text x="906" y="432" class="label">Source Metadata and Play Mode</text>
+  <text x="906" y="432" class="label">Source Metadata and Cook State</text>
   <text x="906" y="466" class="code">EditorMaterial = Material + SourceInfo</text>
   <text x="906" y="496" class="small">EditorCookContext tracks source info per Material</text>
-  <text x="906" y="526" class="body">Play: clone entity hierarchy and transforms</text>
+  <text x="906" y="526" class="body">Current cook captures explicit preview state</text>
   <text x="906" y="552" class="small">Mesh shared; camera / light are component state</text>
 
   <!-- Serialized delivery boundary. Cook returns bytes; persistence is caller-owned. -->
@@ -116,7 +116,7 @@
   <path d="M478 760V857" class="arrow"/>
 
   <rect x="80" y="861" width="416" height="220" rx="5" class="blue"/>
-  <text x="100" y="895" class="label">AssetManager</text>
+  <text x="100" y="895" class="label">AssetService</text>
   <text x="100" y="928" class="body">Loading, lookup, deduplication, unload policy</text>
   <path d="M100 949H476" stroke="#b5c9dc"/>
   <text x="100" y="979" class="code">path → weak_ptr&lt;Texture&gt;</text>
@@ -128,7 +128,7 @@
   <rect x="80" y="1126" width="416" height="121" rx="5" class="blue"/>
   <text x="100" y="1158" class="label">:cooked_binary / Internal Reader</text>
   <text x="100" y="1190" class="body">Validate HTGC, build objects, copy geometry</text>
-  <text x="100" y="1221" class="small">Manager injects the CookedTextureResolver</text>
+  <text x="100" y="1221" class="small">AssetService injects the CookedTextureResolver</text>
   <text x="538" y="1110" class="small" transform="rotate(-90 538 1110)">Build objects</text>
   <path d="M288 1251V1282" class="arrow"/>
 
@@ -162,7 +162,7 @@
   <path d="M675 1065V1101" class="own"/>
   <rect x="570" y="1105" width="210" height="86" rx="4" class="green"/>
   <text x="586" y="1136" class="code">CameraComponent</text>
-  <text x="586" y="1168" class="mini">LightComponent · ECS state</text>
+  <text x="586" y="1168" class="mini">LightComponent</text>
   <path d="M925 1065V1101" class="own"/>
   <text x="941" y="1091" class="small">SubMesh.material</text>
   <rect x="830" y="1105" width="450" height="91" rx="4" class="green"/>
@@ -213,9 +213,9 @@
   <!-- Foundation and resource residency are intentionally separate concerns. -->
   <text x="56" y="1474" class="section">04   Service Composition and Resource Lifecycle</text>
   <rect x="56" y="1494" width="884" height="232" rx="8" class="panel"/>
-  <text x="80" y="1528" class="label">Engine / Compose and Own Services</text>
-  <text x="80" y="1563" class="code">FileIOManager + JobSystem → AssetManager</text>
-  <text x="80" y="1594" class="small">Manager injects texture I/O and job submission; asset does not depend on engine.</text>
+  <text x="80" y="1528" class="label">Runtime / App / Plugin Assembly</text>
+  <text x="80" y="1563" class="code">IOService + JobSystem → AssetService</text>
+  <text x="80" y="1594" class="small">AssetService injects texture I/O and job submission; asset does not depend on engine.</text>
   <text x="80" y="1630" class="code">Device + Queues + Bindings + ShaderCompiler</text>
   <path d="M91 1642V1662H122" class="inject"/>
   <text x="132" y="1669" class="code">ResourceLoadContext → Resource::Load()</text>
@@ -241,7 +241,7 @@
   <text x="994" y="1703" class="small">Sync resources finish in Load. Unload releases GPU residency and retains acquired CPU data.</text>
 
   <rect x="56" y="1746" width="1808" height="80" rx="7" fill="#fff4e6" stroke="#e5c49d"/>
-  <text x="80" y="1777" class="body"><tspan font-weight="700">Implementation status: </tspan>Cook APIs exist; editor scene save/export is not wired up. Material graph compilation is a separate API integrated by the caller.</text>
+  <text x="80" y="1777" class="body"><tspan font-weight="700">Implementation status: </tspan>Authoring APIs exist; no interactive editor or Play mode. Hosts integrate material compilation and persist cooked buffers.</text>
   <text x="80" y="1807" class="body"><tspan font-weight="700">Unload coordination: </tspan>UnloadScene cascades to meshes, materials and pipelines. Shared textures are managed separately; callers invalidate renderer caches.</text>
   <path d="M56 1848H1864" stroke="#d7dfe7"/>
   <text x="56" y="1876" class="small">Based on current editor / asset / engine / render code. Dashed arrows: injected extensions or services.</text>
