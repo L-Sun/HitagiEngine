@@ -15,7 +15,6 @@ import :execution;
 import utils;
 import math;
 import core;
-import app;
 import gfx;
 import asset;
 
@@ -30,32 +29,23 @@ class DeferredRenderer final {
 public:
     // Shader sources are read through `file_io` during construction only; the
     // renderer keeps no reference to it afterwards.
-    DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io, const std::filesystem::path& shader_dir, std::optional<ecs::Group> group = {});
-    // Window rendering: the application must outlive this renderer.
-    DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io, const std::filesystem::path& shader_dir, const Application& app, std::optional<ecs::Group> group = {});
+    DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::IOService& file_io, const std::filesystem::path& shader_dir);
 
     // Frame callbacks borrow this renderer's draw state. Execute the graph
-    // before the next Build() or RenderPending() on this instance, and keep it alive.
+    // before the next Build() on this instance, and keep it alive.
     auto Build(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult;
-    // Retains a snapshot for window rendering on every RenderPending call; initially empty.
-    // Requires the constructor taking Application. Calls are host-serialized.
-    void SetFrame(const RenderFrame& frame, RenderGraphDebugView debug_view = RenderGraphDebugView::Final);
-    // Queues one offscreen render. Copies spans and retains the target until RenderPending.
-    void Submit(const RenderFrame& frame, std::shared_ptr<gfx::Texture> target, RenderGraphDebugView debug_view = RenderGraphDebugView::Final);
-    void RenderPending();
-    void ConfigureSchedule(ecs::Schedule& schedule);
+    // Copies frame arrays; the returned builder borrows this renderer.
+    auto Capture(const RenderFrame& frame, RenderGraphDebugView debug_view = RenderGraphDebugView::Final) -> FrameBuilder;
     ~DeferredRenderer() = default;
-    auto GetRenderedFrameCount() const noexcept -> std::uint64_t { return m_RenderedFrames; }
 
     void AddExtension(std::shared_ptr<IDeferredRenderExtension> extension);
     void ClearExtensions();
 
 private:
-    std::optional<ecs::Group> m_Group;
-    auto                      BuildFrame(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult;
-    void                      RecordMaterial(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Material>& material);
-    void                      RecordMesh(rg::RenderGraph& render_graph, const RenderDrawItem& item);
-    void                      RecordInstance(rg::RenderGraph& render_graph, const RenderDrawItem& item);
+    auto BuildFrame(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult;
+    void RecordMaterial(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Material>& material);
+    void RecordMesh(rg::RenderGraph& render_graph, const RenderDrawItem& item);
+    void RecordInstance(rg::RenderGraph& render_graph, const RenderDrawItem& item);
     // this function must invoke after all instance are finished, it will:
     // 1. update index of material in the constant buffer of material,
     // 2. create constant buffer of materials
@@ -90,93 +80,16 @@ private:
     rg::GPUBufferHandle m_GBufferDebugViewBindlessInfoConstantBuffer;
 
     RenderDrawState m_DrawState;
-    struct PendingFrame {
-        RenderView                    view;
-        std::vector<RenderDrawItem>   draw_items;
-        std::vector<RenderLight>      lights;
-        std::shared_ptr<gfx::Texture> target;
-        RenderGraphDebugView          debug_view = RenderGraphDebugView::Final;
-    };
-    void ExecuteFrame(const PendingFrame& frame, const std::shared_ptr<gfx::SwapChain>& swap_chain = {});
-
-    const Application*              m_App = nullptr;
-    std::shared_ptr<gfx::SwapChain> m_SwapChain;
-    PendingFrame                    m_WindowFrame;
-    std::vector<PendingFrame>       m_PendingFrames;
-    std::uint64_t                   m_RenderedFrames = 0;
-    // Declared last: graph callbacks/resources retire before renderer state.
-    // Created on demand; callers using only Build need no private graph.
-    std::unique_ptr<rg::RenderGraph> m_Graph;
 };
 
 }  // namespace hitagi::render::deferred
 
 namespace hitagi::render::deferred {
 
-void DeferredRenderer::ConfigureSchedule(ecs::Schedule& schedule) {
-    schedule.Request("DeferredRenderer.Render", [this] { RenderPending(); }, m_Group);
-}
-
-DeferredRenderer::DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings,
-                                   const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io,
-                                   const std::filesystem::path& shader_dir, const Application& app, std::optional<ecs::Group> group)
-    : DeferredRenderer(device, queues, bindings, compiler, file_io, shader_dir, group) {
-    m_App       = &app;
-    m_SwapChain = gfx::SwapChain::Create(m_LoadContext.device, m_LoadContext.queues.Get(gfx::CommandType::Graphics),
-                                         {.name = std::pmr::string("DeferredRenderer"), .window = app.GetWindow()});
-}
-
-void DeferredRenderer::SetFrame(const RenderFrame& frame, RenderGraphDebugView debug_view) {
-    if (!m_App) throw std::logic_error("SetFrame requires a renderer constructed with Application");
-    m_WindowFrame = {
-        .view       = frame.view,
-        .draw_items = {frame.draw_items.begin(), frame.draw_items.end()},
-        .lights     = {frame.lights.begin(), frame.lights.end()},
-        .target     = m_WindowFrame.target,
-        .debug_view = debug_view,
+auto DeferredRenderer::Capture(const RenderFrame& frame, RenderGraphDebugView debug_view) -> FrameBuilder {
+    return [this, view = frame.view, draw_items = std::pmr::vector<RenderDrawItem>(frame.draw_items.begin(), frame.draw_items.end()), lights = std::pmr::vector<RenderLight>(frame.lights.begin(), frame.lights.end()), debug_view](rg::RenderGraph& graph, rg::TextureHandle target) {
+        return Build(graph, {.frame = {.view = view, .draw_items = draw_items, .lights = lights}, .target = target, .debug_view = debug_view}).color;
     };
-}
-
-void DeferredRenderer::Submit(const RenderFrame& frame, std::shared_ptr<gfx::Texture> target, RenderGraphDebugView debug_view) {
-    detail::ValidateOutput(target);
-    m_PendingFrames.push_back({
-        .view       = frame.view,
-        .draw_items = {frame.draw_items.begin(), frame.draw_items.end()},
-        .lights     = {frame.lights.begin(), frame.lights.end()},
-        .target     = std::move(target),
-        .debug_view = debug_view,
-    });
-}
-
-void DeferredRenderer::RenderPending() {
-    auto frames = std::exchange(m_PendingFrames, {});
-    for (const auto& frame : frames) ExecuteFrame(frame);
-
-    if (m_App && detail::PrepareWindowTarget(*m_App, m_LoadContext.device, m_LoadContext.queues,
-                                             m_LoadContext.bindings, m_SwapChain, m_WindowFrame.target)) {
-        ExecuteFrame(m_WindowFrame, m_SwapChain);
-    }
-}
-
-void DeferredRenderer::ExecuteFrame(const PendingFrame& frame, const std::shared_ptr<gfx::SwapChain>& swap_chain) {
-    try {
-        if (!m_Graph) {
-            m_Graph = std::make_unique<rg::RenderGraph>(m_LoadContext.device, m_LoadContext.queues,
-                                                        m_LoadContext.bindings, "DeferredRenderer");
-        }
-        const auto result = Build(*m_Graph, {
-                                                .frame      = {.view = frame.view, .draw_items = frame.draw_items, .lights = frame.lights},
-                                                .target     = m_Graph->Import(frame.target),
-                                                .debug_view = frame.debug_view,
-                                            });
-        detail::FinishFrame(*m_Graph, result.color, swap_chain);
-        ++m_RenderedFrames;
-    } catch (...) {
-        // Retire callbacks before releasing the frame snapshot; later frames
-        // can start with a fresh graph after a failed build or execution.
-        m_Graph.reset();
-        throw;
-    }
 }
 
 constexpr auto ToIndexFormat(asset::IndexType type) noexcept -> gfx::Format {
@@ -198,9 +111,8 @@ void DeferredRenderer::ClearExtensions() {
     m_Extensions.clear();
 }
 
-DeferredRenderer::DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::FileIOManager& file_io, const std::filesystem::path& shader_dir, std::optional<ecs::Group> group)
-    : m_Group(group),
-      m_GfxDevice(device),
+DeferredRenderer::DeferredRenderer(gfx::Device& device, gfx::CommandQueues& queues, gfx::BindlessUtils& bindings, const gfx::ShaderCompiler& compiler, core::IOService& file_io, const std::filesystem::path& shader_dir)
+    : m_GfxDevice(device),
       m_LoadContext{.device = device, .queues = queues, .bindings = bindings, .shader_compiler = compiler},
       m_PersistentSampler(hitagi::gfx::Sampler::Create(
           m_GfxDevice,

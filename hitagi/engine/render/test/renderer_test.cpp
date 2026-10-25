@@ -4,7 +4,7 @@ import std;
 import core;
 import ecs;
 import engine;
-import app;
+import platform;
 import gfx;
 
 using namespace hitagi;
@@ -71,7 +71,7 @@ TEST(RendererSystemTest, ScheduleDrivesGraphAfterSceneAndDestroysConsumersFirst)
     std::vector<int>   events;
     {
         core::JobSystem frame_jobs{core::JobSystem::Execution::CallingThread};
-        ecs::World root("RenderWorld", ConfigureFrameStages);
+        ecs::World      root("RenderWorld", ConfigureFrameStages);
 
         auto& scene = root.RegisterSystem<renderer_test::SceneUpdate>(events);
         root.RegisterSystem<renderer_test::OffscreenRenderer>(*device, queues, *bindings, scene, events);

@@ -1,23 +1,35 @@
 export module viewer:options;
 
 import std;
-import app;
+import platform;
+import gfx;
 
 export namespace hitagi::examples {
 
-enum class RendererType { Pbr, Toon, Deferred };
+enum class RendererType { Pbr,
+                          Toon,
+                          Deferred };
 
 auto RendererName(RendererType type) -> std::string_view {
     switch (type) {
-        case RendererType::Pbr: return "pbr";
-        case RendererType::Toon: return "toon";
-        case RendererType::Deferred: return "deferred";
+        case RendererType::Pbr:
+            return "pbr";
+        case RendererType::Toon:
+            return "toon";
+        case RendererType::Deferred:
+            return "deferred";
     }
     throw std::invalid_argument("Invalid renderer");
 }
 
 struct ViewerOptions {
-    AppConfig             app{.title = "USD Viewer", .width = 1600, .height = 1000};
+    platform::PlatformConfig app{.title = "USD Viewer", .width = 1600, .height = 1000};
+    gfx::Device::Type        backend =
+#ifdef __APPLE__
+        gfx::Device::Type::Metal;
+#else
+        gfx::Device::Type::Vulkan;
+#endif
     std::filesystem::path scene    = "examples/usd-viewer/assets/studio.usda";
     RendererType          renderer = RendererType::Deferred;
     std::uint64_t         frames   = 0;
@@ -48,7 +60,9 @@ auto ParseOptions(int argc, char** argv) -> ViewerOptions {
             const auto name = argument.substr(10);
             if (name != "Vulkan" && name != "DX12" && name != "Metal")
                 throw std::invalid_argument("--backend must be Vulkan, DX12 or Metal");
-            options.app.gfx_backend = name;
+            options.backend = name == "Metal"  ? gfx::Device::Type::Metal
+                              : name == "DX12" ? gfx::Device::Type::DX12
+                                               : gfx::Device::Type::Vulkan;
         } else if (argument.starts_with("--frames=")) {
             const auto value = argument.substr(9);
             const auto [end, error] =

@@ -8,7 +8,7 @@ import utils;
 import core;
 import ecs;
 import engine;
-import app;
+import platform;
 import render;
 
 using namespace hitagi;
@@ -16,14 +16,15 @@ using namespace hitagi;
 namespace pbr_renderer_test {
 class FrameProducer final {
 public:
-    FrameProducer(render::pbr::PbrRenderer& renderer, std::shared_ptr<gfx::Texture> target)
-        : m_Renderer(renderer), m_Target(std::move(target)) {}
+    FrameProducer(render::RenderContext& context, render::pbr::PbrRenderer& renderer, std::shared_ptr<gfx::Texture> target)
+        : m_Context(context), m_Renderer(renderer), m_Target(std::move(target)) {}
     void ConfigureSchedule(ecs::Schedule& schedule) {
-        schedule.Request("Produce", [this] { m_Renderer.Submit({}, m_Target); }, FrameStage::Update);
+        schedule.Request("Produce", [this] { m_Context.Submit(m_Renderer.Capture({}), m_Target); }, FrameStage::Update);
     }
-    ~FrameProducer() { EXPECT_GE(m_Renderer.GetRenderedFrameCount(), 1u); }
+    ~FrameProducer() { EXPECT_GE(m_Context.GetRenderedFrameCount(), 1u); }
 
 private:
+    render::RenderContext&        m_Context;
     render::pbr::PbrRenderer&     m_Renderer;
     std::shared_ptr<gfx::Texture> m_Target;
 };
@@ -82,14 +83,18 @@ TEST_P(PbrRendererTest, EmptyFrameClearsApplicationTargetAcrossExecutions) {
 }
 
 TEST_P(PbrRendererTest, SystemConsumesSnapshotsAndRunsAfterProducer) {
+    core::Runtime       runtime;
     auto                device = gfx::create_device(GetParam());
     gfx::CommandQueues  queues(*device);
     auto                bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler compiler("PBR module test");
-    core::JobSystem frame_jobs{core::JobSystem::Execution::CallingThread};
-    ecs::World root("Root", ConfigureFrameStages);
+    App                 root(runtime);
+    root.AddPlugin(render::RenderPlugin{.device = *device, .queues = queues, .bindings = *bindings});
+    root.AddPlugin(render::pbr::PbrPlugin{.resources = {.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler}});
+    auto& render_world = root.GetWorld().GetResource<render::RenderApp>().app.GetWorld();
+    auto& context      = render_world.GetResource<render::RenderContext>();
 
-    auto& selected = root.RegisterSystem<render::pbr::PbrRenderer>(asset::ResourceLoadContext{*device, queues, *bindings, compiler}, FrameStage::Render);
+    auto&                                    selected = render_world.GetResource<render::pbr::PbrRenderer>();
     const std::array<std::byte, 16 * 16 * 4> initial_pixels{};
     auto                                     target = gfx::Texture::Create(*device, queues, *bindings, {
                                                                                                            .name        = "SubmittedTarget",
@@ -100,33 +105,31 @@ TEST_P(PbrRendererTest, SystemConsumesSnapshotsAndRunsAfterProducer) {
                                                                                                            .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc | gfx::TextureUsageFlags::CopyDst,
                                                                                                        },
                                                                            initial_pixels);
-    EXPECT_THROW(selected.Submit({}, {}), std::invalid_argument);
-    EXPECT_THROW(selected.SetFrame({}), std::logic_error);
-    root.Update(frame_jobs);
-    EXPECT_EQ(selected.GetRenderedFrameCount(), 0u);
+    EXPECT_THROW(context.Submit(selected.Capture({}), {}), std::invalid_argument);
+    EXPECT_THROW(context.SetFrame(selected.Capture({})), std::logic_error);
+    root.TickFrame();
+    EXPECT_EQ(context.GetRenderedFrameCount(), 0u);
 
     std::vector<render::pbr::RenderDrawItem> items{{.mesh = std::make_shared<asset::Mesh>()}};
     std::weak_ptr<asset::Mesh>               mesh = items.front().mesh;
-    selected.Submit({.draw_items = items}, target);
-    selected.Submit({}, target);
+    context.Submit(selected.Capture({.draw_items = items}), target);
+    context.Submit(selected.Capture({}), target);
     items.clear();
     items.shrink_to_fit();
     EXPECT_FALSE(mesh.expired());
-    root.Update(frame_jobs);
+    root.TickFrame();
     EXPECT_TRUE(mesh.expired());
-    EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
-    root.Update(frame_jobs);
-    EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
+    EXPECT_EQ(context.GetRenderedFrameCount(), 2u);
+    root.TickFrame();
+    EXPECT_EQ(context.GetRenderedFrameCount(), 2u);
     const auto pixels = gfx::readback_texture(*device, queues, *bindings, *target);
     ASSERT_TRUE(pixels.GetDataSize() >= 4u);
     EXPECT_EQ(std::to_integer<unsigned>(pixels.GetData()[0]), 255u);
     EXPECT_EQ(std::to_integer<unsigned>(pixels.GetData()[2]), 0u);
 
-    root.RegisterSystem<pbr_renderer_test::FrameProducer>(selected, target);
-    root.Update(frame_jobs);
-    EXPECT_EQ(selected.GetRenderedFrameCount(), 3u);
-    root.GetSystemManager().Unregister<pbr_renderer_test::FrameProducer>();
-    root.Update(frame_jobs);
-    root.GetSystemManager().Unregister<render::pbr::PbrRenderer>();
-    root.Update(frame_jobs);
+    root.GetWorld().RegisterSystem<pbr_renderer_test::FrameProducer>(context, selected, target);
+    root.TickFrame();
+    EXPECT_EQ(context.GetRenderedFrameCount(), 3u);
+    root.GetWorld().GetSystemManager().Unregister<pbr_renderer_test::FrameProducer>();
+    root.TickFrame();
 }

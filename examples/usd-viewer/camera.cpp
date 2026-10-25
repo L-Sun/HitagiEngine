@@ -23,7 +23,7 @@ public:
         UpdatePose(camera);
     }
 
-    void Update(asset::CameraComponent& camera, const hid::InputManager& input, float aspect, float viewport_height,
+    void Update(asset::CameraComponent& camera, const hid::InputState& input, float aspect, float viewport_height,
                 bool enabled = true) {
         using Key = hid::VirtualKeyCode;
         if (input.GetBoolNew(Key::MOUSE_L_BUTTON)) m_OrbitDrag = enabled;
@@ -54,8 +54,10 @@ public:
     }
 
     void SetView(asset::CameraComponent& camera, std::string_view view) {
-        m_Yaw   = view == "right" ? 1.5707963f : view == "home" ? 0.35f : 0.0f;
-        m_Pitch = view == "top" ? 1.5f : view == "home" ? 0.2f : 0.0f;
+        m_Yaw   = view == "right" ? 1.5707963f : view == "home" ? 0.35f
+                                                                : 0.0f;
+        m_Pitch = view == "top" ? 1.5f : view == "home" ? 0.2f
+                                                        : 0.0f;
         UpdatePose(camera);
     }
 

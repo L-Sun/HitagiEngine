@@ -1,6 +1,5 @@
 export module render:toon_renderer;
 import core;
-import app;
 import asset;
 import ecs;
 import gfx;
@@ -70,54 +69,29 @@ struct ToonSettings {
     bool supersampling = true;
 };
 
-// A concrete runtime renderer, also usable as a pass builder for caller-owned graphs.
+// Builds rendering passes; RenderContext owns execution and presentation.
 class ToonRenderer final {
 public:
-    explicit ToonRenderer(const hitagi::asset::ResourceLoadContext& load_context, ToonSettings settings = {}, std::optional<ecs::Group> group = {});
-    // Window rendering: the application must outlive this renderer.
-    ToonRenderer(const asset::ResourceLoadContext& load_context, const Application& app, ToonSettings settings = {}, std::optional<ecs::Group> group = {});
+    explicit ToonRenderer(const hitagi::asset::ResourceLoadContext& load_context, ToonSettings settings = {});
 
     // Adds passes without executing. Keep this renderer and borrowed resources
-    // alive through execution, before the next Build() or RenderPending() on this instance.
+    // alive through execution, before the next Build() on this instance.
     auto Build(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult;
 
-    // Retains a snapshot for window rendering on every RenderPending call; initially empty.
-    // Requires the constructor taking Application. Calls are host-serialized.
-    void SetFrame(const RenderFrame& frame);
-    // Queues one offscreen render. Copies spans and retains the target until RenderPending.
-    void Submit(const RenderFrame& frame, std::shared_ptr<gfx::Texture> target);
-    void RenderPending();
-    void ConfigureSchedule(ecs::Schedule& schedule);
+    // Copies frame arrays; the returned builder borrows this renderer.
+    auto Capture(const RenderFrame& frame) -> FrameBuilder;
     ~ToonRenderer() = default;
-    auto GetRenderedFrameCount() const noexcept -> std::uint64_t { return m_RenderedFrames; }
 
 private:
-    std::optional<ecs::Group> m_Group;
-    auto                      CountRenderableSubMeshes(const RenderRequest& request, std::string_view contract) const -> std::size_t;
-    auto                      BuildPass(rg::RenderGraph& graph, const RenderRequest& request, rg::TextureHandle depth, std::string_view contract, bool clear) -> RenderResult;
-    auto                      Resolve(rg::RenderGraph& graph, const RenderResult& source, rg::TextureHandle target) -> RenderResult;
+    auto CountRenderableSubMeshes(const RenderRequest& request, std::string_view contract) const -> std::size_t;
+    auto BuildPass(rg::RenderGraph& graph, const RenderRequest& request, rg::TextureHandle depth, std::string_view contract, bool clear) -> RenderResult;
+    auto Resolve(rg::RenderGraph& graph, const RenderResult& source, rg::TextureHandle target) -> RenderResult;
 
     hitagi::gfx::Device&                  m_Device;
     hitagi::asset::ResourceLoadContext    m_LoadContext;
     std::shared_ptr<hitagi::gfx::Sampler> m_Sampler;
     ToonSettings                          m_Settings;
     std::shared_ptr<gfx::RenderPipeline>  m_ResolvePipeline;
-    struct PendingFrame {
-        RenderView                    view;
-        std::vector<RenderDrawItem>   draw_items;
-        DirectionalLight              light;
-        std::shared_ptr<gfx::Texture> target;
-    };
-    void ExecuteFrame(const PendingFrame& frame, const std::shared_ptr<gfx::SwapChain>& swap_chain = {});
-
-    const Application*              m_App = nullptr;
-    std::shared_ptr<gfx::SwapChain> m_SwapChain;
-    PendingFrame                    m_WindowFrame;
-    std::vector<PendingFrame>       m_PendingFrames;
-    std::uint64_t                   m_RenderedFrames = 0;
-    // Declared last: graph callbacks/resources retire before renderer state.
-    // Created on demand; callers using only Build need no private graph.
-    std::unique_ptr<rg::RenderGraph> m_Graph;
 };
 
 // Shader mirrors live in toon_forward.slang.
@@ -147,65 +121,10 @@ struct ToonBindlessInfo {
 
 namespace hitagi::render::toon {
 
-void ToonRenderer::ConfigureSchedule(ecs::Schedule& schedule) {
-    schedule.Request("ToonRenderer.Render", [this] { RenderPending(); }, m_Group);
-}
-
-ToonRenderer::ToonRenderer(const asset::ResourceLoadContext& load_context, const Application& app, ToonSettings settings, std::optional<ecs::Group> group)
-    : ToonRenderer(load_context, settings, group) {
-    m_App       = &app;
-    m_SwapChain = gfx::SwapChain::Create(m_LoadContext.device, m_LoadContext.queues.Get(gfx::CommandType::Graphics),
-                                         {.name = std::pmr::string("ToonRenderer"), .window = app.GetWindow()});
-}
-
-void ToonRenderer::SetFrame(const RenderFrame& frame) {
-    if (!m_App) throw std::logic_error("SetFrame requires a renderer constructed with Application");
-    m_WindowFrame = {
-        .view       = frame.view,
-        .draw_items = {frame.draw_items.begin(), frame.draw_items.end()},
-        .light      = frame.light,
-        .target     = m_WindowFrame.target,
+auto ToonRenderer::Capture(const RenderFrame& frame) -> FrameBuilder {
+    return [this, view = frame.view, draw_items = std::pmr::vector<RenderDrawItem>(frame.draw_items.begin(), frame.draw_items.end()), light = frame.light](rg::RenderGraph& graph, rg::TextureHandle target) {
+        return Build(graph, {.frame = {.view = view, .draw_items = draw_items, .light = light}, .target = target}).color;
     };
-}
-
-void ToonRenderer::Submit(const RenderFrame& frame, std::shared_ptr<gfx::Texture> target) {
-    detail::ValidateOutput(target);
-    m_PendingFrames.push_back({
-        .view       = frame.view,
-        .draw_items = {frame.draw_items.begin(), frame.draw_items.end()},
-        .light      = frame.light,
-        .target     = std::move(target),
-    });
-}
-
-void ToonRenderer::RenderPending() {
-    auto frames = std::exchange(m_PendingFrames, {});
-    for (const auto& frame : frames) ExecuteFrame(frame);
-
-    if (m_App && detail::PrepareWindowTarget(*m_App, m_LoadContext.device, m_LoadContext.queues,
-                                             m_LoadContext.bindings, m_SwapChain, m_WindowFrame.target)) {
-        ExecuteFrame(m_WindowFrame, m_SwapChain);
-    }
-}
-
-void ToonRenderer::ExecuteFrame(const PendingFrame& frame, const std::shared_ptr<gfx::SwapChain>& swap_chain) {
-    try {
-        if (!m_Graph) {
-            m_Graph = std::make_unique<rg::RenderGraph>(m_LoadContext.device, m_LoadContext.queues,
-                                                        m_LoadContext.bindings, "ToonRenderer");
-        }
-        const auto result = Build(*m_Graph, {
-                                                .frame  = {.view = frame.view, .draw_items = frame.draw_items, .light = frame.light},
-                                                .target = m_Graph->Import(frame.target),
-                                            });
-        detail::FinishFrame(*m_Graph, result.color, swap_chain);
-        ++m_RenderedFrames;
-    } catch (...) {
-        // Retire callbacks before releasing the frame snapshot; later frames
-        // can start with a fresh graph after a failed build or execution.
-        m_Graph.reset();
-        throw;
-    }
 }
 
 struct ToonDrawRecord {
@@ -348,16 +267,16 @@ auto CreateToonMaterial(const ToonMaterialDesc& desc, std::string_view name) -> 
     return std::make_shared<asset::Material>(CreateToonMaterialParameters(desc), CreateToonMaterialPasses(), name);
 }
 
-ToonRenderer::ToonRenderer(const asset::ResourceLoadContext& load_context, ToonSettings settings, std::optional<ecs::Group> group)
-    : m_Group(group), m_Device(load_context.device), m_LoadContext(load_context), m_Sampler(hitagi::gfx::Sampler::Create(m_Device, m_LoadContext.bindings, {
-                                                                                                                                                               .name          = "ToonSampler",
-                                                                                                                                                               .address_u     = gfx::AddressMode::Repeat,
-                                                                                                                                                               .address_v     = gfx::AddressMode::Repeat,
-                                                                                                                                                               .address_w     = gfx::AddressMode::Repeat,
-                                                                                                                                                               .mag_filter    = gfx::FilterMode::Linear,
-                                                                                                                                                               .min_filter    = gfx::FilterMode::Linear,
-                                                                                                                                                               .mipmap_filter = gfx::FilterMode::Linear,
-                                                                                                                                                           })),
+ToonRenderer::ToonRenderer(const asset::ResourceLoadContext& load_context, ToonSettings settings)
+    : m_Device(load_context.device), m_LoadContext(load_context), m_Sampler(hitagi::gfx::Sampler::Create(m_Device, m_LoadContext.bindings, {
+                                                                                                                                               .name          = "ToonSampler",
+                                                                                                                                               .address_u     = gfx::AddressMode::Repeat,
+                                                                                                                                               .address_v     = gfx::AddressMode::Repeat,
+                                                                                                                                               .address_w     = gfx::AddressMode::Repeat,
+                                                                                                                                               .mag_filter    = gfx::FilterMode::Linear,
+                                                                                                                                               .min_filter    = gfx::FilterMode::Linear,
+                                                                                                                                               .mipmap_filter = gfx::FilterMode::Linear,
+                                                                                                                                           })),
       m_Settings(settings) {}
 
 auto ToonRenderer::CountRenderableSubMeshes(const RenderRequest& request, std::string_view contract) const -> std::size_t {

@@ -159,7 +159,7 @@ void USDViewer::ApplyCommand(std::string_view command) {
         m_Orbit.SetView(m_Camera, value);
     else if (action == "light") {
         m_Light = std::min(std::max(m_Light + (value == "up" ? 0.25f : -0.25f), 0.25f), 4.0f);
-    } else if (action == "debug" && m_Deferred) {
+    } else if (action == "debug" && m_Renderer == RendererType::Deferred) {
         using Debug = render::deferred::RenderGraphDebugView;
         if (value == "color")
             m_Debug = Debug::BaseColor;

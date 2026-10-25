@@ -122,11 +122,11 @@ struct MeshInfo {
 struct InstanceInfo {
     std::vector<std::shared_ptr<asset::Material>> material_overrides;
     auto                                          SubMeshes() const { return asset::ResolveSubMeshes(*mesh, material_overrides); }
-    std::shared_ptr<asset::Mesh>        mesh;
-    std::shared_ptr<asset::VertexArray> deformed_vertices;
-    InstanceConstant                    instance_data;
-    std::size_t                         instance_index;
-    std::uint32_t                       object_id = 0;
+    std::shared_ptr<asset::Mesh>                  mesh;
+    std::shared_ptr<asset::VertexArray>           deformed_vertices;
+    InstanceConstant                              instance_data;
+    std::size_t                                   instance_index;
+    std::uint32_t                                 object_id = 0;
 };
 
 struct RenderGeometry {
@@ -142,7 +142,7 @@ struct ShaderSource {
     std::pmr::string      code;
 };
 
-auto LoadShaderSource(core::FileIOManager& file_io, std::filesystem::path path) -> ShaderSource;
+auto LoadShaderSource(core::IOService& file_io, std::filesystem::path path) -> ShaderSource;
 
 struct DeferredRenderResources {
     rg::TextureHandle color;
@@ -466,7 +466,7 @@ struct RenderDrawState : RenderGeometry {
 }  // namespace hitagi::render::deferred
 
 namespace hitagi::render::deferred {
-auto LoadShaderSource(core::FileIOManager& file_io, std::filesystem::path path) -> ShaderSource {
+auto LoadShaderSource(core::IOService& file_io, std::filesystem::path path) -> ShaderSource {
     std::pmr::string code(file_io.SyncOpenAndReadBinary(path).Str());
     return {.path = std::move(path), .code = std::move(code)};
 }

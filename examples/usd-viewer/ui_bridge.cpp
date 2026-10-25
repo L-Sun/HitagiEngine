@@ -4,6 +4,7 @@ import std;
 import asset;
 import math;
 import physics;
+import interop.magic_enum;
 
 namespace hitagi::examples {
 
@@ -56,15 +57,15 @@ auto USDViewer::Snapshot() const -> std::string {
         }
     }
     nodes += ']';
-    double animation_time = 0.0, animation_duration = 0.0;
-    unsigned physics_bodies = 0;
-    bool physics = false;
-    std::string solver = "";
+    double      animation_time = 0.0, animation_duration = 0.0;
+    unsigned    physics_bodies = 0;
+    bool        physics        = false;
+    std::string solver         = "";
     for (const auto& node : m_Nodes) {
         if (node.entity.Has<physics::CharacterPhysics>()) {
             const auto& rig = node.entity.Get<physics::CharacterPhysics>();
             physics_bodies += static_cast<unsigned>(rig.bodies.size());
-            solver = rig.backend == hitagi::physics::RigBackend::Jolt ? "Jolt" : "Bullet";
+            solver  = rig.backend == hitagi::physics::RigBackend::Jolt ? "Jolt" : "Bullet";
             physics = physics || rig.enabled;
         }
     }
@@ -77,7 +78,7 @@ auto USDViewer::Snapshot() const -> std::string {
     return std::format(
         R"({{"kind":"viewer","path":{},"file":{},"renderer":"{}","backend":{},"debug":{},"light":{},"selected":{},"nodes":{},"inspector":{},"meshes":{},"visible":{},"triangles":{},"error":{},"status":{},"eye":[{},{},{}],"animations":{},"playing":{},"animationTime":{},"animationDuration":{},"physicsBodies":{},"physics":{},"physicsBackend":{},"fps":{:.1f}}})",
         JsonString(m_Path.generic_string()), JsonString(m_Path.filename().string()),
-        RendererName(m_Renderer), JsonString(m_App.GetConfig().gfx_backend),
+        RendererName(m_Renderer), JsonString(magic_enum::enum_name(m_Resources.device.device_type)),
         static_cast<unsigned>(m_Debug), m_Light, JsonString(m_Selected), nodes, inspector, meshes, visible,
         triangles, JsonString(m_Error), JsonString(m_Status), eye.x, eye.y, eye.z,
         m_AnimationPlayers.size(), m_Playing, animation_time, animation_duration, physics_bodies, physics, JsonString(solver), m_Fps);
@@ -89,20 +90,19 @@ void USDViewer::PublishState() {
     // Timeline text does not need to reconcile the entire scene tree at the
     // render rate. All other state changes (controls, camera, selection, errors)
     // still publish immediately; Snapshot() remains unthrottled for replay.
-    auto static_state = state;
-    const auto time_key = static_state.find("\"animationTime\":");
+    auto       static_state = state;
+    const auto time_key     = static_state.find("\"animationTime\":");
     if (time_key != std::string::npos) {
         const auto value = time_key + std::string_view("\"animationTime\":").size();
         static_state.erase(value, static_state.find(',', value) - value);
     }
-    const auto now = std::chrono::steady_clock::now();
-    const bool timeline_due = m_Deterministic ? m_Frame % 6 == 0 :
-        now - m_LastStatePublish >= std::chrono::milliseconds(100);
+    const auto now          = std::chrono::steady_clock::now();
+    const bool timeline_due = m_Deterministic ? m_Frame % 6 == 0 : now - m_LastStatePublish >= std::chrono::milliseconds(100);
     if (static_state == m_PublishedStaticState && !timeline_due) return;
     m_Gui.PostEvent("{\"type\":\"state\",\"value\":" + state + "}");
-    m_PublishedState = std::move(state);
+    m_PublishedState       = std::move(state);
     m_PublishedStaticState = std::move(static_state);
-    m_LastStatePublish = now;
+    m_LastStatePublish     = now;
 }
 
 void USDViewer::DrainUi() {

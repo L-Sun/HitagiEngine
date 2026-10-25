@@ -158,6 +158,7 @@ TEST_P(ToonRendererTest, OutlineExpandsSilhouetteAndCutoutRemovesBothPasses) {
     gfx::ShaderCompiler              compiler("Toon outline tests");
     const asset::ResourceLoadContext context{*device, queues, *bindings, compiler};
     render::toon::ToonRenderer       renderer(context);
+    render::RenderContext            rendering(*device, queues, *bindings);
     auto                             output = gfx::Texture::Create(*device, queues, *bindings, {.width = 96, .height = 96, .format = gfx::Format::R8G8B8A8_UNORM, .clear_value = math::Color::White(), .usages = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc});
     std::array<unsigned, 4>          dark{};
     for (unsigned run = 0; run < 4; ++run) {
@@ -169,11 +170,11 @@ TEST_P(ToonRendererTest, OutlineExpandsSilhouetteAndCutoutRemovesBothPasses) {
         }
         auto        mesh = toon_renderer_test::Sphere(material);
         std::vector items{render::RenderDrawItem{.mesh = mesh}};
-        renderer.Submit({.draw_items = items}, output);
+        rendering.Submit(renderer.Capture({.draw_items = items}), output);
         items.clear();
         mesh.reset();
         material.reset();
-        renderer.RenderPending();
+        rendering.RenderPending();
         auto pixels = gfx::readback_texture(*device, queues, *bindings, *output);
         for (unsigned i = 0; i < 96 * 96; ++i)
             if (std::to_integer<unsigned>(pixels.GetData()[i * 4]) < 80) ++dark[run];
@@ -183,11 +184,11 @@ TEST_P(ToonRendererTest, OutlineExpandsSilhouetteAndCutoutRemovesBothPasses) {
     EXPECT_GT(dark[1], 120u);
     EXPECT_EQ(dark[2], 0u);
     EXPECT_EQ(dark[3], 0u);
-    EXPECT_EQ(renderer.GetRenderedFrameCount(), 4u);
-    renderer.RenderPending();
-    EXPECT_EQ(renderer.GetRenderedFrameCount(), 4u);
-    EXPECT_THROW(renderer.Submit({}, {}), std::invalid_argument);
-    EXPECT_THROW(renderer.SetFrame({}), std::logic_error);
+    EXPECT_EQ(rendering.GetRenderedFrameCount(), 4u);
+    rendering.RenderPending();
+    EXPECT_EQ(rendering.GetRenderedFrameCount(), 4u);
+    EXPECT_THROW(rendering.Submit(renderer.Capture({}), {}), std::invalid_argument);
+    EXPECT_THROW(rendering.SetFrame(renderer.Capture({})), std::logic_error);
     asset::Texture::DestroyDefaultTexture();
 }
 

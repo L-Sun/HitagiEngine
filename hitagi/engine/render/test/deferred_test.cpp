@@ -14,7 +14,7 @@ import ecs;
 import engine;
 import utils;
 import math;
-import app;
+import platform;
 import test_utils;
 
 using namespace testing;
@@ -56,16 +56,20 @@ public:
 };
 
 TEST_P(DeferredRendererTest, SystemConsumesSnapshotsAndRecoversAfterExtensionFailure) {
+    core::Runtime       runtime;
     auto                device = gfx::create_device(GetParam());
     gfx::CommandQueues  queues(*device);
     auto                bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler compiler("Deferred module test");
-    core::FileIOManager file_io;
-    core::JobSystem frame_jobs{core::JobSystem::Execution::CallingThread};
-    ecs::World root("Root", ConfigureFrameStages);
+    core::IOService     file_io;
+    App                 root(runtime);
+    root.AddPlugin(render::RenderPlugin{.device = *device, .queues = queues, .bindings = *bindings});
+    root.AddPlugin(DeferredPlugin{.resources = {.device = *device, .queues = queues, .bindings = *bindings, .shader_compiler = compiler}, .files = file_io});
+    auto& render_world = root.GetWorld().GetResource<render::RenderApp>().app.GetWorld();
+    auto& context      = render_world.GetResource<render::RenderContext>();
 
-    auto& selected = root.RegisterSystem<DeferredRenderer>(*device, queues, *bindings, compiler, file_io, "assets/shaders", FrameStage::Render);
-    const auto probe = std::make_shared<DeferredSnapshotProbe>();
+    auto&      selected = render_world.GetResource<DeferredRenderer>();
+    const auto probe    = std::make_shared<DeferredSnapshotProbe>();
     selected.AddExtension(probe);
     auto target = gfx::Texture::Create(*device, queues, *bindings, {
                                                                        .name        = "DeferredSubmittedTarget",
@@ -75,32 +79,32 @@ TEST_P(DeferredRendererTest, SystemConsumesSnapshotsAndRecoversAfterExtensionFai
                                                                        .clear_value = math::Color::Black(),
                                                                        .usages      = gfx::TextureUsageFlags::RenderTarget,
                                                                    });
-    EXPECT_THROW(selected.Submit({}, {}), std::invalid_argument);
-    EXPECT_THROW(selected.SetFrame({}), std::logic_error);
+    EXPECT_THROW(context.Submit(selected.Capture({}), {}), std::invalid_argument);
+    EXPECT_THROW(context.SetFrame(selected.Capture({})), std::logic_error);
     std::vector<RenderDrawItem> items{{.mesh = std::make_shared<asset::Mesh>()}};
     std::weak_ptr<asset::Mesh>  mesh = items.front().mesh;
     RenderFrame                 frame{.view = {.camera_position = {1.0f, 0.0f, 0.0f}}, .draw_items = items};
-    selected.Submit(frame, target);
+    context.Submit(selected.Capture(frame), target);
     frame.view.camera_position.x = 2.0f;
-    selected.Submit(frame, target, RenderGraphDebugView::Normal);
+    context.Submit(selected.Capture(frame, RenderGraphDebugView::Normal), target);
     items.clear();
     items.shrink_to_fit();
     EXPECT_FALSE(mesh.expired());
-    root.Update(frame_jobs);
+    root.TickFrame();
     EXPECT_TRUE(mesh.expired());
     EXPECT_EQ(probe->camera_positions, (std::vector<float>{1.0f, 2.0f}));
-    EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
-    root.Update(frame_jobs);
-    EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
+    EXPECT_EQ(context.GetRenderedFrameCount(), 2u);
+    root.TickFrame();
+    EXPECT_EQ(context.GetRenderedFrameCount(), 2u);
 
     probe->fail = true;
-    selected.Submit({}, target);
-    EXPECT_THROW(root.Update(frame_jobs), std::runtime_error);
-    EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
+    context.Submit(selected.Capture({}), target);
+    EXPECT_THROW(root.TickFrame(), std::runtime_error);
+    EXPECT_EQ(context.GetRenderedFrameCount(), 2u);
     selected.ClearExtensions();
-    selected.Submit({}, target);
-    root.Update(frame_jobs);
-    EXPECT_EQ(selected.GetRenderedFrameCount(), 3u);
+    context.Submit(selected.Capture({}), target);
+    root.TickFrame();
+    EXPECT_EQ(context.GetRenderedFrameCount(), 3u);
 }
 
 TEST_P(DeferredRendererTest, BuildsExplicitFramesAndExtensionsIntoApplicationGraph) {
@@ -108,7 +112,7 @@ TEST_P(DeferredRendererTest, BuildsExplicitFramesAndExtensionsIntoApplicationGra
     gfx::CommandQueues     queues(*device);
     auto                   bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler    compiler("Deferred pipeline test");
-    core::FileIOManager    file_io;
+    core::IOService        file_io;
     DeferredRenderer       pipeline(*device, queues, *bindings, compiler, file_io, "assets/shaders");
     rg::RenderGraph        graph(*device, queues, *bindings);
     const gfx::TextureDesc desc{
@@ -325,12 +329,14 @@ TEST_P(DeferredRendererTest, LightingReadsFirstAndLastLightFromTheExistingFrameB
     gfx::CommandQueues       queues(*device);
     auto                     bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler      compiler("Deferred light array layout");
-    core::FileIOManager      file_io;
+    core::IOService          file_io;
     passes::DeferredLighting lighting(*device, *bindings, compiler, LoadShaderSource(file_io, "assets/shaders/deferred_lighting.slang"));
     const auto               make_texture = [&](math::vec4f pixel) {
+        // TextureDesc infers 1D when height == 1; the shader samples Texture2D.
+        const std::array pixels{pixel, pixel, pixel, pixel};
         return gfx::Texture::Create(*device, queues, *bindings,
-                                    {.width = 1, .height = 1, .format = gfx::Format::R32G32B32A32_FLOAT, .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst},
-                                    std::as_bytes(std::span(&pixel, 1)));
+                                    {.width = 2, .height = 2, .format = gfx::Format::R32G32B32A32_FLOAT, .usages = gfx::TextureUsageFlags::SRV | gfx::TextureUsageFlags::CopyDst},
+                                    std::as_bytes(std::span(pixels)));
     };
     const auto                  albedo   = make_texture({0.5f, 0.5f, 0.5f, 1.0f});
     const auto                  normal   = make_texture({0.5f, 0.5f, 1.0f, 1.0f});

@@ -8,3 +8,7 @@ export import :deferred_renderer;
 export import :pbr_renderer;
 export import :scene;
 export import :toon_renderer;
+export import :plugin;
+export import :pbr_plugin;
+export import :toon_plugin;
+export import :deferred_plugin;

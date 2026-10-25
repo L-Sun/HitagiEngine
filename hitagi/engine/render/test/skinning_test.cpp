@@ -63,7 +63,8 @@ auto Material(bool deferred, bool toon = false) -> std::shared_ptr<asset::Materi
         {"emissive_texture", std::shared_ptr<asset::Texture>{}},
     };
     return std::make_shared<asset::Material>(asset::MaterialParameters{}, std::pmr::vector<asset::MaterialPass>{{
-                                                                              .pass_contract = deferred ? "GBuffer" : toon ? "ToonForward" : "PBRForward",
+                                                                              .pass_contract = deferred ? "GBuffer" : toon ? "ToonForward"
+                                                                                                                           : "PBRForward",
                                                                               .pipeline      = std::move(pipeline),
                                                                               .bindings      = std::move(bindings),
                                                                           }});
@@ -124,11 +125,11 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
     gfx::CommandQueues  queues(*device);
     auto                bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler compiler("Skinning renderer test");
-    core::FileIOManager file_io;
+    core::IOService     file_io;
     for (unsigned variant : {0u, 1u, 2u, 3u, 4u, 5u}) {
         const unsigned           kind       = variant % 3;
         const bool               hide_right = variant >= 3;
-        const bool deferred = kind == 1, toon = kind == 2;
+        const bool               deferred = kind == 1, toon = kind == 2;
         asset::Scene             scene;
         const auto               mesh = skinning_render_test::Triangle(deferred, toon);
         const auto               skin = std::make_shared<asset::Skin>(std::vector{math::mat4f::identity()});
@@ -158,28 +159,31 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
         };
         if (deferred) {
             render::deferred::DeferredRenderer            renderer(*device, queues, *bindings, compiler, file_io, "assets/shaders");
+            render::RenderContext                         rendering(*device, queues, *bindings);
             std::vector<render::deferred::RenderDrawItem> items;
             for (auto entity : instances) items.emplace_back(render::deferred::RenderDrawItem::FromEntity(entity));
-            renderer.Submit({.draw_items = items}, target, render::deferred::RenderGraphDebugView::BaseColor);
+            rendering.Submit(renderer.Capture({.draw_items = items}, render::deferred::RenderGraphDebugView::BaseColor), target);
             items.clear();
             advance_scene();
-            renderer.RenderPending();
+            rendering.RenderPending();
         } else if (toon) {
-            render::toon::ToonRenderer renderer({*device, queues, *bindings, compiler});
+            render::toon::ToonRenderer          renderer({*device, queues, *bindings, compiler});
+            render::RenderContext               rendering(*device, queues, *bindings);
             std::vector<render::RenderDrawItem> items;
             for (auto entity : instances) items.emplace_back(render::RenderDrawItem::FromEntity(entity));
-            renderer.Submit({.draw_items = items}, target);
+            rendering.Submit(renderer.Capture({.draw_items = items}), target);
             items.clear();
             advance_scene();
-            renderer.RenderPending();
+            rendering.RenderPending();
         } else {
             render::pbr::PbrRenderer                 renderer({*device, queues, *bindings, compiler});
+            render::RenderContext                    rendering(*device, queues, *bindings);
             std::vector<render::pbr::RenderDrawItem> items;
             for (auto entity : instances) items.emplace_back(render::pbr::RenderDrawItem::FromEntity(entity));
-            renderer.Submit({.draw_items = items}, target);
+            rendering.Submit(renderer.Capture({.draw_items = items}), target);
             items.clear();
             advance_scene();
-            renderer.RenderPending();
+            rendering.RenderPending();
         }
         const auto pixels = gfx::readback_texture(*device, queues, *bindings, *target);
         ASSERT_EQ(pixels.GetDataSize(), 64u * 64u * 4u);

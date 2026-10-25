@@ -2,7 +2,7 @@ export module viewer:application;
 
 import std;
 import core;
-import app;
+import platform;
 import asset;
 import ecs;
 import engine;
@@ -19,15 +19,15 @@ import :camera;
 export namespace hitagi::examples {
 
 struct SceneNode {
-    ecs::Entity entity;
-    std::string path;
-    std::string name;
-    unsigned    depth  = 0;
-    bool        hidden = false;
-    math::AABBf bounds;
+    ecs::Entity                               entity;
+    std::string                               path;
+    std::string                               name;
+    unsigned                                  depth  = 0;
+    bool                                      hidden = false;
+    math::AABBf                               bounds;
     math::AABBf                               local_bounds;
     std::shared_ptr<const asset::VertexArray> bounds_vertices;
-    std::size_t parent_index = std::numeric_limits<std::size_t>::max();
+    std::size_t                               parent_index = std::numeric_limits<std::size_t>::max();
 };
 
 struct UiControl {
@@ -37,10 +37,13 @@ struct UiControl {
 
 class USDViewer final {
 public:
-    USDViewer(Application& app, asset::ResourceLoadContext resources, core::FileIOManager& file_io,
-              core::JobSystem& job_system, const std::filesystem::path& path, RendererType renderer, bool deterministic = false);
+    USDViewer(platform::PlatformHost& app, asset::ResourceLoadContext resources, core::IOService& file_io,
+              core::JobSystem& job_system, render::RenderContext& rendering,
+              render::pbr::PbrRenderer& pbr, render::toon::ToonRenderer& toon, render::deferred::DeferredRenderer& deferred,
+              const std::filesystem::path& path, RendererType renderer, bool deterministic = false);
     void ConfigureSchedule(ecs::Schedule& schedule);
     void SetRenderer(RendererType renderer);
+    void FinishFrame();
 
     // Layout and snapshots let the replay driver inspect actual UI/GPU results.
     auto Controls() const -> const std::map<std::string, UiControl>& { return m_Controls; }
@@ -50,24 +53,25 @@ public:
     auto FrameTimings() const noexcept -> const std::array<double, 4>& { return m_FrameTimings; }
 
 private:
-    void PrepareFrame();
-    void UpdateScene();
-    void PublishFrame();
-    void Measure(unsigned phase);
+    void                                  PrepareFrame();
+    void                                  UpdateScene();
+    void                                  PublishFrame();
+    void                                  Measure(unsigned phase);
     std::chrono::steady_clock::time_point m_PhaseStart;
-    void OpenScene(const std::filesystem::path& path);
-    void IndexScene(ecs::Entity entity, std::string parent, unsigned depth, std::size_t parent_index = std::numeric_limits<std::size_t>::max());
-    void UpdateBounds();
-    void ApplyCommand(std::string_view command);
-    void DrainUi();
-    void PublishState();
-    void RenderFrame();
-    auto SelectedNode() -> SceneNode*;
-    auto Visible(const SceneNode& node) const -> bool;
+    void                                  OpenScene(const std::filesystem::path& path);
+    void                                  IndexScene(ecs::Entity entity, std::string parent, unsigned depth, std::size_t parent_index = std::numeric_limits<std::size_t>::max());
+    void                                  UpdateBounds();
+    void                                  ApplyCommand(std::string_view command);
+    void                                  DrainUi();
+    void                                  PublishState();
+    void                                  RenderFrame();
+    auto                                  BuildFrame(rg::RenderGraph& graph, rg::TextureHandle output) -> rg::TextureHandle;
+    auto                                  SelectedNode() -> SceneNode*;
+    auto                                  Visible(const SceneNode& node) const -> bool;
 
-    Application&                          m_App;
+    platform::PlatformHost&               m_App;
     asset::ResourceLoadContext            m_Resources;
-    core::FileIOManager&                  m_FileIO;
+    core::IOService&                      m_FileIO;
     core::JobSystem&                      m_Jobs;
     std::shared_ptr<asset::Scene>         m_Scene;
     std::vector<SceneNode>                m_Nodes;
@@ -85,8 +89,8 @@ private:
     std::uint64_t                         m_Frame = 0;
     std::array<double, 4>                 m_FrameTimings{};
     std::chrono::steady_clock::time_point m_FpsSampleStart{};
-    unsigned                             m_FpsSampleFrames = 0;
-    double                               m_Fps = 0.0;
+    unsigned                              m_FpsSampleFrames = 0;
+    double                                m_Fps             = 0.0;
     std::vector<ecs::Entity>              m_AnimationPlayers;
     bool                                  m_Playing           = true;
     bool                                  m_Deterministic     = false;
@@ -94,35 +98,66 @@ private:
 
     RendererType                           m_Renderer = RendererType::Pbr;
     render::deferred::RenderGraphDebugView m_Debug    = render::deferred::RenderGraphDebugView::Final;
-    std::unique_ptr<render::pbr::PbrRenderer> m_Pbr;
-    std::unique_ptr<render::toon::ToonRenderer> m_Toon;
-    std::unique_ptr<render::deferred::DeferredRenderer> m_Deferred;
+    render::RenderContext&                 m_Rendering;
+    render::pbr::PbrRenderer&              m_Pbr;
+    render::toon::ToonRenderer&            m_Toon;
+    render::deferred::DeferredRenderer&    m_Deferred;
 
-    gui::GuiManager                  m_Gui;
+    gui::GuiContext                  m_Gui;
     gui::GuiRenderUtils              m_GuiDraw;
-    std::shared_ptr<gfx::SwapChain>  m_SwapChain;
-    std::shared_ptr<gfx::Texture>    m_Output;
     math::vec4f                      m_Viewport{};
     std::map<std::string, UiControl> m_Controls;
-    rg::RenderGraph                  m_Graph;
+};
+
+// Installs the viewer without hiding its service dependencies.
+struct USDViewerPlugin {
+    platform::PlatformHost&    platform;
+    asset::ResourceLoadContext resources;
+    core::IOService&           files;
+    core::JobSystem&           jobs;
+    std::filesystem::path      scene;
+    RendererType               renderer;
+    bool                       deterministic = false;
+    void                       Build(App& app) const {
+        app.AddPlugin(render::RenderPlugin{
+            .device      = resources.device,
+            .queues      = resources.queues,
+            .bindings    = resources.bindings,
+            .window      = &platform,
+            .clear_color = math::Color(0.067f, 0.082f, 0.11f, 1.0f),
+        });
+        app.AddPlugins(render::pbr::PbrPlugin{.resources = resources},
+                       render::toon::ToonPlugin{.resources = resources},
+                       render::deferred::DeferredPlugin{.resources = resources, .files = files});
+        auto& render_world = app.GetWorld().GetResource<render::RenderApp>().app.GetWorld();
+        auto& viewer       = app.GetWorld().RegisterSystem<USDViewer>(
+            platform, resources, files, jobs, render_world.GetResource<render::RenderContext>(),
+            render_world.GetResource<render::pbr::PbrRenderer>(), render_world.GetResource<render::toon::ToonRenderer>(),
+            render_world.GetResource<render::deferred::DeferredRenderer>(), scene, renderer, deterministic);
+        app.GetWorld().BorrowResource(viewer);
+        render_world.AddTask("Viewer.Publish", [&viewer] { viewer.FinishFrame(); }, FrameStage::Last);
+    }
 };
 
 }  // namespace hitagi::examples
 
 namespace hitagi::examples {
 
-USDViewer::USDViewer(Application& app, asset::ResourceLoadContext resources, core::FileIOManager& file_io,
-                     core::JobSystem& job_system, const std::filesystem::path& path, RendererType renderer, bool deterministic)
+USDViewer::USDViewer(platform::PlatformHost& app, asset::ResourceLoadContext resources, core::IOService& file_io,
+                     core::JobSystem& job_system, render::RenderContext& rendering,
+                     render::pbr::PbrRenderer& pbr, render::toon::ToonRenderer& toon, render::deferred::DeferredRenderer& deferred,
+                     const std::filesystem::path& path, RendererType renderer, bool deterministic)
     : m_App(app),
       m_Resources(resources),
       m_FileIO(file_io),
       m_Jobs(job_system),
       m_Deterministic(deterministic),
+      m_Rendering(rendering),
+      m_Pbr(pbr),
+      m_Toon(toon),
+      m_Deferred(deferred),
       m_Gui(app, file_io),
-      m_GuiDraw(resources.device, resources.bindings, resources.shader_compiler),
-      m_SwapChain(gfx::SwapChain::Create(resources.device, resources.queues.Get(gfx::CommandType::Graphics),
-                                         {.name = "USDViewer", .window = app.GetWindow()})),
-      m_Graph(resources.device, resources.queues, resources.bindings, "USDViewer") {
+      m_GuiDraw(resources.device, resources.bindings, resources.shader_compiler) {
     m_Gui.LoadApp("build/pocketjs/ui/usd-viewer.js", "build/pocketjs/ui/usd-viewer.pak",
                   {.desktop = true, .raster_density = 2, .single_step = deterministic});
     SetRenderer(renderer);
@@ -131,22 +166,6 @@ USDViewer::USDViewer(Application& app, asset::ResourceLoadContext resources, cor
 }
 
 void USDViewer::SetRenderer(RendererType renderer) {
-    if (renderer == m_Renderer && (m_Pbr || m_Toon || m_Deferred)) return;
-    m_Pbr      = nullptr;
-    m_Toon     = nullptr;
-    m_Deferred = nullptr;
-    if (renderer == RendererType::Pbr) {
-        auto module = std::make_unique<render::pbr::PbrRenderer>(m_Resources);
-        m_Pbr = std::move(module);
-    } else if (renderer == RendererType::Toon) {
-        auto module = std::make_unique<render::toon::ToonRenderer>(m_Resources);
-        m_Toon = std::move(module);
-    } else {
-        auto module = std::make_unique<render::deferred::DeferredRenderer>(
-            m_Resources.device, m_Resources.queues, m_Resources.bindings, m_Resources.shader_compiler,
-            m_FileIO, "assets/shaders");
-        m_Deferred = std::move(module);
-    }
     m_Renderer = renderer;
     m_Debug    = render::deferred::RenderGraphDebugView::Final;
     m_Status   = std::format("{} renderer", RendererName(renderer));
@@ -155,14 +174,18 @@ void USDViewer::SetRenderer(RendererType renderer) {
 void USDViewer::ConfigureSchedule(ecs::Schedule& schedule) {
     schedule.Request("Viewer.Input", [this] { PrepareFrame(); }, FrameStage::PreUpdate);
     schedule.Request("Viewer.Scene", [this] { UpdateScene(); }, FrameStage::Update);
-    schedule.Request("Viewer.Render", [this] { RenderFrame(); Measure(2); }, FrameStage::Render);
-    schedule.Request("Viewer.Publish", [this] { PublishFrame(); }, FrameStage::Last);
+    schedule.Request("Viewer.Render", [this] { RenderFrame(); }, FrameStage::Render);
+}
+
+void USDViewer::FinishFrame() {
+    Measure(2);
+    PublishFrame();
 }
 
 void USDViewer::Measure(unsigned phase) {
-    const auto end = std::chrono::steady_clock::now();
+    const auto end        = std::chrono::steady_clock::now();
     m_FrameTimings[phase] = std::chrono::duration<double, std::milli>(end - m_PhaseStart).count();
-    m_PhaseStart = end;
+    m_PhaseStart          = end;
 }
 
 void USDViewer::PrepareFrame() {
@@ -181,12 +204,12 @@ void USDViewer::UpdateScene() {
         m_Scene->GetWorld().Update(m_Jobs, elapsed);
         UpdateBounds();
     }
-    const auto& input = m_App.GetInputManager();
+    const auto& input = m_App.GetInputState();
     if (!m_Gui.WantsTextInput()) {
         if (input.GetBoolNew(hid::VirtualKeyCode::KEY_F)) ApplyCommand("fit");
         if (input.GetBoolNew(hid::VirtualKeyCode::KEY_TAB))
-            SetRenderer(m_Renderer == RendererType::Pbr ? RendererType::Toon :
-                        m_Renderer == RendererType::Toon ? RendererType::Deferred : RendererType::Pbr);
+            SetRenderer(m_Renderer == RendererType::Pbr ? RendererType::Toon : m_Renderer == RendererType::Toon ? RendererType::Deferred
+                                                                                                                : RendererType::Pbr);
         if (input.GetBoolNew(hid::VirtualKeyCode::KEY_ESCAPE)) m_Selected.clear();
     }
     if (m_Scene && m_Viewport.z > 0 && m_Viewport.w > 0) {
@@ -208,9 +231,9 @@ void USDViewer::PublishFrame() {
             ++m_FpsSampleFrames;
             const double seconds = std::chrono::duration<double>(completed - m_FpsSampleStart).count();
             if (seconds >= 0.5) {
-                m_Fps = m_FpsSampleFrames / seconds;
+                m_Fps             = m_FpsSampleFrames / seconds;
                 m_FpsSampleFrames = 0;
-                m_FpsSampleStart = completed;
+                m_FpsSampleStart  = completed;
             }
         }
     }
