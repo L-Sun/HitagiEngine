@@ -95,6 +95,8 @@ See [Overall abstraction design](docs/architecture/overview.md) for the four-lay
 
 The `editor` C++ module and `hitagi_editor` target currently contain only asset authoring APIs. There is no `hitagi::Editor` runtime module or editor executable. Future game-specific tooling should follow concrete game requirements.
 
+`editor` also exports `UsdImportPlugin` and `SceneImportService` for host App composition. The plugin explicitly borrows AssetService and JobSystem and copies the host's USD material policy; it selects no renderer and creates no frame task. Pass EditorCookContext per import, with document/session ownership, rather than installing shared source metadata globally. Keep the direct import, Cook and material compiler APIs usable without plugins. See [authoring plugin contracts](docs/architecture/dependency_injection.md#optional-authoring-plugins).
+
 Runtime packaging should require only engine, game, and cooked assets. USD authoring data, editable document graphs, and save-back workflows belong to editor/game-editor. Game-specific render pipelines and material compiler policies belong to game; engine render code provides reusable primitives and explicitly owned defaults.
 
 Current engine code generally uses `hitagi::`; some editor and example types still use that namespace too. Follow local declarations when editing existing code and keep namespace migration separate from unrelated changes.

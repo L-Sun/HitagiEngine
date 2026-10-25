@@ -52,7 +52,7 @@ native text/IME session path. Keyboard shortcuts are suppressed while editing.
 | `main.cpp`, `options.cpp` | Runtime / App / DefaultPlugins assembly, command-line options, run loop |
 | `viewer.cpp` | Viewer plugin, injected services, concrete renderer selection, frame coordination |
 | `document.cpp` | Scene replacement, hierarchy, selection, visibility, commands |
-| `scene.cpp`, `scene_loader.cpp` | Scene loading interface, USD import and material conversion |
+| `scene.cpp`, `scene_loader.cpp` | Viewer-owned USD material policy, passed to the editor import plugin |
 | `camera.cpp` | Orbit/pan/zoom controller using `asset::CameraComponent` projection settings |
 | `presentation.cpp` | Scene and GUI composition in RenderContext's shared graph; capture |
 | `ui_bridge.cpp` | Host state and named layout/control effects |
@@ -60,6 +60,11 @@ native text/IME session path. Keyboard shortcuts are suppressed while editing.
 | `test/e2e.cpp` | Tick driver, interaction journey, pixel/state replay checks |
 
 USDViewerPlugin installs RenderPlugin and the PBR, Toon and deferred plugins.
+It also installs editor's UsdImportPlugin with explicit AssetService/JobSystem
+dependencies and a viewer-owned material conversion policy. The viewer borrows
+SceneImportService; each open/reload uses that service rather than constructing
+another importer and recompiling the material pass templates. Document source
+metadata remains optional and scoped to each import, not global App state.
 The main World handles input, scene updates and selecting the frame builder.
 RenderApp owns the concrete renderer resources and RenderContext, which builds
 scene and GUI passes into one graph and owns the swapchain and presentation.

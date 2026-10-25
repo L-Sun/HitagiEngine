@@ -36,6 +36,48 @@ Resource lookup belongs at this assembly boundary. `GuiPlugin` receives a Platfo
 
 `platform::PlatformHost` owns the native window, events, input and modal callback. PlatformPlugin connects it to App's event loop. A headless tool can construct Runtime and App without installing PlatformPlugin; use a bounded `Run(frame_count)` or provide an event loop. PlatformConfig contains window/surface settings. Graphics backend, asset root and log level belong to their respective plugin or Runtime configuration.
 
+## Optional authoring plugins
+
+The `editor` module exports `UsdImportPlugin` and `SceneImportService` through its
+`:plugin` and `:scene_import` partitions. The plugin installs one service in the
+host World; it creates no window, renderer, child World or recurring task.
+Neither App nor DefaultPlugins depends on editor.
+
+```cpp
+import core;
+import app;
+import asset;
+import editor;
+
+hitagi::core::Runtime runtime;
+hitagi::asset::AssetService assets(runtime.IO(), runtime.Jobs(), "assets");
+hitagi::App app(runtime, "AssetTool");
+app.AddPlugin(hitagi::UsdImportPlugin{.assets = assets, .jobs = runtime.Jobs()});
+auto& importer = app.GetWorld().GetResource<hitagi::SceneImportService>();
+hitagi::EditorCookContext document_sources;
+auto scene = importer.Import("assets/test/test.usda", {.cook_context = &document_sources});
+```
+
+`UsdImportPolicy` owns the configured material getter/processor callbacks and
+optional logger. The plugin copies this policy into the service, so temporary
+plugin configuration can expire after installation. Captured references still
+require their providers to outlive the service. Each App can install its own
+policy; the framework selects no shading model. USDViewer supplies its PBR,
+Toon and deferred material conversion from the example module.
+
+Import is synchronous and preserves `ImportEditorScene` behavior: USD conversion
+does not automatically register the scene; cooked loading goes through AssetService
+and bypasses the USD material policy. Unknown formats and USD open failures return
+null; parsing/loading exceptions propagate. `SceneImportOptions` supplies the
+resource base path and an optional CookContext for that call only. CookContext
+belongs to the document/import session and is never retained by the service;
+USD asset paths remain resolved by USD, while cooked loading uses the supplied
+base path. Callers serialize access to mutable callback state and document data.
+
+`UsdSceneImporter`, `ImportEditorScene`, Cook functions and material compilation
+remain directly usable by tools and tests. Cook and compilation stay explicit
+operations chosen by the host.
+
 ## Four injection shapes
 
 | Shape | Use | Example |

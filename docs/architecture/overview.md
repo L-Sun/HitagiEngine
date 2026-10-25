@@ -100,14 +100,14 @@ GUI remains opt-in; GuiRenderUtils contributes drawing passes to the same graph.
 
 ## Current authoring library
 
-The interactive editor has been removed. The retained `editor` C++ module is an asset authoring library, built as `hitagi_editor`. It has no Editor runtime module, UI bundle, viewport, command stack or Play mode.
+The interactive editor has been removed. The retained `editor` C++ module is an asset authoring library, built as `hitagi_editor`. It exports `UsdImportPlugin` to install a `SceneImportService` into a host App, alongside directly callable import, Cook and material compilation APIs. It has no editor executable, UI bundle, viewport, command stack or Play mode. See [authoring plugin ownership](dependency_injection.md#optional-authoring-plugins) for policy and document lifetimes.
 
 ```text
 hitagi_editor -> engine + hitagi_interop_editor
 asset_pipeline_tests -> hitagi_editor + test bridge
 ```
 
-The engine build target contains the runtime render implementations. The Editor Framework's material graph compiler knows no shading model: it lowers a graph into a Slang material module and specializes an `asset::MaterialPassTemplate` supplied by a renderer, such as `render::pbr::PbrForwardPassTemplate()`. A future game tool can supply `UsdSceneImporter::MaterialProcessor` to convert source materials to the game's contracts, without adding game policy to the importer.
+The engine build target contains the runtime render implementations. The Editor Framework's material graph compiler knows no shading model: it lowers a graph into a Slang material module and specializes an `asset::MaterialPassTemplate` supplied by a renderer, such as `render::pbr::PbrForwardPassTemplate()`. A host supplies `UsdImportPolicy::material_processor` (or the direct importer's callback) to convert source materials to its contracts, without adding game policy to the importer.
 
 ## Shared runtime objects and authoring metadata
 
