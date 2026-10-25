@@ -76,7 +76,7 @@ target("hitagi_interop")
     end
 
     -- Vulkan backend structs use designated initializers; compile the SDK module as aggregates.
-    add_defines("VULKAN_HPP_NO_CONSTRUCTORS", "VULKAN_HPP_COMPILE_WARNING", {public = true})
+    add_defines("VULKAN_HPP_NO_CONSTRUCTORS", "VULKAN_HPP_COMPILE_WARNING", "VULKAN_HPP_CXX_MODULE_EXPERIMENTAL_WARNING", {public = true})
     on_load(function (target)
         local sdk = target:pkg("vulkansdk")
         if is_plat("macosx") then

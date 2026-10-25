@@ -9,5 +9,7 @@ target("ispc_math")
     set_kind("static")
     set_default(has_config("ispc"))
     add_rules("utils.ispc")
+    -- Preserve native CPU code generation without relying on ISPC's implicit target.
+    add_values("ispc.flags", "--target=host")
     add_files("ispc/*.ispc", "ispc/*.cpp")
     add_includedirs("ispc", {public = true})
