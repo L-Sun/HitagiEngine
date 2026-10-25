@@ -73,7 +73,7 @@ auto MakeGBufferPass() -> asset::MaterialPass {
 }
 
 auto ConvertMaterial(const asset::Material& source, const std::array<asset::MaterialPass, 2>& forward,
-                     const asset::MaterialPass& gbuffer,
+                     const asset::MaterialPass&                   gbuffer,
                      const std::pmr::vector<asset::MaterialPass>& toon) -> std::shared_ptr<asset::Material> {
     render::pbr::PbrMaterialDesc desc;
     if (const auto color = source.GetParameter<math::vec3f>("diffuseColor"))
@@ -109,20 +109,15 @@ auto ConvertMaterial(const asset::Material& source, const std::array<asset::Mate
 
 namespace hitagi::examples {
 
-auto LoadScene(const std::filesystem::path& path, core::JobSystem& job_system) -> std::shared_ptr<asset::Scene> {
-    if (!std::filesystem::is_regular_file(path))
-        throw std::invalid_argument(std::format("Scene does not exist: {}", path.string()));
-
+auto MakeSceneImportPolicy() -> UsdImportPolicy {
     const std::array forward{MakeForwardPass(false), MakeForwardPass(true)};
-    const auto       gbuffer = MakeGBufferPass();
-    const auto       toon = render::toon::CreateToonMaterialPasses();
+    const auto       gbuffer  = MakeGBufferPass();
+    const auto       toon     = render::toon::CreateToonMaterialPasses();
     const auto       fallback = ConvertMaterial(asset::Material({}, {}, "Default"), forward, gbuffer, toon);
-    UsdSceneImporter importer([&](std::string_view) { return fallback; }, nullptr, [&](EditorMaterial& material) { material.material = ConvertMaterial(*material.material, forward, gbuffer, toon); });
-    auto             scene = importer.Import(job_system, path);
-    if (!scene) throw std::runtime_error(std::format("Cannot import USD: {}", path.string()));
-
-    scene->GetWorld().Update(job_system);
-    return scene;
+    return {
+        .material_getter    = [fallback](std::string_view) { return fallback; },
+        .material_processor = [forward, gbuffer, toon](EditorMaterial& material) { material.material = ConvertMaterial(*material.material, forward, gbuffer, toon); },
+    };
 }
 
 }  // namespace hitagi::examples

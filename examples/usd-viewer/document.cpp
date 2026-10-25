@@ -5,12 +5,17 @@ import asset;
 import ecs;
 import math;
 import physics;
+import editor;
 
 namespace hitagi::examples {
 
 void USDViewer::OpenScene(const std::filesystem::path& path) {
     try {
-        auto scene = LoadScene(path, m_Jobs);
+        if (!std::filesystem::is_regular_file(path))
+            throw std::invalid_argument(std::format("Scene does not exist: {}", path.string()));
+        auto scene = m_Importer.Import(path);
+        if (!scene) throw std::runtime_error(std::format("Cannot import scene: {}", path.string()));
+        scene->GetWorld().Update(m_Jobs);
         if (scene->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().empty()) throw std::runtime_error("No mesh geometry in this file");
         m_Scene = std::move(scene);
         m_Path  = path.lexically_normal();

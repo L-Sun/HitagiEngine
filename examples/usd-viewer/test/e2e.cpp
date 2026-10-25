@@ -49,12 +49,14 @@ public:
                                               .headless = true})),
           m_Trace(output / (replay ? "replay.jsonl" : "record.jsonl")) {
         m_Host.AddPlugin(gfx::GraphicsPlugin{.backend = backend});
+        m_Host.AddPlugin(AssetPlugin{.files = runtime.IO(), .jobs = runtime.Jobs()});
         m_Graphics = &m_Host.GetWorld().GetResource<gfx::GraphicsContext>();
         m_Host.AddPlugin(USDViewerPlugin{
             .platform      = *m_App,
             .resources     = {.device = *m_Graphics->device, .queues = m_Graphics->queues, .bindings = *m_Graphics->bindings, .shader_compiler = m_Graphics->compiler},
             .files         = m_Runtime.IO(),
             .jobs          = m_Runtime.Jobs(),
+            .assets        = m_Host.GetWorld().GetResource<asset::AssetService>(),
             .scene         = record_scene.empty() ? std::filesystem::path(record_animation ? "examples/usd-viewer/assets/skinned.usda" : "examples/usd-viewer/assets/studio.usda") : record_scene,
             .renderer      = renderer,
             .deterministic = deterministic,

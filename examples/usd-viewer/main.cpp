@@ -23,6 +23,7 @@ int main(int argc, char** argv) {
             .resources = {.device = *graphics.device, .queues = graphics.queues, .bindings = *graphics.bindings, .shader_compiler = graphics.compiler},
             .files     = runtime.IO(),
             .jobs      = runtime.Jobs(),
+            .assets    = world.GetResource<hitagi::asset::AssetService>(),
             .scene     = options.scene,
             .renderer  = options.renderer,
         });

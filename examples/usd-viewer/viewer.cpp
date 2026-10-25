@@ -11,6 +11,7 @@ import hid;
 import gfx;
 import gui;
 import render;
+import editor;
 
 import :options;
 import :scene;
@@ -38,7 +39,7 @@ struct UiControl {
 class USDViewer final {
 public:
     USDViewer(platform::PlatformHost& app, asset::ResourceLoadContext resources, core::IOService& file_io,
-              core::JobSystem& job_system, render::RenderContext& rendering,
+              core::JobSystem& job_system, SceneImportService& importer, render::RenderContext& rendering,
               render::pbr::PbrRenderer& pbr, render::toon::ToonRenderer& toon, render::deferred::DeferredRenderer& deferred,
               const std::filesystem::path& path, RendererType renderer, bool deterministic = false);
     void ConfigureSchedule(ecs::Schedule& schedule);
@@ -73,6 +74,7 @@ private:
     asset::ResourceLoadContext            m_Resources;
     core::IOService&                      m_FileIO;
     core::JobSystem&                      m_Jobs;
+    SceneImportService&                   m_Importer;
     std::shared_ptr<asset::Scene>         m_Scene;
     std::vector<SceneNode>                m_Nodes;
     std::filesystem::path                 m_Path;
@@ -115,10 +117,12 @@ struct USDViewerPlugin {
     asset::ResourceLoadContext resources;
     core::IOService&           files;
     core::JobSystem&           jobs;
+    asset::AssetService&       assets;
     std::filesystem::path      scene;
     RendererType               renderer;
     bool                       deterministic = false;
     void                       Build(App& app) const {
+        app.AddPlugin(UsdImportPlugin{.assets = assets, .jobs = jobs, .usd = MakeSceneImportPolicy()});
         app.AddPlugin(render::RenderPlugin{
             .device      = resources.device,
             .queues      = resources.queues,
@@ -131,7 +135,7 @@ struct USDViewerPlugin {
                        render::deferred::DeferredPlugin{.resources = resources, .files = files});
         auto& render_world = app.GetWorld().GetResource<render::RenderApp>().app.GetWorld();
         auto& viewer       = app.GetWorld().RegisterSystem<USDViewer>(
-            platform, resources, files, jobs, render_world.GetResource<render::RenderContext>(),
+            platform, resources, files, jobs, app.GetWorld().GetResource<SceneImportService>(), render_world.GetResource<render::RenderContext>(),
             render_world.GetResource<render::pbr::PbrRenderer>(), render_world.GetResource<render::toon::ToonRenderer>(),
             render_world.GetResource<render::deferred::DeferredRenderer>(), scene, renderer, deterministic);
         app.GetWorld().BorrowResource(viewer);
@@ -144,13 +148,14 @@ struct USDViewerPlugin {
 namespace hitagi::examples {
 
 USDViewer::USDViewer(platform::PlatformHost& app, asset::ResourceLoadContext resources, core::IOService& file_io,
-                     core::JobSystem& job_system, render::RenderContext& rendering,
+                     core::JobSystem& job_system, SceneImportService& importer, render::RenderContext& rendering,
                      render::pbr::PbrRenderer& pbr, render::toon::ToonRenderer& toon, render::deferred::DeferredRenderer& deferred,
                      const std::filesystem::path& path, RendererType renderer, bool deterministic)
     : m_App(app),
       m_Resources(resources),
       m_FileIO(file_io),
       m_Jobs(job_system),
+      m_Importer(importer),
       m_Deterministic(deterministic),
       m_Rendering(rendering),
       m_Pbr(pbr),
