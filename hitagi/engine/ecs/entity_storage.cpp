@@ -17,6 +17,12 @@ public:
     EntityStorage(const EntityStorage&)            = delete;
     EntityStorage& operator=(const EntityStorage&) = delete;
 
+    // Structural operations are host-only while a schedule borrows chunk data.
+    void BeginExecution() {
+        CheckStructuralMutation();
+        m_Executing = true;
+    }
+    void EndExecution() noexcept { m_Executing = false; }
     void RegisterDynamicComponent(ComponentInfo component);
     auto GetDynamicComponentInfo(std::string_view name) const -> const ComponentInfo&;
     bool Has(entity_id_t entity) const noexcept { return m_EntityMaps.contains(entity); }
@@ -61,6 +67,7 @@ public:
     auto RegisterComponent() -> const ComponentInfo& {
         const auto id = utils::TypeID::Create<T>();
         if (const auto found = m_ComponentMap.find(id); found != m_ComponentMap.end()) return found->second;
+        CheckStructuralMutation();
         return m_ComponentMap.emplace(id, create_static_component_info<T>()).first->second;
     }
 
@@ -75,6 +82,10 @@ public:
     }
 
 private:
+    bool m_Executing = false;
+    void CheckStructuralMutation() const {
+        if (m_Executing) throw std::logic_error("Structural ECS mutation during schedule execution");
+    }
     struct SignatureHash {
         auto operator()(const ComponentIdList& signature) const noexcept -> std::size_t {
             std::size_t hash = 0;
@@ -99,6 +110,7 @@ private:
 
 template <typename Construct>
 void EntityStorage::Migrate(entity_id_t entity, utils::TypeID changed, bool adding, Construct&& construct) {
+    CheckStructuralMutation();
     auto&           source = *m_EntityMaps.at(entity);
     ComponentIdList signature;
     for (const auto& column : source.GetColumns()) {
@@ -124,6 +136,7 @@ void EntityStorage::Migrate(entity_id_t entity, utils::TypeID changed, bool addi
 }
 
 void EntityStorage::RegisterDynamicComponent(ComponentInfo component) {
+    CheckStructuralMutation();
     if (component.size == 0 || !std::has_single_bit(component.alignment) || component.size % component.alignment != 0)
         throw std::invalid_argument("Invalid dynamic component size or alignment");
     component.type_id = utils::TypeID(component.name);
@@ -168,6 +181,7 @@ auto EntityStorage::GetOrCreateArchetype(ComponentIdList components) -> Archetyp
 }
 
 auto EntityStorage::CreateMany(std::size_t num, ComponentIdList components) -> entity_id_t {
+    CheckStructuralMutation();
     const entity_id_t first = m_Counter;
     if (num == 0) return first;
     if (num > std::numeric_limits<entity_id_t>::max() - m_Counter) throw std::length_error("Entity IDs exhausted");
@@ -206,6 +220,7 @@ auto EntityStorage::CreateMany(std::size_t num, ComponentIdList components) -> e
 }
 
 void EntityStorage::Destroy(entity_id_t entity) {
+    CheckStructuralMutation();
     auto& archetype = *m_EntityMaps.at(entity);
     archetype.DestructAllComponents(entity);
     archetype.DeallocateFor(entity);

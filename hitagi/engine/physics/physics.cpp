@@ -15,18 +15,17 @@ import :types;
 
 export namespace hitagi::physics {
 
-class PhysicsWorld final : public core::RuntimeModule {
+class PhysicsWorld final {
 public:
     // `job_system` drives Jolt's parallel simulation and must outlive the world.
     explicit PhysicsWorld(core::JobSystem& job_system, const PhysicsWorldDesc& desc = {});
-    ~PhysicsWorld() final;
+    ~PhysicsWorld();
 
     PhysicsWorld(const PhysicsWorld&)            = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
     PhysicsWorld(PhysicsWorld&&)                 = delete;
     PhysicsWorld& operator=(PhysicsWorld&&)      = delete;
 
-    void Tick() final;
 
     auto Step(float delta_time, int collision_steps = 1) -> PhysicsUpdateError;
     void OptimizeBroadPhase();
@@ -202,6 +201,11 @@ public:
         : JPH::JobSystemWithBarrier(max_barriers),
           m_JobSystem(job_system) {}
 
+    void WaitForJobs() {
+        std::unique_lock lock(m_Mutex);
+        m_Completed.wait(lock, [this] { return m_Pending == 0; });
+    }
+
     auto GetMaxConcurrency() const -> int final {
         return static_cast<int>(m_JobSystem.GetWorkerCount()) + 1;
     }
@@ -219,13 +223,25 @@ protected:
         for (JPH::uint index = 0; index < inNumJobs; ++index) {
             auto* job = inJobs[index];
             job->AddRef();
+            {
+                std::scoped_lock lock(m_Mutex);
+                ++m_Pending;
+            }
             try {
-                m_JobSystem.Submit([job] {
+                m_JobSystem.Submit([this, job] {
+                    struct Completion {
+                        CoreJobSystemAdapter& owner;
+                        Job* job;
+                        ~Completion() {
+                            job->Release();
+                            owner.FinishJob();
+                        }
+                    } completion{*this, job};
                     job->Execute();
-                    job->Release();
                 });
             } catch (...) {
                 job->Release();
+                FinishJob();
                 throw;
             }
         }
@@ -236,7 +252,14 @@ protected:
     }
 
 private:
+    void FinishJob() {
+        std::scoped_lock lock(m_Mutex);
+        if (--m_Pending == 0) m_Completed.notify_all();
+    }
     core::JobSystem& m_JobSystem;
+    std::mutex m_Mutex;
+    std::condition_variable m_Completed;
+    std::size_t m_Pending = 0;
 };
 
 auto ToJolt(math::vec3f value) noexcept -> JPH::Vec3 {
@@ -318,6 +341,9 @@ auto CreateShape(const ShapeDesc& desc) -> JPH::RefConst<JPH::Shape> {
 
 
 struct PhysicsWorld::Impl {
+    // Jolt's simulation barrier can finish before the executor releases its Job
+    // reference. Drain those releases before destroying the world or adapter.
+    ~Impl() { job_system.WaitForJobs(); }
     Impl(core::JobSystem& core_job_system, const PhysicsWorldDesc& desc)
         : temp_allocator(desc.temp_allocator_size),
           job_system(core_job_system, interop::max_physics_barriers) {
@@ -340,18 +366,19 @@ struct PhysicsWorld::Impl {
     JPH::PhysicsSystem            physics_system;
 };
 
-PhysicsWorld::PhysicsWorld(core::JobSystem& job_system, const PhysicsWorldDesc& desc) : core::RuntimeModule(desc.name) {
+PhysicsWorld::PhysicsWorld(core::JobSystem& job_system, const PhysicsWorldDesc& desc) {
     AcquireJoltRuntime();
-    m_Impl = std::make_unique<Impl>(job_system, desc);
+    try {
+        m_Impl = std::make_unique<Impl>(job_system, desc);
+    } catch (...) {
+        ReleaseJoltRuntime();
+        throw;
+    }
 }
 
 PhysicsWorld::~PhysicsWorld() {
     m_Impl.reset();
     ReleaseJoltRuntime();
-}
-
-void PhysicsWorld::Tick() {
-    core::RuntimeModule::Tick();
 }
 
 auto PhysicsWorld::Step(float delta_time, int collision_steps) -> PhysicsUpdateError {

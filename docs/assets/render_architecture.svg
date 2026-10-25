@@ -1,119 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1370" viewBox="0 0 1600 1370" role="img" aria-labelledby="title desc">
-<title id="title">Hitagi render · 具体渲染器，普通模块树</title>
-<desc id="desc">当前实现。render 提供直接继承 RuntimeModule 的 PbrRenderer 和 DeferredRenderer。宿主从 Engine 获取基础服务并注入渲染器，设置场景快照。renderer 持有 SwapChain 和窗口目标，Tick 处理 resize、构图及呈现。离屏通过 Submit 提供目标。应用也可调用 Build 组合自己的 graph。Engine 不依赖具体渲染器接口。</desc>
-<defs><style>
-text { font-family:'Segoe UI','Microsoft YaHei',sans-serif; fill:#263443; }
-.title {font-size:34px;font-weight:700} .section {font-size:25px;font-weight:700}
-.label {font-size:23px;font-weight:600} .body {font-size:20px} .small {font-size:18px;fill:#596878}
-.code {font-family:Consolas,'Microsoft YaHei',monospace;font-size:20px}
-.panel {fill:#fff;stroke:#c6d1dc;stroke-width:1.5}
-.blue {fill:#e1eef9;stroke:#8db3d3;stroke-width:1.5}
-.green {fill:#e2f1e7;stroke:#91b69b;stroke-width:1.5}
-.orange {fill:#fbead8;stroke:#d6ac7a;stroke-width:1.5}
-.purple {fill:#eee6f5;stroke:#b19acb;stroke-width:1.5}
-.arrow {fill:none;stroke:#738293;stroke-width:2;marker-end:url(#arrow)}
-.impl {fill:none;stroke:#9573af;stroke-width:2;stroke-dasharray:7 5;marker-end:url(#purple)}
-</style>
-<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#738293"/></marker>
-<marker id="purple" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L10 5L0 10Z" fill="#9573af"/></marker></defs>
-<rect width="1600" height="1370" fill="#f8fafc"/>
-<text x="50" y="58" class="title" text-anchor="start">Hitagi render · 具体渲染器，普通模块树</text>
-<text x="50" y="96" class="small" text-anchor="start">当前实现 · 2026-10-17 · 代码模块、对象归属与执行顺序分别标注</text>
-<path d="M1110 53H1150" class="arrow"/>
-<text x="1162" y="60" class="small" text-anchor="start">调用／数据</text>
-<path d="M1330 53H1370" class="impl"/>
-<text x="1382" y="60" class="small" text-anchor="start">继承关系</text>
-<rect x="50" y="170" width="420" height="180" rx="9" class="blue"/>
-<text x="72" y="209" class="section" text-anchor="start">core 模块</text>
-<text x="72" y="248" class="label" text-anchor="start">RuntimeModule</text>
-<text x="72" y="285" class="code" text-anchor="start">AddSubModule() / Tick()</text>
-<text x="72" y="324" class="small" text-anchor="start">普通模块调度，逆序销毁子模块</text>
-<rect x="540" y="170" width="520" height="180" rx="9" class="purple"/>
-<text x="562" y="209" class="section" text-anchor="start">render 模块 · 内置具体实现</text>
-<text x="562" y="248" class="code" text-anchor="start">PbrRenderer / DeferredRenderer</text>
-<text x="562" y="285" class="body" text-anchor="start">均直接继承 core::RuntimeModule</text>
-<text x="562" y="324" class="small" text-anchor="start">各自提供 SetFrame / Submit / Tick / Build</text>
-<path d="M540 264H470" class="impl"/>
-<rect x="1130" y="170" width="420" height="180" rx="9" class="blue"/>
-<text x="1152" y="209" class="section" text-anchor="start">Engine · 基础服务与模块树</text>
-<text x="1152" y="248" class="body" text-anchor="start">先创建 App 与图形服务</text>
-<text x="1152" y="285" class="small" text-anchor="start">宿主注入依赖后 AddSubModule()</text>
-<text x="1152" y="324" class="small" text-anchor="start">没有 renderer 槽位或默认实现</text>
-<rect x="50" y="450" width="420" height="355" rx="9" class="green"/>
-<text x="72" y="490" class="section" text-anchor="start">宿主 · 场景数据与配置</text>
-<text x="72" y="535" class="body" text-anchor="start">场景 / 相机 / DrawItems / Lights</text>
-<text x="72" y="580" class="body" text-anchor="start">窗口：SetFrame 保存场景快照</text>
-<text x="72" y="625" class="small" text-anchor="start">离屏：Submit(frame, target)</text>
-<text x="72" y="669" class="small" text-anchor="start">两种调用均复制数组并保留资源</text>
-<text x="72" y="713" class="small" text-anchor="start">窗口依赖通过构造函数注入</text>
-<text x="72" y="769" class="small" text-anchor="start">构造 → 设置场景 → AddSubModule</text>
-<rect x="540" y="450" width="520" height="355" rx="9" class="orange"/>
-<text x="562" y="490" class="section" text-anchor="start">选定的 Renderer 实例</text>
-<text x="562" y="532" class="body" text-anchor="start">持有：RenderGraph、场景快照、渲染资源</text>
-<text x="562" y="574" class="code" text-anchor="start">窗口模式还持有 SwapChain 和目标</text>
-<text x="562" y="616" class="small" text-anchor="start">Tick：处理 resize → Build → Execute</text>
-<text x="562" y="658" class="small" text-anchor="start">窗口：逐帧呈现；最小化时跳过</text>
-<text x="562" y="700" class="small" text-anchor="start">离屏：写入宿主提供的目标纹理</text>
-<text x="562" y="741" class="small" text-anchor="start">离屏提交只执行一次；窗口快照持续复用</text>
-<text x="562" y="780" class="small" text-anchor="start">模块树拥有实例；实例拥有图和子模块</text>
-<rect x="1130" y="450" width="420" height="355" rx="9" class="green"/>
-<text x="1152" y="490" class="section" text-anchor="start">应用自己的组合路径</text>
-<text x="1152" y="535" class="code" text-anchor="start">MyRenderer : RuntimeModule</text>
-<text x="1152" y="579" class="small" text-anchor="start">可调用内置 renderer.Build()</text>
-<text x="1152" y="621" class="small" text-anchor="start">再加入 GUI / Text / 自定义 Pass</text>
-<text x="1152" y="663" class="small" text-anchor="start">应用自己执行 graph 并输出</text>
-<text x="1152" y="707" class="small" text-anchor="start">Deferred：调试视图与扩展接口</text>
-<text x="1152" y="751" class="small" text-anchor="start">PBR：材质契约与前向绘制</text>
-<text x="1152" y="785" class="small" text-anchor="start">创作侧编译器独立于运行时</text>
-<path d="M800 350V450" class="arrow"/>
-<text x="820" y="408" class="small" text-anchor="start">宿主显式构造</text>
-<path d="M1130 275H1095V510H1060" class="arrow"/>
-<text x="1140" y="403" class="small" text-anchor="start">Engine → Renderer::Tick()</text>
-<path d="M470 593H540" class="arrow"/>
-<text x="474" y="578" class="small" text-anchor="start">帧数据</text>
-<rect x="50" y="900" width="1500" height="170" rx="9" class="panel"/>
-<text x="72" y="939" class="section" text-anchor="start">gfx 模块 · 通用渲染机制</text>
-<text x="1528" y="939" class="small" text-anchor="end">图类型属于 gfx；图实例由具体 renderer 或应用持有</text>
-<rect x="75" y="965" width="440" height="79" rx="9" class="blue"/>
-<text x="97" y="996" class="code" text-anchor="start">Device / Queues / Bindless / Compiler</text>
-<text x="97" y="1027" class="small" text-anchor="start">Engine 持有；宿主在构造时显式注入</text>
-<rect x="560" y="965" width="430" height="79" rx="9" class="orange"/>
-<text x="582" y="996" class="label" text-anchor="start">rg::RenderGraph</text>
-<text x="582" y="1027" class="small" text-anchor="start">依赖、裁剪、屏障、命令录制与提交</text>
-<rect x="1035" y="965" width="490" height="79" rx="9" class="blue"/>
-<text x="1057" y="996" class="label" text-anchor="start">DX12 / Vulkan → GPU</text>
-<text x="1057" y="1027" class="small" text-anchor="start">Execute 等待本次 GPU 工作完成后返回</text>
-<path d="M800 805V965" class="arrow"/>
-<text x="818" y="865" class="small" text-anchor="start">构图与执行</text>
-<path d="M1340 805V866H960V965" class="arrow"/>
-<text x="1355" y="865" class="small" text-anchor="start">自定义图</text>
-<path d="M515 1007H560" class="arrow"/>
-<path d="M990 1007H1035" class="arrow"/>
-<text x="50" y="1126" class="section" text-anchor="start">模块树驱动的一帧</text>
-<text x="1550" y="1126" class="small" text-anchor="end">窗口无需额外模块；离屏提交按序执行</text>
-<rect x="50" y="1154" width="230" height="102" rx="9" class="blue"/>
-<text x="65" y="1193" class="body" text-anchor="start">Engine::Tick</text>
-<text x="65" y="1231" class="small" text-anchor="start">更新基础服务</text>
-<path d="M280 1208H304" class="arrow"/>
-<rect x="304" y="1154" width="230" height="102" rx="9" class="purple"/>
-<text x="319" y="1193" class="body" text-anchor="start">Renderer::Tick</text>
-<text x="319" y="1231" class="small" text-anchor="start">消费离屏提交</text>
-<path d="M534 1208H558" class="arrow"/>
-<rect x="558" y="1154" width="230" height="102" rx="9" class="green"/>
-<text x="573" y="1193" class="body" text-anchor="start">准备窗口目标</text>
-<text x="573" y="1231" class="small" text-anchor="start">检查最小化 / resize</text>
-<path d="M788 1208H812" class="arrow"/>
-<rect x="812" y="1154" width="230" height="102" rx="9" class="orange"/>
-<text x="827" y="1193" class="body" text-anchor="start">Build</text>
-<text x="827" y="1231" class="small" text-anchor="start">从场景快照构建 Pass</text>
-<path d="M1042 1208H1066" class="arrow"/>
-<rect x="1066" y="1154" width="230" height="102" rx="9" class="orange"/>
-<text x="1081" y="1193" class="body" text-anchor="start">Compile / Execute</text>
-<text x="1081" y="1231" class="small" text-anchor="start">GPU 完成后清理导入</text>
-<path d="M1296 1208H1320" class="arrow"/>
-<rect x="1320" y="1154" width="230" height="102" rx="9" class="blue"/>
-<text x="1335" y="1193" class="body" text-anchor="start">输出完成</text>
-<text x="1335" y="1231" class="small" text-anchor="start">目标纹理 / 呈现</text>
-<text x="50" y="1295" class="small" text-anchor="start">生命周期：基础服务先于 renderer 创建并晚于它销毁；renderer 先销毁子模块，再释放 graph 与渲染状态。</text>
-<text x="50" y="1332" class="small" text-anchor="start">Build 组合模式：同一实例再次 Build 或 Tick 前，先执行之前的图；该模式的执行与输出由调用方负责。</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980" role="img"><title>Render · 系统调度与图组合</title><defs><style>text{font-family:'Segoe UI','Microsoft YaHei',sans-serif;fill:#263443}.title{font-size:32px;font-weight:700}.section{font-size:24px;font-weight:700}.label{font-size:21px;font-weight:600}.body{font-size:20px}.small{font-size:18px;fill:#596878}.code{font-family:Consolas,'Microsoft YaHei',monospace;font-size:20px}.panel{fill:#fff;stroke:#c6d1dc}.blue{fill:#e1eef9;stroke:#8db3d3}.green{fill:#e2f1e7;stroke:#91b69b}.orange{fill:#fbead8;stroke:#d6ac7a}.purple{fill:#eee6f5;stroke:#b19acb}.gray{fill:#edf0f4;stroke:#b1bdca}rect{stroke-width:1.5}.arrow{fill:none;stroke:#738293;stroke-width:1.5;marker-end:url(#arrow)}</style><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#738293"/></marker></defs><rect width="1440" height="980" fill="#f8fafc"/>
+<rect x="40" y="32" width="6" height="64" rx="7" class="blue"/>
+<text x="64" y="62" class="title">Render · 系统调度与图组合</text>
+<text x="64" y="98" class="small">当前实现 · 没有共同的 Renderer 基类；宿主选择具体实现与窗口 / 离屏策略</text>
+<rect x="40" y="150" width="650" height="300" rx="7" class="green"/>
+<text x="64" y="190" class="section">宿主组装</text>
+<rect x="64" y="216" width="602" height="78" rx="7" class="purple"/>
+<text x="82" y="246" class="code">World.RegisterSystem&lt;Renderer&gt;(deps...)</text>
+<text x="82" y="276" class="small">World 持有实例；ConfigureSchedule 声明 Render 组任务</text>
+<rect x="64" y="316" width="602" height="78" rx="7" class="orange"/>
+<text x="82" y="346" class="code">SetFrame(frame) / Submit(frame, target)</text>
+<text x="82" y="376" class="small">窗口快照持续使用；离屏提交执行一次</text>
+<rect x="734" y="150" width="666" height="300" rx="7" class="blue"/>
+<text x="758" y="190" class="section">注入的基础设施</text>
+<rect x="758" y="216" width="618" height="78" rx="7" class="purple"/>
+<text x="776" y="246" class="code">Device / Queues / Bindings / Compiler</text>
+<text x="776" y="276" class="small">Engine 拥有；设施存活时间长于渲染消费者</text>
+<rect x="758" y="316" width="618" height="78" rx="7" class="panel"/>
+<text x="776" y="346" class="code">Application&amp; · 可选窗口依赖</text>
+<text x="776" y="376" class="small">注入窗口时，渲染器拥有 SwapChain 和窗口目标</text>
+<rect x="40" y="494" width="1360" height="278" rx="7" class="panel"/>
+<text x="64" y="535" class="section">具体实例 · PbrRenderer / ToonRenderer / DeferredRenderer</text>
+<rect x="64" y="568" width="390" height="78" rx="7" class="green"/>
+<text x="82" y="598" class="code">RenderPending()</text>
+<text x="82" y="628" class="small">消费快照，检查窗口尺寸和最小化</text>
+<rect x="500" y="568" width="390" height="78" rx="7" class="purple"/>
+<text x="518" y="598" class="code">Build / Compile / Execute</text>
+<text x="518" y="628" class="small">图保持 GPU 资源直到本次执行完成</text>
+<rect x="936" y="568" width="440" height="78" rx="7" class="blue"/>
+<text x="954" y="598" class="code">呈现 / 输出纹理</text>
+<text x="954" y="628" class="small">失败后释放图；后续帧可重建</text>
+<path d="M456 607 L494 607" class="arrow"/>
+<path d="M892 607 L930 607" class="arrow"/>
+<text x="64" y="717" class="small">World 的调用线程执行 Render 任务；图内部仍负责 GPU 依赖、屏障、命令录制与提交。</text>
+<rect x="40" y="820" width="1360" height="78" rx="7" class="orange"/>
+<text x="58" y="850" class="code">另一条路径：宿主自己拥有 renderer，调用 Build(graph, request)</text>
+<text x="58" y="880" class="small">USDViewer 使用此路径，把场景与 GUI 放入自己的图；系统调度仍由外层 World 负责。</text>
+<text x="40" y="943" class="small">对象所有权、CPU 系统依赖图与 GPU RenderGraph 是三个边界；它们不共享一棵模块树。</text>
 </svg>

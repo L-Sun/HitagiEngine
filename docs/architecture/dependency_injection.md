@@ -105,32 +105,22 @@ The passes retain shader data and graphics dependencies. File access belongs to 
 
 ## Engine composition
 
-`Engine` owns infrastructure services and the runtime module tree. The host supplies `AppConfig`, attaches game or editor modules, and selects a renderer.
+`Engine` owns infrastructure services and a runtime ECS World. The host supplies
+`AppConfig`, registers application systems, and chooses rendering policy.
 
-![Engine ownership: nested containers hold infrastructure members and the runtime module subtree; borrowed dependencies appear alongside their consumers, with destruction order below.](../assets/di_engine_composition.svg)
+![Engine members own facilities; World owns bound systems and their cached schedule.](../assets/di_engine_composition.svg)
 
-Nested containers show ownership. Amber labels identify borrowed dependencies or explicitly marked creation inputs. The strip below the containers shows destruction order.
+Nested containers show ownership; amber labels identify borrowed dependencies.
+Memory, file I/O, jobs, application, device, queues, bindings, compiler, assets and
+physics are explicit Engine members. Services with no per-frame work do not
+declare empty tasks. World owns system state and a cached Schedule, not a module
+tree. Systems receive constructor-injected references and declare named work in
+`ConfigureSchedule(Schedule&)`. Execution order belongs to host-defined groups and dependency edges.
 
-### Infrastructure and module ownership
-
-`MemoryManager`, `FileIOManager`, and `JobSystem` are owned by `Engine` members. They are outside the ticked module subtree, and member declaration order determines their lifetime.
-
-The runtime subtree owns application, graphics, asset, physics, and debug modules. `RuntimeModule::Tick()` visits children in tree order. Hosts append their own logic, optional GUI, and renderer modules using inherited `AddSubModule()`, or group them under an application module. Register dependencies before their consumers so reverse destruction preserves their lifetimes.
-
-The initial assembly order is:
-
-```text
-Engine construction
-  members: MemoryManager → FileIOManager → JobSystem
-  subtree: App → Device → GraphicsServices → Assets → Physics
-           → Debug → host-added modules (logic → optional GUI → renderer)
-
-~Engine
-  UnloadAllSubModules(): host consumers → host dependencies → Debug → ... → App
-  member destruction: JobSystem → FileIOManager → MemoryManager
-```
-
-`GraphicsServices` owns command queues, bindings, and the shader compiler. Graphics consumers receive the individual facilities they need. GPU resource creation receives the device, allocator, or binding facilities required by the relevant `Create` API. See the [gfx contracts](../../hitagi/engine/gfx/AGENT.md) for graphics ownership and destruction requirements.
+Engine clears its modal callback, waits for CPU submissions and GPU completion,
+then releases the World before its services. Queues and bindings outlive their
+consumers and are released before Device. See [runtime scheduling](runtime_schedule.md)
+for application frame groups, caller-thread execution, shutdown and host examples.
 
 ### Application access to services
 
@@ -143,20 +133,26 @@ Game and editor application code obtains services through the `Engine&` it holds
 | Graphics facilities | `Device()`, `Queues()`, `Bindings()`, `ShaderCompiler()` |
 | Resources | `Assets()`, `ResourceLoadContext()` |
 
-The application layer can use the complete engine to assemble workflows. Modules inside the engine receive the specific dependencies they consume. The host explicitly imports `render`, constructs a concrete `PbrRenderer` or `DeferredRenderer` from graphics services and, for window rendering, `Application&`, and registers it with `AddSubModule()`. Custom renderers directly inherit `RuntimeModule`. Engine construction creates infrastructure first; no renderer factory or service lookup is needed. The host retains a concrete reference to use that renderer's API. It also constructs any `GuiManager` it needs and explicitly injects it into rendering consumers. Engine has no default renderer or fixed GUI/rendering slots. See [Overall abstraction design](overview.md) for the engine, editor, and game boundaries.
+The application layer uses Engine to assemble workflows. Consumers receive the
+specific dependencies they need. Hosts explicitly import `render` and register
+concrete renderer systems through `engine.GetWorld().RegisterSystem<T>(args...)`.
+They retain a borrowed concrete reference for frame submission. Custom systems
+declare their own tasks without inheriting an engine base class. Engine has no
+default renderer, renderer slot, or fixed GUI slot. See [Overall abstraction
+design](overview.md) for engine, editor and game boundaries.
 
 ## Lifetime rules
 
 A borrowed reference, including one captured by a function object, does not extend the referenced object's lifetime. The owner must keep services alive for all consumers and outstanding work.
 
-* `Engine::~Engine()` tears down the runtime subtree before its infrastructure members are destroyed.
+* `Engine::~Engine()` destroys the runtime World before its infrastructure members are destroyed.
 * Graphics consumers must be destroyed before bindings and queues; those facilities must be destroyed before the device.
 * `MakeFileImageLoader` captures `FileIOManager&`, and `JobSystem::MakeSubmitter()` captures the job system. Both services must outlive textures holding those capabilities.
 * A decode task's `shared_ptr<Texture>` keeps the texture alive while the task runs. It does not extend the lifetime of the injected file or job services.
 * `JobSystem` waits for outstanding work during destruction. The file service remains alive until after that wait because it is declared before the job system.
 * A parallel ECS schedule uses the supplied job system for that run and clears its temporary executor pointer when the run ends.
 
-Resource registries in `AssetManager` hold weak references for lookup and deduplication. Actual ownership follows the resource graph and its consumers. Callers retaining resources outside the module tree must ensure their injected services remain alive; destroying an engine does not invalidate or release an external `shared_ptr` automatically. See [Resource lifecycle](../assets/resource_lifecycle.md).
+Resource registries in `AssetManager` hold weak references for lookup and deduplication. Actual ownership follows the resource graph and its consumers. Callers retaining resources outside the runtime World must ensure their injected services remain alive; destroying an engine does not invalidate or release an external `shared_ptr` automatically. See [Resource lifecycle](../assets/resource_lifecycle.md).
 
 ## Tests and standalone tools
 

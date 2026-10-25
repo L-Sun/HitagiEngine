@@ -1,4 +1,5 @@
 export module asset:manager;
+import interop.spdlog;
 import std;
 import core;
 import gfx;
@@ -22,12 +23,12 @@ inline auto is_cooked_scene_path(const std::filesystem::path& path) noexcept -> 
     return extension == ".hcscene" || extension == ".hitagiscene";
 }
 
-class AssetManager final : public core::RuntimeModule {
+class AssetManager final {
 public:
     // Both services must outlive this manager and every texture it creates: lazily
     // loaded textures read through `file_io` and decode on `job_system`.
     AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root_path = {});
-    ~AssetManager() final;
+    ~AssetManager();
 
     inline auto GetAssetRootPath() const noexcept -> const std::filesystem::path& {
         return m_AssetRootPath;
@@ -52,6 +53,7 @@ public:
         auto IsCancellationRequested() const noexcept -> bool;
 
     private:
+    std::shared_ptr<spdlog::logger> m_Logger = utils::try_create_logger("AssetManager");
         std::shared_ptr<std::atomic_bool> m_CancelRequested;
     };
 

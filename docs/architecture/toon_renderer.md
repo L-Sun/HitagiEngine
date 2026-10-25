@@ -1,6 +1,6 @@
 # Toon renderer
 
-`render::toon::ToonRenderer` is a concrete runtime module alongside PBR and
+`render::toon::ToonRenderer` is a concrete renderer system alongside PBR and
 deferred. It owns shading and graph construction; it does not import USD,
 evaluate animation, or own skeletons. The USD Viewer selects it with
 `--renderer=toon` or its **Toon** button.
@@ -26,7 +26,7 @@ hitagi::render::toon::ToonRenderer renderer(load_context);
 std::vector<hitagi::render::RenderDrawItem> items;
 items.push_back(hitagi::render::RenderDrawItem::FromEntity(entity));
 renderer.Submit({.view = view, .draw_items = items}, output_texture);
-renderer.Tick();
+renderer.RenderPending(); // or register the renderer with World and call World::Update(frame_jobs)
 ```
 
 `Submit` copies frame spans and retains shared resources until execution.
@@ -34,7 +34,7 @@ It does not deep-copy shared material or mesh contents. The host serializes
 resource mutation and submission. The constructor accepting `Application&`
 also supports `SetFrame`, window resize and presentation. `Build(graph, request)`
 adds passes to a caller-owned graph and returns color and depth handles; execute
-that graph before the next `Build` or `Tick` on the renderer.
+that graph before the next `Build` or `RenderPending` on the renderer.
 
 ## Rendering
 

@@ -60,7 +60,7 @@ TEST_F(AppTest, BackgroundErasePreservesRenderedPixels) {
 }
 
 TEST_F(AppTest, MoveLoopWithoutResizeDoesNotInvalidateWindowSize) {
-    app->Tick();
+    app->PollEvents();
     ASSERT_FALSE(app->WindowSizeChanged());
     const auto window = static_cast<HWND>(app->GetWindow().ptr);
     SendMessageW(window, WM_ENTERSIZEMOVE, 0, 0);
@@ -96,14 +96,14 @@ TEST_F(AppTest, ModalFrameErrorsReturnThroughTickNotWindowProc) {
     SendMessageW(window, WM_ENTERSIZEMOVE, 0, 0);
     EXPECT_NO_THROW(SendMessageW(window, WM_TIMER, 1, 0));
     SendMessageW(window, WM_EXITSIZEMOVE, 0, 0);
-    EXPECT_THROW(app->Tick(), std::runtime_error);
+    EXPECT_THROW(app->PollEvents(), std::runtime_error);
     app->SetModalFrameCallback({});
 }
 #endif
 
 #ifndef _WIN32
 TEST_F(AppTest, LiveResizeFramesAreImmediateAndNonReentrant) {
-    app->Tick();
+    app->PollEvents();
     SDL_Event event{};
     event.type = SDL_EVENT_WINDOW_EXPOSED;
     event.window.windowID = SDL_GetWindowID(static_cast<SDL_Window*>(app->GetWindow().ptr));
@@ -113,7 +113,7 @@ TEST_F(AppTest, LiveResizeFramesAreImmediateAndNonReentrant) {
         ++frames;
         if (frames == 1) SDL_PushEvent(&event);
     });
-    // No Tick/PollEvent: native live resize cannot return to the outer loop.
+    // No PollEvents: native live resize cannot return to the outer loop.
     EXPECT_TRUE(SDL_PushEvent(&event));
     EXPECT_EQ(frames, 1);
     event.window.data1 = 0;
@@ -141,7 +141,7 @@ TEST_F(AppTest, LiveResizeErrorsReturnThroughTickNotSDL) {
     event.window.data1 = 1;
     app->SetModalFrameCallback([] { throw std::runtime_error("modal frame failure"); });
     EXPECT_NO_THROW(SDL_PushEvent(&event));
-    EXPECT_THROW(app->Tick(), std::runtime_error);
+    EXPECT_THROW(app->PollEvents(), std::runtime_error);
     app->SetModalFrameCallback({});
 }
 #endif

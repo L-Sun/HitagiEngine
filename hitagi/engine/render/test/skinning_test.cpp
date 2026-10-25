@@ -163,7 +163,7 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
             renderer.Submit({.draw_items = items}, target, render::deferred::RenderGraphDebugView::BaseColor);
             items.clear();
             advance_scene();
-            renderer.Tick();
+            renderer.RenderPending();
         } else if (toon) {
             render::toon::ToonRenderer renderer({*device, queues, *bindings, compiler});
             std::vector<render::RenderDrawItem> items;
@@ -171,7 +171,7 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
             renderer.Submit({.draw_items = items}, target);
             items.clear();
             advance_scene();
-            renderer.Tick();
+            renderer.RenderPending();
         } else {
             render::pbr::PbrRenderer                 renderer({*device, queues, *bindings, compiler});
             std::vector<render::pbr::RenderDrawItem> items;
@@ -179,7 +179,7 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
             renderer.Submit({.draw_items = items}, target);
             items.clear();
             advance_scene();
-            renderer.Tick();
+            renderer.RenderPending();
         }
         const auto pixels = gfx::readback_texture(*device, queues, *bindings, *target);
         ASSERT_EQ(pixels.GetDataSize(), 64u * 64u * 4u);

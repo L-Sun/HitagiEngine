@@ -4,7 +4,7 @@ Read the repository [AGENT.md](../../../AGENT.md) first. This file records gfx-s
 
 ## Abstraction Boundaries
 
-- `hitagi::gfx` unifies DX12, Vulkan, and Metal through `gfx.base`; `gfx.mock` supports CPU-side tests. `gfx::create_device()` selects the backend. The `gfx` aggregate exports the base API and render graph.
+- `hitagi::gfx` unifies DX12, Vulkan, and Metal through `gfx.base`; `gfx.mock` supports CPU-side tests. `gfx::create_device()` selects the backend. The `gfx` aggregate exports the base API, render graph and `GraphicsFrameSystem` (`graphics_frame.cpp`). The frame system borrows Device/CommandQueues and accepts a host-supplied `ecs::Group`; engine owns the frame-stage enum and registration policy.
 - `hitagi::rg` describes resource accesses and pass dependencies. Its public concepts are resources, passes, and access edges. A gfx View is an execution object for an access, not a separate graph node.
 - `GPUBuffer` owns byte storage; `GPUBufferView` describes a range and element layout. Multiple views may overlap. Creating a view must not rearrange stored data.
 - Keep binding, mapping, and descriptor ownership with gfx objects; keep dependency construction, scheduling, and retention through GPU completion with the graph. Reuse gfx descriptions without duplicating their field definitions in rg.
@@ -39,7 +39,7 @@ External dependency modules are provided by the independent `hitagi_interop` tar
 
 - Resources retain their descriptions through `ResourceWithDesc`, but do not retain an abstract `Device` or expose `GetDevice()`. Use the resource type's static `Create` method; the assembly boundary selects the backend and validates native ownership before injecting concrete dependencies.
 - Backend resources depend on the native device, allocator, binding facilities, logger, or compiler that they actually use, not the complete backend Device. Texture initialization that needs command submission is assembled in `resource_creation.cpp`; allocation and mapping behavior remain backend responsibilities.
-- Device owns native bootstrap state, allocators, and capabilities. The Engine owns `CommandQueues`, bindings, and the shader compiler through its graphics services module, created after Device and destroyed before it. Consumers receive explicit references; low-level resources must not receive this owner as a service locator. Tests must provide the same lifetime ordering.
+- Device owns native bootstrap state, allocators, and capabilities. The Engine owns `CommandQueues`, bindings, and the shader compiler as direct members, created after Device and destroyed before it. Consumers receive explicit references; low-level resources must not receive this owner as a service locator. Tests must provide the same lifetime ordering.
 - Queues own execution synchronization and profiling state; Vulkan queues also own their command pools. Command contexts and submitted resources must not outlive the facilities they reference. Bindings must outlive all views and samplers using their handles.
 - `GPUBufferDesc::size` is a byte count. `element_size`, `element_stride`, and binding offset alignment have different meanings. A zero ViewDesc stride means tightly packed elements; Storage usage does not imply record padding.
 - Query storage binding constraints with `GPUBuffer::GetStorageViewRequirements(device)` when planning independently bound ranges. Backend differences stay behind that API; the caller determines data placement.

@@ -16,7 +16,7 @@ void USDViewer::RenderFrame() {
                                                                     m_SwapChain->GetHeight() != height)))
         m_SwapChain->Resize();
     if (m_App.WindowsMinimized() || !width || !height) {
-        m_Gui.Tick();
+        m_Gui.Compose();
         return;
     }
     if (!m_Output || m_Output->GetDesc().width != width || m_Output->GetDesc().height != height) {
@@ -87,7 +87,7 @@ void USDViewer::RenderFrame() {
         }
         m_Gui.DrawTexture(color, m_Viewport);
     }
-    m_Gui.Tick();
+    m_Gui.Compose();
     const auto output = m_Graph.Import(m_Output);
     m_GuiDraw.GuiPass(m_Graph, output, m_Gui.GetDrawData(), true);
     rg::PresentPassBuilder present(m_Graph);

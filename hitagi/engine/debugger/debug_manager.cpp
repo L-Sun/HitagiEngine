@@ -3,12 +3,14 @@ import std;
 
 using namespace hitagi::math;
 
-namespace hitagi {
-debugger::DebugManager* debug_manager = nullptr;
-}
 namespace hitagi::debugger {
 
-void DebugManager::Tick() {
+void DebugManager::ConfigureSchedule(ecs::Schedule& schedule) {
+    schedule.Request("Debug.Clear", [this] { ClearFrame(); }, m_Group);
+}
+
+
+void DebugManager::ClearFrame() {
     if (m_DrawDebugInfo) {
         // TODO
     }

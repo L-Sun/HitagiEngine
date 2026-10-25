@@ -133,10 +133,10 @@ Texture(path, ImageLoader loader, name = {}, core::JobSubmitter decode_submitter
 
 ## AssetManager
 
-`AssetManager` is a `core::RuntimeModule`. Its job is **identity** and **policy**, not ownership. It does not own `FileIOManager` or `JobSystem`. It holds references injected at construction, and it uses them to equip the textures it creates with capabilities (`ImageLoader` + `JobSubmitter`). `Scene` needs no service of its own: the executor is passed in at the call, through `scene.GetWorld().Update(job_system)`.
+`AssetManager` is an ordinary service without per-frame work. Its job is **identity** and **policy**, not ownership. It does not own `FileIOManager` or `JobSystem`. It holds references injected at construction, and it uses them to equip the textures it creates with capabilities (`ImageLoader` + `JobSubmitter`). `Scene` needs no service of its own: the executor is passed in at the call, through `scene.GetWorld().Update(job_system)`.
 
 ```cpp
-class AssetManager final : public core::RuntimeModule {
+class AssetManager final {
     AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root = {});
 
     // Import

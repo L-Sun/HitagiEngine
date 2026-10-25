@@ -315,7 +315,7 @@ TEST_F(RenderGraphTest, AddRenderPass) {
     rg.Execute();
 
     swap_chain->Present();
-    app->Tick();
+    app->PollEvents();
 
     auto       pixels      = readback_texture(*device, queues, *bindings, *output_texture);
     const auto output_path = std::filesystem::path("temp") / "RenderGraphTest.AddRenderPass.png";

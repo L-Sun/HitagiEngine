@@ -6,17 +6,22 @@ import asset;
 import math;
 import utils;
 import core;
+import ecs;
+import engine;
+import app;
 import render;
 
 using namespace hitagi;
 
 namespace pbr_renderer_test {
-class FrameProducer final : public core::RuntimeModule {
+class FrameProducer final {
 public:
     FrameProducer(render::pbr::PbrRenderer& renderer, std::shared_ptr<gfx::Texture> target)
-        : RuntimeModule("FrameProducer"), m_Renderer(renderer), m_Target(std::move(target)) {}
-    void Tick() final { m_Renderer.Submit({}, m_Target); }
-    ~FrameProducer() final { EXPECT_GE(m_Renderer.GetRenderedFrameCount(), 1u); }
+        : m_Renderer(renderer), m_Target(std::move(target)) {}
+    void ConfigureSchedule(ecs::Schedule& schedule) {
+        schedule.Request("Produce", [this] { m_Renderer.Submit({}, m_Target); }, FrameStage::Update);
+    }
+    ~FrameProducer() { EXPECT_GE(m_Renderer.GetRenderedFrameCount(), 1u); }
 
 private:
     render::pbr::PbrRenderer&     m_Renderer;
@@ -76,15 +81,15 @@ TEST_P(PbrRendererTest, EmptyFrameClearsApplicationTargetAcrossExecutions) {
     }
 }
 
-TEST_P(PbrRendererTest, ModuleConsumesSnapshotsOnceAndOwnsChildrenUntilDestruction) {
+TEST_P(PbrRendererTest, SystemConsumesSnapshotsAndRunsAfterProducer) {
     auto                device = gfx::create_device(GetParam());
     gfx::CommandQueues  queues(*device);
     auto                bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler compiler("PBR module test");
-    core::RuntimeModule root("Root");
-    auto                renderer = std::make_unique<render::pbr::PbrRenderer>(asset::ResourceLoadContext{*device, queues, *bindings, compiler});
-    auto&               selected = *renderer;
-    root.AddSubModule(std::move(renderer));
+    core::JobSystem frame_jobs{core::JobSystem::Execution::CallingThread};
+    ecs::World root("Root", ConfigureFrameStages);
+
+    auto& selected = root.RegisterSystem<render::pbr::PbrRenderer>(asset::ResourceLoadContext{*device, queues, *bindings, compiler}, FrameStage::Render);
     const std::array<std::byte, 16 * 16 * 4> initial_pixels{};
     auto                                     target = gfx::Texture::Create(*device, queues, *bindings, {
                                                                                                            .name        = "SubmittedTarget",
@@ -97,7 +102,7 @@ TEST_P(PbrRendererTest, ModuleConsumesSnapshotsOnceAndOwnsChildrenUntilDestructi
                                                                            initial_pixels);
     EXPECT_THROW(selected.Submit({}, {}), std::invalid_argument);
     EXPECT_THROW(selected.SetFrame({}), std::logic_error);
-    root.Tick();
+    root.Update(frame_jobs);
     EXPECT_EQ(selected.GetRenderedFrameCount(), 0u);
 
     std::vector<render::pbr::RenderDrawItem> items{{.mesh = std::make_shared<asset::Mesh>()}};
@@ -107,18 +112,21 @@ TEST_P(PbrRendererTest, ModuleConsumesSnapshotsOnceAndOwnsChildrenUntilDestructi
     items.clear();
     items.shrink_to_fit();
     EXPECT_FALSE(mesh.expired());
-    root.Tick();
+    root.Update(frame_jobs);
     EXPECT_TRUE(mesh.expired());
     EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
-    root.Tick();
+    root.Update(frame_jobs);
     EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
     const auto pixels = gfx::readback_texture(*device, queues, *bindings, *target);
     ASSERT_TRUE(pixels.GetDataSize() >= 4u);
     EXPECT_EQ(std::to_integer<unsigned>(pixels.GetData()[0]), 255u);
     EXPECT_EQ(std::to_integer<unsigned>(pixels.GetData()[2]), 0u);
 
-    selected.AddSubModule(std::make_unique<pbr_renderer_test::FrameProducer>(selected, target));
-    root.Tick();
+    root.RegisterSystem<pbr_renderer_test::FrameProducer>(selected, target);
+    root.Update(frame_jobs);
     EXPECT_EQ(selected.GetRenderedFrameCount(), 3u);
-    root.UnloadSubModule("PbrRenderer");
+    root.GetSystemManager().Unregister<pbr_renderer_test::FrameProducer>();
+    root.Update(frame_jobs);
+    root.GetSystemManager().Unregister<render::pbr::PbrRenderer>();
+    root.Update(frame_jobs);
 }

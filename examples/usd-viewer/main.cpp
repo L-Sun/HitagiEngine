@@ -1,4 +1,5 @@
 import std;
+import ecs;
 import engine;
 import viewer;
 
@@ -11,9 +12,8 @@ int main(int argc, char** argv) {
         }
 
         hitagi::Engine engine(std::move(options.app));
-        auto           viewer = std::make_unique<hitagi::examples::USDViewer>(
+        engine.GetWorld().RegisterSystem<hitagi::examples::USDViewer>(
             engine.App(), engine.ResourceLoadContext(), engine.FileIO(), engine.Jobs(), options.scene, options.renderer);
-        engine.AddSubModule(std::move(viewer));
 
         hitagi::examples::PrintUsage();
         std::uint64_t frames = 0;

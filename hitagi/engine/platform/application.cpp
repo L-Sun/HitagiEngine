@@ -38,17 +38,17 @@ struct AppConfig {
     bool                  headless        = false;
 };
 
-class Application : public core::RuntimeModule {
+class Application {
 public:
     struct Rect {
         std::uint32_t left = 0, top = 0, right = 0, bottom = 0;
     };
     Application(AppConfig config);
-    ~Application() override = default;
+    virtual ~Application() = default;
 
     static auto CreateApp(AppConfig config = {}) -> std::unique_ptr<Application>;
 
-    void Tick() override;
+    virtual void PollEvents();
     // A native modal move/resize loop may request a frame on the same thread.
     // The callback must advance simulation/rendering without polling native events.
     void SetModalFrameCallback(std::function<void()> callback) { m_ModalFrame = std::move(callback); }
@@ -83,7 +83,8 @@ protected:
     bool               TickModalFrame() noexcept;
     core::Clock        m_Clock;
     AppConfig          m_Config;
-    hid::InputManager* m_InputManager;
+    std::unique_ptr<hid::InputManager> m_InputManager;
+    std::shared_ptr<spdlog::logger> m_Logger;
 
 private:
     std::function<void()> m_ModalFrame;
@@ -94,15 +95,15 @@ private:
 
 namespace hitagi {
 Application::Application(AppConfig config)
-    : core::RuntimeModule(config.title),
-      m_Config(std::move(config)) {
+    : m_Config(std::move(config)),
+      m_InputManager(std::make_unique<hid::InputManager>()),
+      m_Logger(utils::try_create_logger(m_Config.title)) {
     spdlog::set_level(spdlog::level::from_str(m_Config.log_level.data()));
 
-    m_InputManager = static_cast<hid::InputManager*>(AddSubModule(std::make_unique<hid::InputManager>()));
     m_Clock.Start();
 }
 
-void Application::Tick() {
+void Application::PollEvents() {
     if (m_ModalFrameError) std::rethrow_exception(std::exchange(m_ModalFrameError, {}));
     m_Clock.Tick();
     m_Config.maximized = WindowMaximized();
@@ -110,14 +111,14 @@ void Application::Tick() {
         m_Config.width  = GetWindowWidth();
         m_Config.height = GetWindowHeight();
     }
-    core::RuntimeModule::Tick();
+    m_InputManager->AdvanceFrame();
 }
 
 bool Application::TickModalFrame() noexcept {
     if (!m_ModalFrame || m_InModalFrame || m_ModalFrameError || IsQuit()) return false;
     m_InModalFrame = true;
     try {
-        Application::Tick();
+        Application::PollEvents();
         m_ModalFrame();
     } catch (...) {
         // Never unwind a C++ exception through a native window procedure or SDL callback.

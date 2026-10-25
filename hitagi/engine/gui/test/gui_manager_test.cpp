@@ -21,7 +21,7 @@ protected:
 };
 
 TEST_F(PocketGuiManagerTest, EmptyUntilExplicitLoad) {
-    manager.Tick();
+    manager.Compose();
     EXPECT_TRUE(manager.GetDrawData().Empty());
 }
 

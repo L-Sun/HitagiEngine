@@ -12,10 +12,10 @@ Hitagi Engine is an experimental game engine written with C++23 modules and buil
 
 ## Features
 
-- **Core**: pmr-based memory pools, file I/O, a [Taskflow](https://github.com/taskflow/taskflow)-based job system, timers, and a runtime module tree composed by `Engine` with explicit dependency injection
+- **Core**: pmr-based memory pools, file I/O, a [Taskflow](https://github.com/taskflow/taskflow)-based job system, timers, and an ECS runtime World composed by `Engine` with explicit dependency injection
 - **Math**: a 3D math library with swizzle support and optional [ISPC](https://github.com/ispc/ispc) acceleration; matrices are row-major on both CPU and GPU
 - **Graphics (gfx)**: a graphics API abstraction with DX12, Vulkan, and mock backends, bindless resources, and a render graph
-- **Render**: concrete PBR and deferred renderers built on RenderGraph, registered as ordinary runtime modules; GUI drawing, including PocketJS text, remains a separate composable utility
+- **Render**: concrete PBR and deferred renderers built on RenderGraph, registered as ECS systems with scheduled Render-group work; GUI drawing, including PocketJS text, remains a separate composable utility
 - **Asset**: runtime resources (textures, materials, meshes, cameras, lights, scenes) loaded from a cooked binary format, with GPU residency management in `AssetManager`
 - **ECS**: archetype-based entities, filters, and system scheduling
 - **Physics**: integration of [Jolt Physics](https://github.com/jrouwe/JoltPhysics)

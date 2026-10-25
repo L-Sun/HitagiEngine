@@ -11,7 +11,7 @@ class MockDevice : public Device {
 public:
     MockDevice(std::string_view name);
 
-    void Tick() final {}
+    void BeginFrame() final {}
 
 private:
 };

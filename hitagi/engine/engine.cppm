@@ -1,4 +1,5 @@
 export module engine;
+export import :frame_stages;
 import std;
 export import std;
 export import utils;
@@ -14,12 +15,17 @@ export import hid;
 export import asset;
 
 export namespace hitagi {
-class Engine : public core::RuntimeModule {
+class Engine final {
 public:
     Engine(AppConfig config = {});
-    ~Engine() override;
+    ~Engine();
 
-    void Tick() final;
+    void Tick();
+    Engine(const Engine&) = delete;
+    Engine& operator=(const Engine&) = delete;
+    Engine(Engine&&) = delete;
+    Engine& operator=(Engine&&) = delete;
+    auto GetWorld() noexcept -> ecs::World& { return *m_World; }
 
     // Composition root accessors: the engine owns every subsystem below and hands
     // them to game/editor modules explicitly instead of through a global registry.
@@ -39,24 +45,21 @@ public:
 private:
     void TickFrame();
     bool m_InFrame = false;
-    // Infrastructure services are members rather than sub-modules: they never
-    // tick, and member order states their lifetime. ~Engine() unloads the module
-    // tree first, so every sub-module is gone before these are destroyed.
+    // Declaration order expresses ownership only; Schedule expresses execution.
     std::unique_ptr<core::MemoryManager> m_MemoryManager;
     std::unique_ptr<core::FileIOManager> m_FileIO;
-    std::unique_ptr<core::JobSystem>     m_JobSystem;
-
-    std::uint64_t m_FrameIndex = 0;
-    core::Clock   m_Clock;
-
-    // Sub-modules, owned by the RuntimeModule tree in construction order.
-    Application*           m_App            = nullptr;
-    gfx::Device*           m_Device         = nullptr;
-    gfx::CommandQueues*    m_Queues         = nullptr;
-    gfx::BindlessUtils*    m_Bindings       = nullptr;
-    gfx::ShaderCompiler*   m_ShaderCompiler = nullptr;
-    asset::AssetManager*   m_AssetManager   = nullptr;
-    physics::PhysicsWorld* m_PhysicsWorld   = nullptr;
+    std::unique_ptr<core::JobSystem> m_JobSystem;
+    std::unique_ptr<Application> m_App;
+    std::unique_ptr<gfx::Device> m_Device;
+    std::unique_ptr<gfx::CommandQueues> m_Queues;
+    std::unique_ptr<gfx::BindlessUtils> m_Bindings;
+    std::unique_ptr<gfx::ShaderCompiler> m_ShaderCompiler;
+    std::unique_ptr<asset::AssetManager> m_AssetManager;
+    std::unique_ptr<physics::PhysicsWorld> m_PhysicsWorld;
+    core::JobSystem m_FrameJobs{core::JobSystem::Execution::CallingThread};
+    core::Clock m_Clock;
+    // System state and cached tasks are released before the borrowed services.
+    std::unique_ptr<ecs::World> m_World;
 };
 
 }  // namespace hitagi

@@ -1,3 +1,5 @@
+import ecs;
+import engine;
 import std;
 import app;
 import core;
@@ -48,10 +50,11 @@ public:
           m_Queues(*m_Device),
           m_Bindings(gfx::BindlessUtils::Create(*m_Device)),
           m_Compiler("ViewerE2E"),
-          m_Viewer(*m_App, {*m_Device, m_Queues, *m_Bindings, m_Compiler}, m_FileIO, m_Jobs,
+          m_Viewer(m_World.RegisterSystem<USDViewer>(*m_App, asset::ResourceLoadContext{*m_Device, m_Queues, *m_Bindings, m_Compiler}, m_FileIO, m_Jobs,
                    record_scene.empty() ? std::filesystem::path(record_animation ? "examples/usd-viewer/assets/skinned.usda" : "examples/usd-viewer/assets/studio.usda") : record_scene,
-                   renderer, deterministic),
+                   renderer, deterministic)),
           m_Trace(output / (replay ? "replay.jsonl" : "record.jsonl")) {
+
         if (!m_FixedSize) {
             // Preserve a useful logical viewport on high-DPI stations.
             const float dpi = m_App->GetDpiRatio();
@@ -65,9 +68,9 @@ public:
         // No event pumping, sleeps, retries or elapsed-time-driven UI advancement.
         // The tape is the only source of input; the actual PocketJS/GPU path runs.
         if (apply) apply();
-        m_App->GetInputManager().Tick();
+        m_App->GetInputManager().AdvanceFrame();
         m_Queues.NewFrame();
-        m_Viewer.Tick();
+        m_World.Update(m_FrameJobs);
         const auto state = m_Viewer.Snapshot();
         auto       image = m_Viewer.Capture();
         auto       png   = asset::PngEncoder{}.Encode(image);
@@ -231,9 +234,9 @@ public:
         // batch so throughput includes GPU completion, without forcing a stall
         // after every frame. No screenshot/readback/PNG encoding.
         auto tick = [&] {
-            m_App->GetInputManager().Tick();
+            m_App->GetInputManager().AdvanceFrame();
             m_Queues.NewFrame();
-            m_Viewer.Tick();
+            m_World.Update(m_FrameJobs);
         };
         for (unsigned i = 0; i < 60; ++i) {
             tick();
@@ -435,7 +438,9 @@ private:
     gfx::CommandQueues                  m_Queues;
     std::unique_ptr<gfx::BindlessUtils> m_Bindings;
     gfx::ShaderCompiler                 m_Compiler;
-    USDViewer                           m_Viewer;
+    core::JobSystem m_FrameJobs{core::JobSystem::Execution::CallingThread};
+    ecs::World m_World{"ViewerE2E", ConfigureFrameStages};
+    USDViewer& m_Viewer;
     std::ofstream                       m_Trace;
 };
 

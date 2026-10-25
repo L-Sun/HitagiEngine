@@ -25,13 +25,57 @@ schedule. The update waits for the supplied job system and propagates task
 exceptions. It does not roll back component writes made before an exception. [Skeletal animation](../assets/animation.md) uses this frame duration
 and explicit ordering for cross-entity animation and skinning bindings.
 
+`World(name, configure_schedule)` optionally retains a host configuration callback.
+It runs before system configuration on every schedule rebuild, not on every frame.
+Use it for stable group ordering or host tasks. Failed configuration discards the
+candidate schedule and is retried on the next Update. ECS has no built-in frame
+stage enum; engine's frame policy lives in `engine:frame_stages`.
+
+`World::RegisterSystem<T>(constructor_args...)` also supports stateful systems
+and returns a borrowed reference to the instance. Registering the same type
+again enables and returns the existing instance without constructing another.
+Static hooks and variadic default registration remain supported. World is the
+instance owner; callbacks and cached tasks retain the instance for their lifetime.
+If OnCreate throws, registration removes that instance; component writes already
+performed by the callback are not rolled back.
+
+There is one execution entry: `Update(job_system, delta_seconds)`. The host
+chooses `JobSystem::Execution::CallingThread` for frame work or a thread pool for
+simulation. The World never creates an executor or selects a thread policy.
+See [runtime scheduling](runtime_schedule.md) for Engine integration.
+
 Registration moved from `GetSystemManager().Register<T>()` to
 `World::RegisterSystem<T>()`. Entity access, bulk creation, dynamic components,
-filters, `Schedule::Request()` chaining and `Schedule::SetOrder()` retain their
-existing syntax. System lifecycle hooks still receive `World&`; `OnUpdate`
+filters, `Schedule::Request()` chaining and `Schedule::SetOrder()` remain available.
+Component callbacks now take a Query value rather than one entity’s components. System lifecycle hooks still receive `World&`; `ConfigureSchedule`
 receives `Schedule&` and declares tasks. Schedule is now constructed by World
 and no longer exposes a `world` reference. Capture required dependencies when
 binding system state rather than resolving them through the scheduler.
+
+## Query and explicit order
+
+```cpp
+struct MovementSystem {
+    void ConfigureSchedule(ecs::Schedule& schedule) {
+        schedule.Request("move", [](ecs::Query<Position&, const Velocity&> query) {
+            query.ParallelEach([](Position& position, const Velocity& velocity) {
+                position.value += velocity.value;
+            });
+        });
+        schedule.Request("observe", [](ecs::Query<const Position&> query) {
+            query.Each([](const Position& position) { Observe(position); });
+        });
+        schedule.SetOrder("move", "observe");
+    }
+};
+```
+
+The example assumes application-defined Position/Velocity/Observe. A read can be
+ordered between two writers (`first -> observe -> last`); registration order and
+constness do not move that read before or after all writers. Query callbacks may
+perform multiple traversals, reductions, or whole-system setup/teardown.
+
+![Explicit dependencies, Query traversal and external execution](../assets/query_schedule.svg)
 
 ## Ownership and dependency boundaries
 
@@ -49,20 +93,19 @@ binding system state rather than resolving them through the scheduler.
 - Archetype owns its chunks and both ID-to-row and dense row-to-ID metadata.
   Swap-removal updates both mappings. It does not read an Entity object to find
   the last row, so compaction does not depend on a component object's lifetime.
-- Schedule receives EntityStorage, a logger and a debug name. Task invocation
-  visits matching archetypes and their chunks directly using fixed-size arrays
-  of requested columns, without materializing a component-by-buffer matrix.
+- Schedule receives EntityStorage, a logger and a debug name. It invokes each
+  callback once per update, including callbacks whose Query is empty. Query
+  traversals visit matching archetypes and chunks using fixed-size column arrays.
   Filters are evaluated on every traversal; no matches or task buffer addresses
   are cached across updates.
 - SystemManager retains its public name but acts as a registry. It stores
   already-bound lifecycle callbacks with no World parameter, plus update
-  callbacks taking Schedule. World performs lifecycle binding at registration.
+  callbacks taking Schedule and owned system state. World performs lifecycle binding at registration.
   Registry and scheduler implementations never call back into World directly.
 
-The interface-partition import graph is acyclic. Each partition keeps its
-implementations alongside its declarations. Schedule uses an indexed loop to
-connect adjacent writers, avoiding the clang-cl/MSVC STL `zip_view` interface-BMI
-compiler issue without a separate implementation unit.
+The interface-partition import graph is acyclic. Query owns traversal and
+component-access interpretation; Schedule owns explicit dependencies and conflict
+validation; core JobGraph/JobSystem own graph execution and thread policy.
 
 ## Storage and construction
 
@@ -92,19 +135,43 @@ compiler issue without a separate implementation unit.
 
 ## Scheduling and lifecycle
 
-- ParameterTraits is the single source for task parameter validation, component
-  identity, access mode and argument binding. Dynamic parameter names must match
-  the number of trailing dynamic pointers exactly. Conflicting access modes for
-  the same component within one task are rejected; repeated identical accesses
-  are deduplicated for ordering.
-- Explicit order constraints are edges, not a single-successor map. Multiple
-  successors and duplicate requests are supported. All implicit and explicit
-  edges are deduplicated and cycle-checked before Taskflow edges are created.
-  Cycles throw invalid_argument before any task runs.
-  Unknown task names retain their warning-and-ignore behavior.
+- Query parameters express access only: `T&` writes, `const T&` or `T` reads;
+  `std::byte*` and `const std::byte*` express dynamic writes and reads. Dynamic
+  names match the dynamic parameters in their order within the Query. Mixed
+  read/write aliases in one Query are rejected; repeated same-mode aliases are
+  deduplicated for conflict checking.
+- Tasks take one Query value or no arguments. Query is borrowed and must not
+  escape the callback. `Each` is serial; `ParallelEach(visitor, batch_size)`
+  partitions disjoint chunk ranges and joins all work before returning. Batch
+  size must be positive (default 256). Captured state and cross-entity accesses
+  must be safe for concurrent invocation. Filters are evaluated before dispatch.
+  The caller-thread JobSystem executes ParallelEach serially. A pool worker
+  cooperatively runs nested work, so a one-worker pool does not deadlock.
+- Access declarations never infer temporal ordering. `SetOrder(first, second)`
+  and group ordering define the entire dependency graph. Reads of the same
+  component may overlap; a pair containing a writer must have an explicit
+  dependency path in either direction. Unordered conflicts throw with both task
+  names before *any* task executes, even with a caller-thread JobSystem. This is
+  deliberately stricter than silently serializing ambiguous accesses. Filters
+  do not establish disjointness for this conservative component-type check.
+- Explicit edges are deduplicated and cycle-checked. Unknown endpoints and
+  duplicate task names are errors. Group constraints use entry/exit barriers,
+  including empty groups. Identity includes enum type and value; numeric value
+  order has no scheduling meaning. A task belongs to at most one group.
+- Captured services and access through Entity handles are not inferred. Declare
+  their dependencies explicitly; Query access validation is not a C++ borrow
+  checker. During schedule execution, structural changes (create/destroy entities,
+  add/remove components or register new component types) are rejected before
+  invalidating chunk storage. Make these changes between updates. There is no
+  deferred command queue in this version.
 - Registering a system calls OnCreate once and enables it. Registering an
   existing system enables it without recreating it. Repeated enable, disable
   and unregister operations do not repeat their lifecycle callbacks.
+  Failed initial creation or enable removes the new registration. Failed
+  re-enable leaves the existing instance disabled and can be retried. Hooks
+  must clean up their own external side effects; registration does not roll
+  back entity mutations. Registration rejects a reference to an instance that
+  removed or replaced itself from a lifecycle hook.
 - Enabling/disabling an unknown system is a no-op. Register it through World
   before changing its state.
 - Registry changes increment a revision. World rebuilds its cached Schedule
@@ -124,9 +191,9 @@ compiler issue without a separate implementation unit.
   same restriction if invoked during task execution.
 - Recursive World::Update calls are rejected. Exception paths restore the
   update guard so a later update remains possible.
-- World shuts down systems while its entity storage and services are still
-  alive, then releases its schedule. Shutdown callbacks must not throw.
-  New registrations during shutdown are ignored.
+- World releases its schedule, then shuts down systems in reverse registration
+  order while its entity storage and services are still alive. Shutdown callbacks must not throw.
+  Registration during shutdown is rejected.
 
 These contracts are covered by ECS tests for lifecycle binding, cached-schedule
 rebuilding, mutation during schedule collection/execution, shutdown access,

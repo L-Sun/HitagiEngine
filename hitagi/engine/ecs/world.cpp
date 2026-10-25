@@ -17,11 +17,19 @@ export namespace hitagi::ecs {
 
 class World {
 public:
-    explicit World(std::string_view name);
+    using ScheduleConfiguration = std::function<void(Schedule&)>;
+    explicit World(std::string_view name, ScheduleConfiguration configure_schedule = {});
     ~World();
 
-    template <typename... Systems>
-    void RegisterSystem() { (RegisterOne<Systems>(), ...); }
+    template <typename First, typename Second, typename... Rest>
+    void RegisterSystem() {
+        RegisterOne<First>();
+        RegisterOne<Second>();
+        (RegisterOne<Rest>(), ...);
+    }
+
+    template <typename System, typename... Args>
+    auto RegisterSystem(Args&&... args) -> System& { return RegisterOne<System>(std::forward<Args>(args)...); }
 
     // Runs the cached schedule on the supplied job system and waits for it.
     // System-set changes are reflected in the next Update, never by destroying
@@ -36,52 +44,74 @@ public:
     auto  GetLogger() noexcept { return m_Logger; }
 
 private:
-    template <typename System>
-    void RegisterOne();
+    template <typename System, typename... Args>
+    auto RegisterOne(Args&&... args) -> System&;
     auto PrepareSchedule() -> Schedule&;
 
     std::pmr::string                m_Name;
     std::shared_ptr<spdlog::logger> m_Logger;
     EntityManager                   m_EntityManager;
     SystemManager                   m_SystemManager;
+    ScheduleConfiguration           m_ConfigureSchedule;
     std::unique_ptr<Schedule>       m_Schedule;
     std::uint64_t                   m_ScheduleRevision = 0;
     bool                            m_Updating         = false;
 };
 
-template <typename System>
-void World::RegisterOne() {
+template <typename System, typename... Args>
+auto World::RegisterOne(Args&&... args) -> System& {
+    if (m_SystemManager.m_ShuttingDown) throw std::logic_error("Cannot register a system during shutdown");
+    const auto id = utils::TypeID::Create<System>();
+    if (const auto found = m_SystemManager.m_Systems.find(id); found != m_SystemManager.m_Systems.end()) {
+        auto instance = std::static_pointer_cast<System>(found->second.state);
+        m_SystemManager.EnableOne(id);
+        const auto current = m_SystemManager.m_Systems.find(id);
+        if (current == m_SystemManager.m_Systems.end() || current->second.state != instance)
+            throw std::logic_error("System removed or replaced itself during registration");
+        return *instance;
+    }
+    auto                    instance = std::make_shared<System>(std::forward<Args>(args)...);
     detail::SystemCallbacks callbacks;
-    if constexpr (requires(World& world) { { System::OnCreate(world) } -> std::same_as<void>; })
-        callbacks.on_create = [this] { System::OnCreate(*this); };
-    if constexpr (requires(World& world) { { System::OnEnable(world) } -> std::same_as<void>; })
-        callbacks.on_enable = [this] { System::OnEnable(*this); };
-    if constexpr (requires(Schedule& schedule) { { System::OnUpdate(schedule) } -> std::same_as<void>; })
-        callbacks.on_update = &System::OnUpdate;
-    if constexpr (requires(World& world) { { System::OnDisable(world) } -> std::same_as<void>; })
-        callbacks.on_disable = [this] { System::OnDisable(*this); };
-    if constexpr (requires(World& world) { { System::OnDestroy(world) } -> std::same_as<void>; })
-        callbacks.on_destroy = [this] { System::OnDestroy(*this); };
-    m_SystemManager.Register(utils::TypeID::Create<System>(), std::move(callbacks));
+    if constexpr (requires { instance->OnCreate(*this); })
+        callbacks.on_create = [this, instance] { instance->OnCreate(*this); };
+    if constexpr (requires { instance->OnEnable(*this); })
+        callbacks.on_enable = [this, instance] { instance->OnEnable(*this); };
+    if constexpr (requires(Schedule& schedule) { instance->ConfigureSchedule(schedule); })
+        callbacks.configure_schedule = [instance](Schedule& schedule) {
+            schedule.m_SystemStates.emplace_back(instance);
+            instance->ConfigureSchedule(schedule);
+        };
+    if constexpr (requires { instance->OnDisable(*this); })
+        callbacks.on_disable = [this, instance] { instance->OnDisable(*this); };
+    if constexpr (requires { instance->OnDestroy(*this); })
+        callbacks.on_destroy = [this, instance] { instance->OnDestroy(*this); };
+
+    m_SystemManager.Register(id, std::move(callbacks), instance);
+
+    const auto current = m_SystemManager.m_Systems.find(id);
+    if (current == m_SystemManager.m_Systems.end() || current->second.state != instance)
+        throw std::logic_error("System removed or replaced itself during registration");
+    return *instance;
 }
 
 }  // namespace hitagi::ecs
 
 namespace hitagi::ecs {
 
-World::World(std::string_view name)
-    : m_Name(name), m_Logger(utils::try_create_logger(name)), m_EntityManager(m_Logger) {}
+World::World(std::string_view name, ScheduleConfiguration configure_schedule)
+    : m_Name(name), m_Logger(utils::try_create_logger(name)), m_EntityManager(m_Logger), m_ConfigureSchedule(std::move(configure_schedule)) {}
 
 World::~World() {
     // Lifecycle callbacks may still access entities and other world services.
-    m_SystemManager.Shutdown();
     m_Schedule.reset();
+    m_SystemManager.Shutdown();
 }
 
 auto World::PrepareSchedule() -> Schedule& {
     const auto revision = m_SystemManager.m_Revision;
     if (!m_Schedule || m_ScheduleRevision != revision) {
         auto schedule = std::unique_ptr<Schedule>(new Schedule(m_EntityManager.m_Storage, m_Logger, m_Name));
+        if (m_ConfigureSchedule) m_ConfigureSchedule(*schedule);
         m_SystemManager.Update(*schedule);
         m_Schedule = std::move(schedule);
         // A callback may have changed the registry while building this snapshot.

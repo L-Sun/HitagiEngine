@@ -5,6 +5,8 @@ import interop.win32;
 #endif
 import std;
 import core;
+import ecs;
+import engine;
 import app;
 import gfx;
 import asset;
@@ -13,20 +15,21 @@ import render;
 namespace renderer_window_test {
 using namespace hitagi;
 
-template <typename DrawItem, typename Renderer>
-void ExerciseWindow(Application& app, gfx::CommandQueues& queues, std::unique_ptr<Renderer> renderer) {
-    Renderer&           selected = *renderer;
-    core::RuntimeModule root("WindowRendererTest");
-    root.AddSubModule(std::move(renderer));
+template <typename DrawItem, typename Renderer, typename... Args>
+void ExerciseWindow(Application& app, gfx::CommandQueues& queues, Args&&... args) {
+    core::JobSystem frame_jobs{core::JobSystem::Execution::CallingThread};
+    ecs::World root("WindowRendererTest", ConfigureFrameStages);
+
+    Renderer& selected = root.RegisterSystem<Renderer>(std::forward<Args>(args)..., FrameStage::Render);
     std::vector<DrawItem>      items{{.mesh = std::make_shared<asset::Mesh>()}};
     std::weak_ptr<asset::Mesh> mesh = items.front().mesh;
     selected.SetFrame({.draw_items = items});
     items.clear();
     items.shrink_to_fit();
     const auto tick = [&] {
-        app.Tick();
+        app.PollEvents();
         queues.NewFrame();
-        root.Tick();
+        root.Update(frame_jobs);
     };
     tick();
     tick();  // A window frame persists without Submit or a child producer.
@@ -41,7 +44,7 @@ void ExerciseWindow(Application& app, gfx::CommandQueues& queues, std::unique_pt
     // Exercise the app's minimized-state contract without displaying the window.
     const auto window = static_cast<HWND>(app.GetWindow().ptr);
     SendMessageW(window, WM_SIZE, SIZE_MINIMIZED, 0);
-    root.Tick();
+    root.Update(frame_jobs);
     EXPECT_EQ(selected.GetRenderedFrameCount(), 3u);
     SendMessageW(window, WM_SIZE, SIZE_RESTORED, 0);
     tick();
@@ -59,7 +62,7 @@ void ExerciseWindow(Application& app, gfx::CommandQueues& queues, std::unique_pt
     app.SetModalFrameCallback([&] {
         EXPECT_FALSE(app.WindowSizeChanged());
         queues.NewFrame();
-        root.Tick();
+        root.Update(frame_jobs);
     });
     SendMessageW(window, WM_ENTERSIZEMOVE, 0, 0);
     for (std::uint64_t frame = 1; frame <= 4; ++frame) {
@@ -79,7 +82,7 @@ void ExerciseWindow(Application& app, gfx::CommandQueues& queues, std::unique_pt
     const auto frames_before_resize = selected.GetRenderedFrameCount();
     app.SetModalFrameCallback([&] {
         queues.NewFrame();
-        root.Tick();
+        root.Update(frame_jobs);
     });
     SendMessageW(window, WM_ENTERSIZEMOVE, 0, 0);
     for (unsigned frame = 0; frame < 24; ++frame) {
@@ -98,7 +101,7 @@ void ExerciseWindow(Application& app, gfx::CommandQueues& queues, std::unique_pt
     const auto rendered_frames = selected.GetRenderedFrameCount();
     // A quit request alone does not invalidate the window or its swapchain.
     app.Quit();
-    EXPECT_NO_THROW(root.Tick());
+    EXPECT_NO_THROW(root.Update(frame_jobs));
     EXPECT_EQ(selected.GetRenderedFrameCount(), rendered_frames + 1);
 #ifdef _WIN32
     // Destruction changes window state without changing the cached dimensions.
@@ -106,11 +109,11 @@ void ExerciseWindow(Application& app, gfx::CommandQueues& queues, std::unique_pt
     const auto width  = app.GetWindowWidth();
     const auto height = app.GetWindowHeight();
     ASSERT_TRUE(PostMessageW(window, WM_CLOSE, 0, 0));
-    app.Tick();
+    app.PollEvents();
     ASSERT_TRUE(app.WindowSizeChanged());
     EXPECT_EQ(app.GetWindowWidth(), width);
     EXPECT_EQ(app.GetWindowHeight(), height);
-    EXPECT_NO_THROW(root.Tick());
+    EXPECT_NO_THROW(root.Update(frame_jobs));
 #endif
 }
 
@@ -127,7 +130,7 @@ TEST_P(WindowRendererTest, PbrOwnsPresentationAndRetainsFrameAcrossResize) {
     gfx::CommandQueues  queues(*device);
     auto                bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler compiler("WindowPbrTest");
-    ExerciseWindow<render::pbr::RenderDrawItem>(*app, queues, std::make_unique<render::pbr::PbrRenderer>(asset::ResourceLoadContext{*device, queues, *bindings, compiler}, *app));
+    ExerciseWindow<render::pbr::RenderDrawItem, render::pbr::PbrRenderer>(*app, queues, asset::ResourceLoadContext{*device, queues, *bindings, compiler}, *app);
 }
 
 TEST_P(WindowRendererTest, DeferredOwnsPresentationAndRetainsFrameAcrossResize) {
@@ -137,6 +140,6 @@ TEST_P(WindowRendererTest, DeferredOwnsPresentationAndRetainsFrameAcrossResize) 
     auto                bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler compiler("WindowDeferredTest");
     core::FileIOManager file_io;
-    ExerciseWindow<render::deferred::RenderDrawItem>(*app, queues, std::make_unique<render::deferred::DeferredRenderer>(*device, queues, *bindings, compiler, file_io, "assets/shaders", *app));
+    ExerciseWindow<render::deferred::RenderDrawItem, render::deferred::DeferredRenderer>(*app, queues, *device, queues, *bindings, compiler, file_io, "assets/shaders", *app);
 }
 }  // namespace renderer_window_test

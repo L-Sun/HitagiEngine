@@ -173,7 +173,7 @@ TEST_P(ToonRendererTest, OutlineExpandsSilhouetteAndCutoutRemovesBothPasses) {
         items.clear();
         mesh.reset();
         material.reset();
-        renderer.Tick();
+        renderer.RenderPending();
         auto pixels = gfx::readback_texture(*device, queues, *bindings, *output);
         for (unsigned i = 0; i < 96 * 96; ++i)
             if (std::to_integer<unsigned>(pixels.GetData()[i * 4]) < 80) ++dark[run];
@@ -184,7 +184,7 @@ TEST_P(ToonRendererTest, OutlineExpandsSilhouetteAndCutoutRemovesBothPasses) {
     EXPECT_EQ(dark[2], 0u);
     EXPECT_EQ(dark[3], 0u);
     EXPECT_EQ(renderer.GetRenderedFrameCount(), 4u);
-    renderer.Tick();
+    renderer.RenderPending();
     EXPECT_EQ(renderer.GetRenderedFrameCount(), 4u);
     EXPECT_THROW(renderer.Submit({}, {}), std::invalid_argument);
     EXPECT_THROW(renderer.SetFrame({}), std::logic_error);

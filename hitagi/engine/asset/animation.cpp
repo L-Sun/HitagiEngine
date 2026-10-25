@@ -61,7 +61,7 @@ struct AnimationTarget {
 };
 
 struct AnimationSystem {
-    static void OnUpdate(ecs::Schedule& schedule);
+    static void ConfigureSchedule(ecs::Schedule& schedule);
 };
 
 }  // namespace hitagi::asset
@@ -139,33 +139,37 @@ auto SampleAnimationCurve(const AnimationCurve<T>& curve, double time) -> T {
     }
 }
 
-void AnimationSystem::OnUpdate(ecs::Schedule& schedule) {
-    schedule.Request("advance_animations", [&schedule](AnimationPlayer& player) {
-        if (!player.clip) return;
-        if (!std::isfinite(player.time) || !std::isfinite(player.speed)) throw std::invalid_argument("Invalid animation playback state");
-        double time = player.time + (player.playing ? schedule.GetDeltaSeconds() * player.speed : 0.0);
-        if (!std::isfinite(time)) throw std::invalid_argument("Animation time overflow");
-        const double duration = player.clip->GetDuration();
-        if (duration == 0.0)
-            time = 0.0;
-        else if (player.looping) {
-            time = std::fmod(time, duration);
-            if (time < 0.0) time += duration;
-        } else {
-            time = std::clamp(time, 0.0, duration);
-        }
-        player.time = time;
+void AnimationSystem::ConfigureSchedule(ecs::Schedule& schedule) {
+    schedule.Request("advance_animations", [&schedule](ecs::Query<AnimationPlayer&> query) {
+        query.Each([&](AnimationPlayer& player) {
+            if (!player.clip) return;
+            if (!std::isfinite(player.time) || !std::isfinite(player.speed)) throw std::invalid_argument("Invalid animation playback state");
+            double time = player.time + (player.playing ? schedule.GetDeltaSeconds() * player.speed : 0.0);
+            if (!std::isfinite(time)) throw std::invalid_argument("Animation time overflow");
+            const double duration = player.clip->GetDuration();
+            if (duration == 0.0)
+                time = 0.0;
+            else if (player.looping) {
+                time = std::fmod(time, duration);
+                if (time < 0.0) time += duration;
+            } else {
+                time = std::clamp(time, 0.0, duration);
+            }
+            player.time = time;
+        });
     });
-    schedule.Request("animate_targets", [](ecs::Entity entity, const AnimationTarget& target) {
-        if (!entity.Has<Transform>() || !target.player || !target.player.Has<AnimationPlayer>()) return;
-        const auto& player = target.player.Get<AnimationPlayer>();
-        if (!player.clip) return;
-        const auto* track = player.clip->FindTrack(target.target);
-        if (!track) return;
-        auto& transform = entity.Get<Transform>();
-        if (!track->positions.keys.empty()) transform.position = SampleAnimationCurve(track->positions, player.time);
-        if (!track->rotations.keys.empty()) transform.rotation = SampleAnimationCurve(track->rotations, player.time);
-        if (!track->scales.keys.empty()) transform.scaling = SampleAnimationCurve(track->scales, player.time);
+    schedule.Request("animate_targets", [](ecs::Query<ecs::Entity, const AnimationTarget&> query) {
+        query.Each([&](ecs::Entity entity, const AnimationTarget& target) {
+            if (!entity.Has<Transform>() || !target.player || !target.player.Has<AnimationPlayer>()) return;
+            const auto& player = target.player.Get<AnimationPlayer>();
+            if (!player.clip) return;
+            const auto* track = player.clip->FindTrack(target.target);
+            if (!track) return;
+            auto& transform = entity.Get<Transform>();
+            if (!track->positions.keys.empty()) transform.position = SampleAnimationCurve(track->positions, player.time);
+            if (!track->rotations.keys.empty()) transform.rotation = SampleAnimationCurve(track->rotations, player.time);
+            if (!track->scales.keys.empty()) transform.scaling = SampleAnimationCurve(track->scales, player.time);
+        });
     });
     // Cross-entity reads/writes are not inferred by Schedule. Declare the phase
     // boundary explicitly rather than depending on system registration order.

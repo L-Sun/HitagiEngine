@@ -1294,7 +1294,7 @@ TEST_P(DeviceTest, DrawTriangle) {
     gfx_queue.Submit({{*context}});
     gfx_queue.WaitIdle();
 
-    app->Tick();
+    app->PollEvents();
     // }
 
     auto       pixels      = readback_texture(*device, queues, *bindings, *offscreen_render_target);
@@ -1321,7 +1321,7 @@ TEST(MetalDeviceTest, TickPreservesEnclosingNativeAutoreleasePools) {
         auto native_pool = ns::TransferPtr(ns::AutoreleasePool::alloc()->init());
         {
             auto frame_pool = ns::TransferPtr(ns::AutoreleasePool::alloc()->init());
-            device->Tick();
+            device->BeginFrame();
         }
         // Both pools must remain valid until their own scope ends.
     }

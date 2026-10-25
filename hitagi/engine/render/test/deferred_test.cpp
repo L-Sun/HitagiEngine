@@ -10,6 +10,8 @@ import gfx;
 import render;
 import asset;
 import core;
+import ecs;
+import engine;
 import utils;
 import math;
 import app;
@@ -53,16 +55,16 @@ public:
     std::vector<float> camera_positions;
 };
 
-TEST_P(DeferredRendererTest, ModuleConsumesSnapshotsAndRecoversAfterExtensionFailure) {
+TEST_P(DeferredRendererTest, SystemConsumesSnapshotsAndRecoversAfterExtensionFailure) {
     auto                device = gfx::create_device(GetParam());
     gfx::CommandQueues  queues(*device);
     auto                bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler compiler("Deferred module test");
     core::FileIOManager file_io;
-    core::RuntimeModule root("Root");
-    auto                renderer = std::make_unique<DeferredRenderer>(*device, queues, *bindings, compiler, file_io, "assets/shaders");
-    auto&               selected = *renderer;
-    root.AddSubModule(std::move(renderer));
+    core::JobSystem frame_jobs{core::JobSystem::Execution::CallingThread};
+    ecs::World root("Root", ConfigureFrameStages);
+
+    auto& selected = root.RegisterSystem<DeferredRenderer>(*device, queues, *bindings, compiler, file_io, "assets/shaders", FrameStage::Render);
     const auto probe = std::make_shared<DeferredSnapshotProbe>();
     selected.AddExtension(probe);
     auto target = gfx::Texture::Create(*device, queues, *bindings, {
@@ -84,20 +86,20 @@ TEST_P(DeferredRendererTest, ModuleConsumesSnapshotsAndRecoversAfterExtensionFai
     items.clear();
     items.shrink_to_fit();
     EXPECT_FALSE(mesh.expired());
-    root.Tick();
+    root.Update(frame_jobs);
     EXPECT_TRUE(mesh.expired());
     EXPECT_EQ(probe->camera_positions, (std::vector<float>{1.0f, 2.0f}));
     EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
-    root.Tick();
+    root.Update(frame_jobs);
     EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
 
     probe->fail = true;
     selected.Submit({}, target);
-    EXPECT_THROW(root.Tick(), std::runtime_error);
+    EXPECT_THROW(root.Update(frame_jobs), std::runtime_error);
     EXPECT_EQ(selected.GetRenderedFrameCount(), 2u);
     selected.ClearExtensions();
     selected.Submit({}, target);
-    root.Tick();
+    root.Update(frame_jobs);
     EXPECT_EQ(selected.GetRenderedFrameCount(), 3u);
 }
 

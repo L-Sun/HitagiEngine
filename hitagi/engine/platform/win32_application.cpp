@@ -24,7 +24,7 @@ class Win32Application : public Application {
 public:
     Win32Application(AppConfig config);
 
-    void Tick() final;
+    void PollEvents() final;
 
     void SetInputScreenPosition(const math::vec2u& position) final;
     void SetTextInputSession(std::uint64_t session) final;
@@ -72,7 +72,7 @@ Win32Application::Win32Application(AppConfig config) : Application(std::move(con
     InitializeWindows();
 }
 
-void Win32Application::Tick() {
+void Win32Application::PollEvents() {
     m_SizeChanged = false;
 
     MSG msg;
@@ -86,7 +86,7 @@ void Win32Application::Tick() {
         // send the message to the WindowProc function
         DispatchMessageW(&msg);
     }
-    Application::Tick();
+    Application::PollEvents();
 }
 
 void Win32Application::InitializeWindows() {

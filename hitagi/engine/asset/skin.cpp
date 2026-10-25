@@ -35,7 +35,7 @@ struct SkinnedMesh {
 };
 
 struct SkinningSystem {
-    static void OnUpdate(ecs::Schedule& schedule);
+    static void ConfigureSchedule(ecs::Schedule& schedule);
 };
 
 }  // namespace hitagi::asset
@@ -148,9 +148,11 @@ void SkinMesh(const MeshComponent& component, const Transform& transform, Skinne
     instance.deformed_vertices = std::make_shared<VertexArray>(source.Size(), std::move(output), "SkinnedVertices");
 }
 
-void SkinningSystem::OnUpdate(ecs::Schedule& schedule) {
-    schedule.Request("skin_meshes", [](const MeshComponent& mesh, const Transform& transform, SkinnedMesh& skin) {
-        SkinMesh(mesh, transform, skin);
+void SkinningSystem::ConfigureSchedule(ecs::Schedule& schedule) {
+    schedule.Request("skin_meshes", [](ecs::Query<const MeshComponent&, const Transform&, SkinnedMesh&> query) {
+        query.Each([&](const MeshComponent& mesh, const Transform& transform, SkinnedMesh& skin) {
+            SkinMesh(mesh, transform, skin);
+        });
     });
     // Joint Transform reads happen through entity references, beyond the query.
     schedule.SetOrder("update_world_matrix_flat", "skin_meshes");

@@ -28,11 +28,16 @@ The game editor can also use engine APIs directly. Engine has no dependency on e
 
 ## Current render architecture
 
-The `render` module provides three concrete runtime modules: `render::pbr::PbrRenderer`, `render::toon::ToonRenderer` and `render::deferred::DeferredRenderer`. All directly inherit `core::RuntimeModule`; there is no common renderer interface. Applications choose an implementation, inject its dependencies, and attach it to the ordinary module tree. Engine creates no default renderer, owns no renderer slot, and does not re-export `render`. Applications can also implement their own `RuntimeModule` using RenderGraph directly.
+The `render` module provides concrete PBR, Toon and deferred renderer systems.
+Each exposes `ConfigureSchedule(ecs::Schedule&)` and declares Render-group work; none
+inherits a runtime module base. Applications register systems in the Engine's
+World with explicit constructor dependencies, or own renderer utilities while
+composing their own graph. Engine creates no default renderer, owns no renderer
+slot, and does not re-export `render`. See [ECS-driven runtime](runtime_schedule.md).
 
-![Hitagi render architecture: explicit construction, concrete renderer modules, frame submission, and RenderGraph execution.](../assets/render_architecture.svg)
+![Hitagi render architecture: explicit construction, concrete renderer systems, frame submission, and RenderGraph execution.](../assets/render_architecture.svg)
 
-Editable [SVG](../assets/render_architecture.svg) and matching [PNG preview](../assets/render_architecture.png). Solid arrows show labeled calls/data; dashed arrows show inheritance. Module boundaries and object ownership are labeled separately.
+Editable [SVG](../assets/render_architecture.svg) and matching [PNG preview](../assets/render_architecture.png). Arrows show execution flow; containers and annotations identify ownership and injected dependencies.
 
 The host creates Engine's infrastructure first, then injects individual services at the composition root. Renderers never receive or look up an Engine instance:
 
@@ -41,21 +46,20 @@ import engine;
 import render;
 
 hitagi::Engine engine(config);
-auto renderer = std::make_unique<hitagi::render::pbr::PbrRenderer>(
+auto& renderer = engine.GetWorld().RegisterSystem<hitagi::render::pbr::PbrRenderer>(
     engine.ResourceLoadContext(), engine.App());
-renderer->SetFrame(frame); // camera, draw items and lights; retained until replaced
-engine.AddSubModule(std::move(renderer));
+renderer.SetFrame(frame); // camera, draw items and lights; retained until replaced
 
 engine.Tick(); // renderer handles its window target, graph execution and presentation
 ```
 
-Constructing a renderer with `Application&` enables window rendering. The renderer owns its SwapChain and color target, skips window rendering while minimized or zero-sized, resizes the SwapChain and recreates its target when dimensions change, and presents after graph execution. `SetFrame(frame)` snapshots the scene inputs and retains them until replaced; every visible `Tick()` renders the current snapshot, which is empty by default. The application must outlive the renderer. No child adapter or callback is required.
+Constructing a renderer with `Application&` enables window rendering. The renderer owns its SwapChain and color target, skips window rendering while minimized or zero-sized, resizes the SwapChain and recreates its target when dimensions change, and presents after graph execution. `SetFrame(frame)` snapshots the scene inputs and retains them until replaced; each scheduled `RenderPending()` renders the current snapshot, which is empty by default. The application must outlive the renderer. No child adapter or callback is required.
 
-For offscreen rendering, use the constructor without Application and call `Submit(frame, target)`. Each submission renders once on the next `Tick()`, writing the caller-owned texture. A window renderer can also consume offscreen submissions before drawing its window. `SetFrame` rejects renderers created without Application; use `Submit` or `Build` for those instances.
+For offscreen rendering, use the constructor without Application and call `Submit(frame, target)`. Each submission renders once on the next Render-group execution, writing the caller-owned texture. A window renderer can also consume offscreen submissions before drawing its window. `SetFrame` rejects renderers created without Application; use `Submit` or `Build` for those instances.
 
-Both `SetFrame` and `Submit` copy views, draw items, and lights and retain shared resources. They do not deep-copy mesh/material contents; calls and resource mutation must be serialized by the host. `Tick()` first ticks any ordinary child modules, consumes offscreen submissions, then renders its window. A failed execution retires the graph before propagating the error; later ticks can create a fresh graph. Renderer destruction releases children before its own state and graphics resources.
+Both `SetFrame` and `Submit` copy views, draw items, and lights and retain shared resources. They do not deep-copy mesh/material contents; calls and resource mutation must be serialized by the host. `ConfigureSchedule` declares the task that calls `RenderPending()`, consumes offscreen submissions, then renders its window. A failed execution retires the graph before propagating the error; later executions can create a fresh graph. World releases cached tasks before destroying registered renderer state.
 
-For custom composition, all three renderers expose `Build(graph, request)`, which only adds passes and returns graph handles. The caller then owns compilation, execution, import cleanup, and presentation. Execute that graph before the next `Build()` or `Tick()` on the same renderer, and keep the renderer and any borrowed resources alive until execution completes. Deferred exposes debug views and `IDeferredRenderExtension`; PBR owns the `PBRForward` material contract. Toon owns `ToonForward` and `ToonOutline`; see its [rendering and material contract](toon_renderer.md). PBR and Toon share renderer-neutral scene draw inputs; ECS remains responsible for instance animation and skinning. Custom application renderers remain ordinary runtime modules with their own APIs.
+For custom composition, all three renderers expose `Build(graph, request)`, which only adds passes and returns graph handles. The caller then owns compilation, execution, import cleanup, and presentation. Execute that graph before the next `Build()` or `RenderPending()` on the same renderer, and keep the renderer and any borrowed resources alive until execution completes. Deferred exposes debug views and `IDeferredRenderExtension`; PBR owns the `PBRForward` material contract. Toon owns `ToonForward` and `ToonOutline`; see its [rendering and material contract](toon_renderer.md). PBR and Toon share renderer-neutral scene draw inputs; ECS remains responsible for instance animation and skinning. Custom application renderers remain ordinary system types with their own APIs.
 
 GUI is an opt-in component: `gui::GuiRenderUtils` adds drawing passes, including PocketJS text, to the application graph. A UI host owns `GuiManager`, prepares layout before rendering native overlays, finishes GUI composition, and builds the GUI pass before executing the graph. No implicit GUI submission is performed by Engine.
 
@@ -112,7 +116,7 @@ See [Cooked binary format](../assets/cooked_binary_format.md) for the file layou
 
 Engine owns bindless descriptors, handles, residency, and the raw-storage shader layout API. Each renderer owns its pass shaders: the PBR frame, instance, and draw records are mirrored by hand in `assets/shaders/pbr_forward.slang`, like the deferred shaders; reflection-based layout validation is follow-up work. Material shader fields are generated from the same typed defaults that govern runtime packing. A game chooses what a draw references, but does not manage descriptor indices.
 
-Applications explicitly import `render` to select a built-in renderer or implement their own runtime module. The built-ins own their frame/request/result types and rendering policy. Their source files are in `hitagi/engine/render/`, collected by the engine build target; the `engine` C++ module does not import or re-export `render`. This keeps Engine's composition class independent of specific renderer APIs without creating a circular target dependency.
+Applications explicitly import `render` to select a built-in renderer or implement their own system. The built-ins own their frame/request/result types and rendering policy. Their source files are in `hitagi/engine/render/`, collected by the engine build target; the `engine` C++ module does not import or re-export `render`. This keeps Engine's composition class independent of specific renderer APIs without creating a circular target dependency.
 
 The material graph compiler lives in `hitagi/editor/material_compiler.cppm` and depends only on engine; PBR lighting stays in the renderer's Slang shell. Generic USD import does not depend on PBR; game editor supplies the conversion adapter. The former material cache and hot-reload placeholder API are removed rather than presented as completed facilities.
 

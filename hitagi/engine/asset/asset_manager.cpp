@@ -27,8 +27,7 @@ auto AssetManager::AssetLoadToken::IsCancellationRequested() const noexcept -> b
 }
 
 AssetManager::AssetManager(core::FileIOManager& file_io, core::JobSystem& job_system, std::filesystem::path asset_root_path)
-    : core::RuntimeModule("AssetManager"),
-      m_FileIO(file_io),
+    : m_FileIO(file_io),
       m_JobSystem(job_system),
       m_AssetRootPath(std::move(asset_root_path)) {}
 
@@ -99,18 +98,18 @@ auto AssetManager::ImportTextureAsync(const std::filesystem::path& path, AssetLo
     auto future  = promise->get_future().share();
 
     auto completion = m_JobSystem.Submit([this, path, token, promise] {
-                                    try {
-                                        if (token.IsCancellationRequested()) {
-                                            promise->set_value(nullptr);
-                                            return;
-                                        }
+                                     try {
+                                         if (token.IsCancellationRequested()) {
+                                             promise->set_value(nullptr);
+                                             return;
+                                         }
 
-                                        auto texture = ImportTexture(path);
-                                        promise->set_value(token.IsCancellationRequested() ? nullptr : std::move(texture));
-                                    } catch (...) {
-                                        promise->set_exception(std::current_exception());
-                                    }
-                                })
+                                         auto texture = ImportTexture(path);
+                                         promise->set_value(token.IsCancellationRequested() ? nullptr : std::move(texture));
+                                     } catch (...) {
+                                         promise->set_exception(std::current_exception());
+                                     }
+                                 })
                           .share();
     TrackAsyncJob(std::move(completion));
 

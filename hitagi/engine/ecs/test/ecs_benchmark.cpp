@@ -21,18 +21,23 @@ static void ECS_Update(benchmark::State& state) {
     };
 
     struct MoveSystem {
-        static void OnUpdate(ecs::Schedule& schedule) {
-            schedule.Request("Move", [=](Moveable& data, const core::Clock& clock) {
-                data.position += data.velocity * clock.DeltaTime().count();
-                data.velocity *= 1.01;
+        static void ConfigureSchedule(ecs::Schedule& schedule) {
+            schedule.SetOrder("ClockTick", "Move");
+            schedule.Request("Move", [=](ecs::Query<Moveable&, const core::Clock&> query) {
+                query.Each([&](Moveable& data, const core::Clock& clock) {
+                    data.position += data.velocity * clock.DeltaTime().count();
+                    data.velocity *= 1.01;
+                });
             });
         }
     };
 
     struct ClockSystem {
-        static void OnUpdate(ecs::Schedule& schedule) {
-            schedule.Request("ClockTick", [](core::Clock& clock) {
-                clock.Tick();
+        static void ConfigureSchedule(ecs::Schedule& schedule) {
+            schedule.Request("ClockTick", [](ecs::Query<core::Clock&> query) {
+                query.Each([&](core::Clock& clock) {
+                    clock.Tick();
+                });
             });
         }
     };

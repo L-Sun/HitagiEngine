@@ -24,7 +24,7 @@ public:
     SDL3Application(AppConfig config);
     ~SDL3Application() final;
 
-    void Tick() final;
+    void PollEvents() final;
 
     void SetTextInputSession(std::uint64_t session) final;
     void SetInputScreenPosition(const math::vec2u& position) final;
@@ -244,7 +244,7 @@ auto SDLText16(std::u32string_view text) -> std::u16string {
     return result;
 }
 
-void SDL3Application::Tick() {
+void SDL3Application::PollEvents() {
     m_SizeChanged = false;
 
     SDL_Event event;
@@ -328,7 +328,7 @@ void SDL3Application::Tick() {
         }
     }
 
-    Application::Tick();
+    Application::PollEvents();
 }
 
 void SDL3Application::SetTextInputSession(std::uint64_t session) {

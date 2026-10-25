@@ -32,10 +32,10 @@ struct TextInputEvent {
     bool                            control = false;
 };
 
-class InputManager : public core::RuntimeModule {
+class InputManager {
 public:
     InputManager();
-    void Tick() final;
+    void AdvanceFrame();
 
     inline void UpdateKeyState(VirtualKeyCode key, bool state) noexcept {
         m_KeyState[static_cast<std::size_t>(key)].Update(state);
@@ -81,15 +81,14 @@ private:
 
 namespace hitagi::hid {
 InputManager::InputManager()
-    : core::RuntimeModule("InputManager"),
-      m_KeyState(utils::create_array<KeyState, static_cast<std::size_t>(VirtualKeyCode::NUM)>(
+    : m_KeyState(utils::create_array<KeyState, static_cast<std::size_t>(VirtualKeyCode::NUM)>(
           KeyState{
               .current  = false,
               .previous = false,
               .dirty    = false,
           })) {}
 
-void InputManager::Tick() {
+void InputManager::AdvanceFrame() {
     for (auto&& state : m_KeyState) {
         state.ClearDirty();
     }
@@ -102,7 +101,6 @@ void InputManager::Tick() {
     } else {
         m_TextInput.clear();
     }
-    core::RuntimeModule::Tick();
 }
 
 void InputManager::ResetInputState() noexcept {

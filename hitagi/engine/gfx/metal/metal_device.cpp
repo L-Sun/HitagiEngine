@@ -20,7 +20,7 @@ public:
 
 private:
     // Fallback for initialization and standalone device users. Never drain this
-    // from Tick: a native event callback may have pushed a younger Cocoa pool.
+    // from BeginFrame: a native event callback may have pushed a younger Cocoa pool.
     ns::SharedPtr<ns::AutoreleasePool> m_AutoreleasePool;
     ns::SharedPtr<mtl::Device>         m_Device;
     ns::SharedPtr<mtl4::Compiler>      m_Compiler;

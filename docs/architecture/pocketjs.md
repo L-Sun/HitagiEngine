@@ -41,7 +41,7 @@ The decoder handles rectangles, gradients, glyph runs, textured quads, triangles
 
 ## 3. Render with Hitagi's GPU pipeline
 
-`GuiManager::Tick()` transforms logical geometry and clip rectangles into display coordinates, then appends frame-local scene/preview texture quads. `GuiDrawData` owns geometry and shared immutable image/font snapshots; it no longer uses a full-screen image in a `font_atlas` field.
+`GuiManager::Compose()` transforms logical geometry and clip rectangles into display coordinates, then appends frame-local scene/preview texture quads. `GuiDrawData` owns geometry and shared immutable image/font snapshots; it no longer uses a full-screen image in a `font_atlas` field.
 
 [GuiRenderUtils::GuiPass()](../../hitagi/engine/gui/gpu_draw.cpp) caches GPU textures by immutable resource ID. It uploads a resource only when first encountered, drops cache entries absent from the current resource set, and declares all texture accesses through RenderGraph. The graph retains imported resources through execution. After GPU completion, the application renderer clears frame imports so replaced textures can be released; live renderer caches reimport their resources next frame. Fonts use linear filtering; images preserve the core's sampling hint. Solid geometry outputs vertex color directly. The current UNORM target preserves the portable renderer's encoded-byte color blending convention.
 
@@ -53,7 +53,7 @@ The application owns both `GuiManager` and `gui::GuiRenderUtils`. After completi
 
 Hosts using native texture overlays call `GuiManager::PrepareFrame()` before consuming layout effects and rendering those textures. The later GUI tick composes the prepared frame. Logical coordinates map through uniform DPI scaling.
 
-For deterministic hosts, `GuiAppOptions::single_step` advances exactly one virtual frame per `PrepareFrame()` / `Tick()` pair, without consulting elapsed time. Ordinary application execution still uses the clock accumulator.
+For deterministic hosts, `GuiAppOptions::single_step` advances exactly one virtual frame per `PrepareFrame()` / `Compose()` pair, without consulting elapsed time. Ordinary application execution still uses the clock accumulator.
 
 The engine retains native modal-resize handling, GUI input, DrawList decoding and GPU rendering. Interactive editor, game-preview and editor resize tests were removed with their host. Current adapter checks run through `unit_tests`:
 

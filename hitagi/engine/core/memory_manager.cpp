@@ -10,19 +10,20 @@ import interop.tracy;
 
 import std;
 
-import :runtime_module;
+import utils;
 
 export namespace hitagi::core {
 
-class MemoryManager final : public RuntimeModule {
+class MemoryManager final {
 public:
     MemoryManager();
-    ~MemoryManager() final;
+    ~MemoryManager();
 
     template <typename T = std::byte>
     std::pmr::polymorphic_allocator<T> GetAllocator() const noexcept;
 
 private:
+    std::shared_ptr<spdlog::logger> m_Logger;
     std::unique_ptr<std::pmr::memory_resource> m_Pools;
 };
 
@@ -239,7 +240,7 @@ void MemoryPool::do_deallocate(void* p, std::size_t bytes, std::size_t alignment
     }
 }
 
-MemoryManager::MemoryManager() : RuntimeModule("MemoryManager") {
+MemoryManager::MemoryManager() : m_Logger(utils::try_create_logger("MemoryManager")) {
     m_Logger->trace("Create Memory Pool...");
     m_Pools = std::make_unique<MemoryPool>(m_Logger);
 

@@ -190,10 +190,16 @@ TEST_F(EcsTest, InvalidDynamicLayoutsAreRejectedAtRegistration) {
 TEST_F(EcsTest, CustomOrderSupportsMultipleSuccessorsAndDuplicateEdges) {
     static std::atomic<int> phase = 0;
     struct System {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("A", [](const Component_1&) { phase.store(1); });
-            schedule.Request("B", [](const Component_1&) { EXPECT_EQ(phase.load(), 1); });
-            schedule.Request("C", [](const Component_1&) { EXPECT_EQ(phase.load(), 1); });
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.Request("A", [](Query<const Component_1&> query) {
+                query.Each([&](const Component_1&) { phase.store(1); });
+            });
+            schedule.Request("B", [](Query<const Component_1&> query) {
+                query.Each([&](const Component_1&) { EXPECT_EQ(phase.load(), 1); });
+            });
+            schedule.Request("C", [](Query<const Component_1&> query) {
+                query.Each([&](const Component_1&) { EXPECT_EQ(phase.load(), 1); });
+            });
             schedule.SetOrder("A", "B");
             schedule.SetOrder("A", "C");
             schedule.SetOrder("A", "C");
@@ -213,17 +219,25 @@ TEST_F(EcsTest, CyclicSchedulesAreRejectedBeforeTasksRun) {
     static int calls = 0;
     calls            = 0;
     struct Cyclic {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("A", [](const Component_1&) { ++calls; });
-            schedule.Request("B", [](const Component_1&) { ++calls; });
-            schedule.Request("independent", [](const Component_1&) { ++calls; });
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.Request("A", [](Query<const Component_1&> query) {
+                query.Each([&](const Component_1&) { ++calls; });
+            });
+            schedule.Request("B", [](Query<const Component_1&> query) {
+                query.Each([&](const Component_1&) { ++calls; });
+            });
+            schedule.Request("independent", [](Query<const Component_1&> query) {
+                query.Each([&](const Component_1&) { ++calls; });
+            });
             schedule.SetOrder("A", "B");
             schedule.SetOrder("B", "A");
         }
     };
     struct Valid {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("valid", [](const Component_1&) { ++calls; });
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.Request("valid", [](Query<const Component_1&> query) {
+                query.Each([&](const Component_1&) { ++calls; });
+            });
         }
     };
     (void)em.CreateMany<Component_1>(1);
@@ -240,18 +254,25 @@ TEST_F(EcsTest, CyclicSchedulesAreRejectedBeforeTasksRun) {
 
 TEST_F(EcsTest, DynamicParameterCountAndAccessAliasesAreValidated) {
     struct TooFew {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("bad", [](std::byte*) {});
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.Request("bad", [](Query<std::byte*> query) {
+                query.Each([&](std::byte*) {});
+            });
         }
     };
     struct TooMany {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("bad", [](std::byte*) {}, {"one", "two"});
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.Request("bad", [](Query<std::byte*> query) {
+                query.Each([&](std::byte*) {});
+            },
+                             {"one", "two"});
         }
     };
     struct Conflicting {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("bad", [](Component_1&, const Component_1&) {});
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.Request("bad", [](Query<Component_1&, const Component_1&> query) {
+                query.Each([&](Component_1&, const Component_1&) {});
+            });
         }
     };
     world.RegisterSystem<TooFew>();
@@ -270,13 +291,17 @@ TEST_F(EcsTest, ChunkQueriesReevaluateFiltersAndSupportCallableOwnership) {
     enabled             = false;
     visited             = 0;
     struct System {
-        static void OnUpdate(Schedule& schedule) {
-            auto increment = [](Component_1& value) { ++value.value; };
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.SetOrder("lvalue-callable", "move-only-callable");
+            schedule.SetOrder("move-only-callable", "filtered");
+            auto increment = [](Query<Component_1&> query) { query.Each([](Component_1& value) { ++value.value; }); };
             schedule.Request("lvalue-callable", increment);
-            schedule.Request("move-only-callable", [amount = std::make_unique<int>(3)](Component_1& value) {
-                value.value += *amount;
+            schedule.Request("move-only-callable", [amount = std::make_unique<int>(3)](Query<Component_1&> query) {
+                query.Each([&](Component_1& value) {
+                    value.value += *amount;
+                });
             });
-            schedule.Request("filtered", [](const Component_1&, const ContainerComponent&) { ++visited; }, {}, [](const ComponentChecker&) { return enabled; });
+            schedule.Request("filtered", [](Query<const Component_1&, const ContainerComponent&> query) { query.Each([&](const Component_1&, const ContainerComponent&) { ++visited; }); }, {}, [](const ComponentChecker&) { return enabled; });
         }
     };
     auto small = em.CreateMany<Component_1>(100);
@@ -295,19 +320,28 @@ TEST_F(EcsTest, ChunkQueriesReevaluateFiltersAndSupportCallableOwnership) {
     EXPECT_EQ(visited, 320 + 395);
 }
 
-TEST_F(EcsTest, DynamicParameterTraitsPreserveReadWriteOrdering) {
+TEST_F(EcsTest, DynamicQueryAccessUsesExplicitOrdering) {
     static std::vector<int> values;
     values.clear();
     struct System {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("after", [](const std::byte* data) { values.emplace_back(*reinterpret_cast<const int*>(data)); }, {"raw"});
-            schedule.Request("writer", [](std::byte* first, std::byte* alias) {
-                EXPECT_EQ(first, alias);
-                ++*reinterpret_cast<int*>(first);
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.SetOrder("before", "writer");
+            schedule.SetOrder("writer", "after");
+            schedule.Request("after", [](Query<const std::byte*> query) {
+                query.Each([&](const std::byte* data) { values.emplace_back(*reinterpret_cast<const int*>(data)); });
+            },
+                             {"raw"});
+            schedule.Request("writer", [](Query<std::byte*, std::byte*> query) {
+                query.Each([&](std::byte* first, std::byte* alias) {
+                    EXPECT_EQ(first, alias);
+                    ++*reinterpret_cast<int*>(first);
+                });
             },
                              {"raw", "raw"});
-            schedule.Request("before", [](LastFrame<const std::byte*> data) {
-                values.emplace_back(*reinterpret_cast<const int*>(data.value));
+            schedule.Request("before", [](Query<const std::byte*> query) {
+                query.Each([&](const std::byte* data) {
+                    values.emplace_back(*reinterpret_cast<const int*>(data));
+                });
             },
                              {"raw"});
         }
@@ -327,8 +361,8 @@ TEST_F(EcsTest, ComponentSignaturesIgnoreDeclarationOrder) {
     matches            = 0;
     visits             = 0;
     struct System {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("visit", [](const Component_1&, const Component_2&) { ++visits; }, {}, [](const ComponentChecker&) { ++matches; return true; });
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.Request("visit", [](Query<const Component_1&, const Component_2&> query) { query.Each([&](const Component_1&, const Component_2&) { ++visits; }); }, {}, [](const ComponentChecker&) { ++matches; return true; });
         }
     };
     (void)em.CreateMany<Component_1, Component_2>(2);
@@ -347,9 +381,9 @@ TEST_F(EcsTest, CreateEntity) {
 
 TEST_F(EcsTest, EntitySnapshotsAreOrderedAndTrackLiveStorageWithoutUpdates) {
     EXPECT_TRUE(em.GetEntities().empty());
-    auto first = em.Create();
+    auto first   = em.Create();
     auto removed = em.Create();
-    auto third = em.Create();
+    auto third   = em.Create();
     third.Emplace<Component_1>();
     const auto snapshot = em.GetEntities();
     ASSERT_EQ(snapshot.size(), 3u);
@@ -451,9 +485,11 @@ TEST_F(EcsTest, WorldBindsLifecycleAndRebuildsOnlyAfterSystemChanges) {
         static void OnEnable(World&) { events.emplace_back("enable"); }
         static void OnDisable(World&) { events.emplace_back("disable"); }
         static void OnDestroy(World&) { events.emplace_back("destroy"); }
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             ++builds;
-            schedule.Request("increment", [](Component_1& value) { ++value.value; });
+            schedule.Request("increment", [](Query<Component_1&> query) {
+                query.Each([&](Component_1& value) { ++value.value; });
+            });
         }
     };
     auto entity = em.CreateMany<Component_1>(1).front();
@@ -485,14 +521,16 @@ TEST_F(EcsTest, DisablingDuringExecutionDoesNotDestroyRunningSchedule) {
     context  = &world;
     finished = false;
     struct System {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             auto lifetime = std::make_shared<int>(42);
             task_capture  = lifetime;
-            schedule.Request("disable-self", [lifetime](Component_1& value) {
-                context->GetSystemManager().Disable<System>();
-                EXPECT_FALSE(task_capture.expired());
-                value.value = *lifetime;
-                finished    = true;
+            schedule.Request("disable-self", [lifetime](Query<Component_1&> query) {
+                query.Each([&](Component_1& value) {
+                    context->GetSystemManager().Disable<System>();
+                    EXPECT_FALSE(task_capture.expired());
+                    value.value = *lifetime;
+                    finished    = true;
+                });
             });
         }
     };
@@ -510,14 +548,19 @@ TEST_F(EcsTest, RegistrationDuringScheduleBuildTakesEffectNextUpdate) {
     static World* context = nullptr;
     context               = &world;
     struct AddedSystem {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("added", [](Component_1& value) { value.value += 10; });
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.SetOrder("existing", "added");
+            schedule.Request("added", [](Query<Component_1&> query) {
+                query.Each([&](Component_1& value) { value.value += 10; });
+            });
         }
     };
     struct RegisteringSystem {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             context->RegisterSystem<AddedSystem>();
-            schedule.Request("existing", [](Component_1& value) { ++value.value; });
+            schedule.Request("existing", [](Query<Component_1&> query) {
+                query.Each([&](Component_1& value) { ++value.value; });
+            });
         }
     };
     auto entity = em.CreateMany<Component_1>(1).front();
@@ -558,10 +601,12 @@ TEST_F(EcsTest, RecursiveUpdateIsRejectedWithoutInvalidatingTheSchedule) {
     context                         = &world;
     jobs                            = &job_system;
     struct System {
-        static void OnUpdate(Schedule& schedule) {
-            schedule.Request("recursive-update", [](Component_1& value) {
-                EXPECT_THROW(context->Update(*jobs), std::logic_error);
-                ++value.value;
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.Request("recursive-update", [](Query<Component_1&> query) {
+                query.Each([&](Component_1& value) {
+                    EXPECT_THROW(context->Update(*jobs), std::logic_error);
+                    ++value.value;
+                });
             });
         }
     };
@@ -813,12 +858,14 @@ TEST_F(EcsTest, SystemUpdate) {
     static std::vector<Entity> invoked_entities;
 
     struct System {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             schedule.Request(
-                "ImplicitFilterAll", [&](Entity e, LastFrame<Component_1> c1, Component_2& c2, std::byte* c3) {
-                    invoked_entities.emplace_back(e);
-                    c2.value                    = 200;
-                    *reinterpret_cast<int*>(c3) = 300;
+                "ImplicitFilterAll", [&](Query<Entity, Component_1, Component_2&, std::byte*> query) {
+                    query.Each([&](Entity e, Component_1 c1, Component_2& c2, std::byte* c3) {
+                        invoked_entities.emplace_back(e);
+                        c2.value                    = 200;
+                        *reinterpret_cast<int*>(c3) = 300;
+                    });
                 },
                 {"DynamicComponent"});
         }
@@ -856,10 +903,12 @@ TEST_F(EcsTest, SystemUpdateWithNoEntities) {
     static bool invoked = false;
 
     struct System {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             schedule.Request(
-                "ImplicitFilterAll", [&](Entity, LastFrame<Component_1>, Component_2&, std::byte*) {
-                    invoked = true;
+                "ImplicitFilterAll", [&](Query<Entity, Component_1, Component_2&, std::byte*> query) {
+                    query.Each([&](Entity, Component_1, Component_2&, std::byte*) {
+                        invoked = true;
+                    });
                 },
                 {"DynamicComponent"});
         }
@@ -876,27 +925,38 @@ TEST_F(EcsTest, SystemUpdateOrder) {
     const std::vector<std::size_t> expected_order{1, 2, 3, 4};
 
     struct System {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
+            schedule.SetOrder("Fn1", "Fn2");
+            schedule.SetOrder("Fn2", "Fn3");
+            schedule.SetOrder("Fn3", "Fn4");
             schedule
                 .Request(
                     "Fn2",
-                    [&](Component_1&) {
-                        order.emplace_back(2);
+                    [&](Query<Component_1&> query) {
+                        query.Each([&](Component_1&) {
+                            order.emplace_back(2);
+                        });
                     })
                 .Request(
                     "Fn4",
-                    [&](const Component_1&) {
-                        order.emplace_back(4);
+                    [&](Query<const Component_1&> query) {
+                        query.Each([&](const Component_1&) {
+                            order.emplace_back(4);
+                        });
                     })
                 .Request(
                     "Fn3",
-                    [&](Component_1&) {
-                        order.emplace_back(3);
+                    [&](Query<Component_1&> query) {
+                        query.Each([&](Component_1&) {
+                            order.emplace_back(3);
+                        });
                     })
                 .Request(
                     "Fn1",
-                    [&](LastFrame<Component_1>) {
-                        order.emplace_back(1);
+                    [&](Query<Component_1> query) {
+                        query.Each([&](Component_1) {
+                            order.emplace_back(1);
+                        });
                     });
         }
     };
@@ -906,11 +966,7 @@ TEST_F(EcsTest, SystemUpdateOrder) {
     world.Update(job_system);
 
     EXPECT_EQ(order.size(), 4);
-    EXPECT_EQ(order, expected_order)
-        << "The execution order of a request component is following"
-        << "1(ReadBeforWrite). Execute parallel all function request with LastFrame<Component>"
-        << "2(Write).  Execute all function request with Component sequentially in the order of requesting"
-        << "3(ReadAfterWrite). Execute parallel all function request with const Component&";
+    EXPECT_EQ(order, expected_order);
 
     // A later update keeps the same dependency order.
     order.clear();
@@ -924,14 +980,18 @@ TEST_F(EcsTest, SystemUpdateInCustomOrder) {
     const std::vector<std::size_t> expected_order{2, 1};
 
     struct System {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             schedule.SetOrder("Fn2", "Fn1");
             schedule
-                .Request("Fn1", [&](Component_1) {
-                    order.emplace_back(1);
+                .Request("Fn1", [&](Query<Component_1> query) {
+                    query.Each([&](Component_1) {
+                        order.emplace_back(1);
+                    });
                 })
-                .Request("Fn2", [&](Component_1) {
-                    order.emplace_back(2);
+                .Request("Fn2", [&](Query<Component_1> query) {
+                    query.Each([&](Component_1) {
+                        order.emplace_back(2);
+                    });
                 });
         }
     };
@@ -949,12 +1009,14 @@ TEST_F(EcsTest, SystemUpdateInCustomOrder) {
 
 TEST_F(EcsTest, SystemFilterAll) {
     struct System {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             schedule.Request(
                 "FilterAll",
-                [&](Entity entity) {
-                    entity.Get<Component_1>().value = 10;
-                    entity.Get<Component_2>().value = 20;
+                [&](Query<Entity> query) {
+                    query.Each([&](Entity entity) {
+                        entity.Get<Component_1>().value = 10;
+                        entity.Get<Component_2>().value = 20;
+                    });
                 },
                 {},
                 filter::All<Component_1, Component_2>());
@@ -979,15 +1041,17 @@ TEST_F(EcsTest, SystemFilterAll) {
 
 TEST_F(EcsTest, SystemFilterAny) {
     struct System {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             schedule.Request(
                 "FilterAny",
-                [&](Entity entity) {
-                    if (entity.Has<Component_1>())
-                        entity.Get<Component_1>().value = 100;
+                [&](Query<Entity> query) {
+                    query.Each([&](Entity entity) {
+                        if (entity.Has<Component_1>())
+                            entity.Get<Component_1>().value = 100;
 
-                    if (entity.Has<Component_2>())
-                        entity.Get<Component_2>().value = 200;
+                        if (entity.Has<Component_2>())
+                            entity.Get<Component_2>().value = 200;
+                    });
                 },
                 {},
                 filter::Any<Component_1, Component_2>());
@@ -1013,11 +1077,13 @@ TEST_F(EcsTest, SystemFilterAny) {
 
 TEST_F(EcsTest, SystemFilterNone) {
     struct System {
-        static void OnUpdate(Schedule& schedule) {
+        static void ConfigureSchedule(Schedule& schedule) {
             schedule.Request(
                 "FilterNone",
-                [](Component_1& c1) {
-                    c1.value = 100;
+                [](Query<Component_1&> query) {
+                    query.Each([&](Component_1& c1) {
+                        c1.value = 100;
+                    });
                 },
                 {},
                 filter::None<Component_2>());

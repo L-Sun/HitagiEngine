@@ -29,7 +29,7 @@ public:
     DX12Device(std::string_view name);
     ~DX12Device() final;
 
-    void Tick() final;
+    void BeginFrame() final;
 
     inline auto  GetFactory() const noexcept { return m_Factory; }
     inline auto  GetAdapter() const noexcept { return m_Adapter; }
@@ -275,8 +275,8 @@ DX12Device::~DX12Device() {
 #endif
 }
 
-void DX12Device::Tick() {
-    Device::Tick();
+void DX12Device::BeginFrame() {
+    Device::BeginFrame();
     if (m_EnableProfile) {
         Profile();
     }

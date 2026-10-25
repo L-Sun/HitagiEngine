@@ -1,4 +1,5 @@
 export module gfx;
+export import :graphics_frame;
 export import gfx.base;
 export import gfx.render_graph;
 

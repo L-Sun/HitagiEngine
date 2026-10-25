@@ -1,106 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1090" viewBox="0 0 1440 1090" role="img" aria-labelledby="title desc">
-  <title id="title">Engine · Ownership Is a Container, References Are Fields</title>
-  <desc id="desc">Engine owns the infrastructure members and RuntimeModule subtree. Infrastructure members are MemoryManager, FileIOManager and JobSystem. The subtree lists modules in relative tick order, with Debug omitted. GraphicsServices owns queues, bindings and compiler. AssetManager borrows FileIOManager and JobSystem; PhysicsWorld borrows JobSystem; Hosts add logic, optional GuiManager, and concrete renderer RuntimeModules; consumers receive explicit services. Device is used to create GraphicsServices. Subtree teardown precedes reverse member destruction.</desc>
-  <defs><style>
-    text { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; fill: #263443; }
-    .title { font-size: 32px; font-weight: 700; }
-    .section { font-size: 24px; font-weight: 700; }
-    .label { font-size: 21px; font-weight: 600; }
-    .body { font-size: 19px; }
-    .small { font-size: 17px; fill: #596878; }
-    .code { font-family: Consolas, monospace; font-size: 18px; }
-    .panel { fill: #fff; stroke: #c6d1dc; stroke-width: 1.5; }
-    .blue { fill: #e1eef9; stroke: #8db3d3; stroke-width: 1.5; }
-    .green { fill: #e2f1e7; stroke: #91b69b; stroke-width: 1.5; }
-    .orange { fill: #fbead8; stroke: #d6ac7a; stroke-width: 1.5; }
-    .purple { fill: #eee6f5; stroke: #b19acb; stroke-width: 1.5; }
-    .gray { fill: #edf0f4; stroke: #b1bdca; stroke-width: 1.5; }
-    .arrow { fill: none; stroke: #738293; stroke-width: 2; marker-end: url(#arrow); }
-    .ref { fill: none; stroke: #a07b4d; stroke-width: 2; stroke-dasharray: 6 5; marker-end: url(#amber); }
-    .line { fill: none; stroke: #b1bdca; stroke-width: 1.5; }
-  </style>
-  <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#738293"/></marker>
-  <marker id="amber" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L9 4.5L0 9Z" fill="#a07b4d"/></marker></defs>
-  <rect width="1440" height="1090" fill="#f8fafc"/>
-  <rect x="40" y="34" width="6" height="64" rx="3" fill="#608db4"/>
-  <text x="64" y="62" class="title" text-anchor="start">Engine · Ownership Is a Container, References Are Fields</text>
-  <text x="64" y="94" class="body" text-anchor="start">Nested boundaries show owned objects · Amber labels identify borrowed dependencies</text>
-  <rect x="40" y="134" width="1360" height="718" rx="10" class="panel"/>
-  <text x="64" y="175" class="section" text-anchor="start">Engine</text>
-  <text x="1376" y="175" class="small" text-anchor="end">Owns both regions below</text>
-  <rect x="64" y="202" width="350" height="588" rx="8" class="blue"/>
-  <text x="88" y="241" class="label" text-anchor="start">Infrastructure Members</text>
-  <text x="88" y="273" class="small" text-anchor="start">Declaration order · Never tick</text>
-  <rect x="88" y="302" width="302" height="98" rx="5" class="panel"/>
-  <text x="108" y="337" class="code" text-anchor="start">1   MemoryManager</text>
-  <text x="108" y="374" class="small" text-anchor="start">Default memory resource</text>
-  <rect x="88" y="422" width="302" height="98" rx="5" class="panel"/>
-  <text x="108" y="457" class="code" text-anchor="start">2   FileIOManager</text>
-  <text x="108" y="494" class="small" text-anchor="start">File access service</text>
-  <rect x="88" y="542" width="302" height="98" rx="5" class="panel"/>
-  <text x="108" y="577" class="code" text-anchor="start">3   JobSystem</text>
-  <text x="108" y="614" class="small" text-anchor="start">Worker pool / task execution</text>
-  <text x="88" y="691" class="small" text-anchor="start">These outlive the module subtree.</text>
-  <text x="88" y="724" class="small" text-anchor="start">References into these objects</text>
-  <text x="88" y="751" class="small" text-anchor="start">do not transfer ownership.</text>
-  <rect x="450" y="202" width="926" height="588" rx="8" class="gray"/>
-  <text x="474" y="241" class="label" text-anchor="start">RuntimeModule Subtree</text>
-  <text x="474" y="269" class="small" text-anchor="start">Relative Tick order ↓</text>
-  <text x="902" y="269" class="small" text-anchor="start">Borrowed references / creation inputs</text>
-  <rect x="474" y="288" width="878" height="42" rx="5" class="panel"/>
-  <text x="490" y="316" class="code" text-anchor="start">Application</text>
-  <rect x="474" y="336" width="878" height="42" rx="5" class="purple"/>
-  <text x="490" y="364" class="code" text-anchor="start">gfx::Device</text>
-  <rect x="474" y="384" width="878" height="88" rx="5" class="purple"/>
-  <text x="490" y="412" class="code" text-anchor="start">GraphicsServices</text>
-  <rect x="884" y="390" width="452" height="30" rx="3" class="orange"/>
-  <text x="900" y="411" class="small" text-anchor="start">Created using Device</text>
-  <rect x="490" y="430" width="240" height="28" rx="2" class="panel"/>
-  <text x="502" y="450" class="small" text-anchor="start">Queues</text>
-  <rect x="746" y="430" width="264" height="28" rx="2" class="panel"/>
-  <text x="758" y="450" class="small" text-anchor="start">Bindings</text>
-  <rect x="1026" y="430" width="310" height="28" rx="2" class="panel"/>
-  <text x="1038" y="450" class="small" text-anchor="start">ShaderCompiler</text>
-  <rect x="474" y="480" width="878" height="42" rx="5" class="green"/>
-  <text x="490" y="508" class="code" text-anchor="start">AssetManager</text>
-  <rect x="884" y="485" width="452" height="32" rx="3" class="orange"/>
-  <text x="900" y="507" class="small" text-anchor="start">FileIOManager&amp; · JobSystem&amp;</text>
-  <rect x="474" y="528" width="878" height="42" rx="5" class="green"/>
-  <text x="490" y="556" class="code" text-anchor="start">PhysicsWorld</text>
-  <rect x="884" y="533" width="452" height="32" rx="3" class="orange"/>
-  <text x="900" y="555" class="small" text-anchor="start">JobSystem&amp;</text>
-  <rect x="474" y="576" width="878" height="42" rx="5" class="panel"/>
-  <text x="490" y="604" class="code" text-anchor="start">Host logic (example)</text>
-  <text x="900" y="603" class="small" text-anchor="start">Host chooses and appends modules</text>
-  <rect x="474" y="624" width="878" height="42" rx="5" class="purple"/>
-  <text x="490" y="652" class="code" text-anchor="start">GuiManager (optional)</text>
-  <rect x="884" y="629" width="452" height="32" rx="3" class="orange"/>
-  <text x="900" y="651" class="small" text-anchor="start">Application&amp; · FileIOManager&amp;</text>
-  <rect x="474" y="672" width="878" height="42" rx="5" class="panel"/>
-  <text x="490" y="700" class="code" text-anchor="start">Renderer : RuntimeModule</text>
-  <rect x="884" y="677" width="452" height="32" rx="3" class="orange"/>
-  <text x="900" y="699" class="small" text-anchor="start">Graphics services; optional Application&amp;</text>
-  <rect x="474" y="720" width="878" height="42" rx="5" class="purple"/>
-  <text x="490" y="748" class="code" text-anchor="start">Other host modules</text>
-  <rect x="884" y="725" width="452" height="32" rx="3" class="orange"/>
-  <text x="900" y="747" class="small" text-anchor="start">Explicit dependencies, chosen by host</text>
-  <text x="64" y="824" class="small" text-anchor="start">Hosts choose and register these modules. Debug is omitted from this relative-order view.</text>
-  <text x="40" y="898" class="section" text-anchor="start">DESTRUCTION ORDER</text>
-  <text x="1400" y="898" class="small" text-anchor="end">Consumers are destroyed before their dependencies</text>
-  <rect x="40" y="924" width="444" height="98" rx="5" class="gray"/>
-  <text x="64" y="960" class="code" text-anchor="start">1   UnloadAllSubModules()</text>
-  <text x="64" y="994" class="small" text-anchor="start">Host modules … Application, in reverse</text>
-  <path d="M488 973H530" class="arrow"/>
-  <rect x="534" y="924" width="266" height="98" rx="5" class="blue"/>
-  <text x="558" y="960" class="code" text-anchor="start">2   JobSystem</text>
-  <text x="558" y="994" class="small" text-anchor="start">Wait for pending tasks</text>
-  <path d="M804 973H846" class="arrow"/>
-  <rect x="850" y="924" width="266" height="98" rx="5" class="blue"/>
-  <text x="874" y="960" class="code" text-anchor="start">3   FileIOManager</text>
-  <text x="874" y="994" class="small" text-anchor="start">Release file service</text>
-  <path d="M1120 973H1162" class="arrow"/>
-  <rect x="1166" y="924" width="234" height="98" rx="5" class="blue"/>
-  <text x="1182" y="960" class="code" text-anchor="start">4   MemoryManager</text>
-  <text x="1182" y="994" class="small" text-anchor="start">Release memory service</text>
-  <text x="40" y="1060" class="small" text-anchor="start">Containment means ownership. Amber labels identify borrowed dependencies or explicitly marked creation inputs.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1050" viewBox="0 0 1440 1050" role="img"><title>Engine · 所有权归成员，运行工作归 ECS</title><defs><style>text{font-family:'Segoe UI','Microsoft YaHei',sans-serif;fill:#263443}.title{font-size:32px;font-weight:700}.section{font-size:24px;font-weight:700}.label{font-size:21px;font-weight:600}.body{font-size:20px}.small{font-size:18px;fill:#596878}.code{font-family:Consolas,'Microsoft YaHei',monospace;font-size:20px}.panel{fill:#fff;stroke:#c6d1dc}.blue{fill:#e1eef9;stroke:#8db3d3}.green{fill:#e2f1e7;stroke:#91b69b}.orange{fill:#fbead8;stroke:#d6ac7a}.purple{fill:#eee6f5;stroke:#b19acb}.gray{fill:#edf0f4;stroke:#b1bdca}rect{stroke-width:1.5}.arrow{fill:none;stroke:#738293;stroke-width:1.5;marker-end:url(#arrow)}</style><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#738293"/></marker></defs><rect width="1440" height="1050" fill="#f8fafc"/>
+<rect x="40" y="32" width="6" height="64" rx="7" class="blue"/>
+<text x="64" y="62" class="title">Engine · 所有权归成员，运行工作归 ECS</text>
+<text x="64" y="98" class="small">当前实现 · 嵌套容器表示拥有；橙色表示借用；成员顺序与任务执行顺序分别定义</text>
+<rect x="40" y="140" width="1360" height="735" rx="7" class="panel"/>
+<text x="64" y="180" class="section">Engine · 组合根</text>
+<rect x="64" y="210" width="598" height="610" rx="7" class="blue"/>
+<text x="86" y="248" class="section">直接持有的基础设施</text>
+<text x="86" y="279" class="small">按依赖顺序构造，逆序释放</text>
+<rect x="86" y="308" width="554" height="78" rx="7" class="panel"/>
+<text x="104" y="338" class="code">MemoryManager / FileIO / JobSystem</text>
+<text x="104" y="368" class="small">普通服务，不声明空的逐帧任务</text>
+<rect x="86" y="405" width="554" height="78" rx="7" class="purple"/>
+<text x="104" y="435" class="code">Application / Device</text>
+<text x="104" y="465" class="small">窗口由 Application 持有；设备管理底层状态</text>
+<rect x="86" y="502" width="554" height="78" rx="7" class="purple"/>
+<text x="104" y="532" class="code">Queues / Bindings / ShaderCompiler</text>
+<text x="104" y="562" class="small">三个独立成员；没有 GraphicsServices 包装</text>
+<rect x="86" y="599" width="554" height="78" rx="7" class="green"/>
+<text x="104" y="629" class="code">AssetManager / PhysicsWorld</text>
+<text x="104" y="659" class="small">资源加载与物理 Step 由消费者按需调用</text>
+<text x="86" y="752" class="small">Engine.Clock 在帧末推进，保持原有时间语义</text>
+<rect x="696" y="210" width="680" height="610" rx="7" class="gray"/>
+<text x="718" y="248" class="section">ecs::World · 运行时状态与调度</text>
+<rect x="718" y="280" width="636" height="78" rx="7" class="green"/>
+<text x="736" y="310" class="code">SystemManager · 绑定的系统实例</text>
+<text x="736" y="340" class="small">gfx::GraphicsFrameSystem / DebugManager / 宿主系统</text>
+<rect x="718" y="378" width="636" height="78" rx="7" class="orange"/>
+<text x="736" y="408" class="code">构造函数注入 Device&amp; / Queues&amp; …</text>
+<text x="736" y="438" class="small">注入通用 Group；系统不依赖 engine 阶段枚举</text>
+<rect x="718" y="476" width="636" height="204" rx="7" class="purple"/>
+<text x="738" y="512" class="section">Schedule · 缓存的执行快照</text>
+<text x="738" y="552" class="small">先应用 engine 阶段配置，再由系统声明任务</text>
+<text x="738" y="590" class="small">FrameStage / ConfigureFrameStages 由 engine 提供</text>
+<text x="738" y="628" class="small">快照保留系统实例，执行中取消注册不会悬空</text>
+<text x="738" y="660" class="small">执行顺序由依赖图决定，不取决于成员排列</text>
+<rect x="718" y="704" width="636" height="78" rx="7" class="panel"/>
+<text x="736" y="734" class="code">EntityManager · 可有实体，也可以为空</text>
+<text x="736" y="764" class="small">无参数任务每帧运行一次，不需要伪实体</text>
+<text x="64" y="852" class="small">World 先于所有借用的服务销毁；系统以注册逆序结束生命周期。外部资源仍由其拥有者负责。</text>
+<rect x="40" y="920" width="405" height="78" rx="7" class="blue"/>
+<text x="58" y="950" class="code">1  停止帧入口 / CPU 工作收尾</text>
+<text x="58" y="980" class="small">清除窗口模态回调，等待已提交任务</text>
+<rect x="480" y="920" width="425" height="78" rx="7" class="purple"/>
+<text x="498" y="950" class="code">2  GPU 完成 / 释放 World</text>
+<text x="498" y="980" class="small">队列屏障后释放快照与系统状态</text>
+<rect x="940" y="920" width="460" height="78" rx="7" class="green"/>
+<text x="958" y="950" class="code">3  设施逆序释放</text>
+<text x="958" y="980" class="small">Assets → … → Device → … → Memory</text>
+<path d="M450 959 L474 959" class="arrow"/>
+<path d="M910 959 L934 959" class="arrow"/>
 </svg>

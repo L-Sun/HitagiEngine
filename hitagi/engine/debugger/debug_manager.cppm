@@ -1,14 +1,15 @@
 export module debugger;
+import ecs;
 import std;
 import math;
 import core;
 import gfx;
 
 export namespace hitagi::debugger {
-class DebugManager : public core::RuntimeModule {
+class DebugManager {
 public:
-    DebugManager() : core::RuntimeModule("DebugManager") {}
-    void Tick() final;
+    explicit DebugManager(std::optional<ecs::Group> group = {}) : m_Group(group) {}
+    void ConfigureSchedule(ecs::Schedule& schedule);
 
     inline void EnableDebugDraw() noexcept { m_DrawDebugInfo = true; }
     inline void DisableDebugDraw() noexcept { m_DrawDebugInfo = false; }
@@ -17,7 +18,9 @@ public:
     void DrawAxis(const math::mat4f& transform, bool depth_enabled = true);
     void DrawBox(const math::mat4f& transform, const math::Color& color, bool depth_enabled = true);
 
-protected:
+private:
+    std::optional<ecs::Group> m_Group;
+    void                      ClearFrame();
     struct GfxData {
         std::shared_ptr<gfx::GPUBuffer>      vertices;
         std::shared_ptr<gfx::GPUBuffer>      indices;

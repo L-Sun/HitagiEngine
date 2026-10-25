@@ -5,6 +5,7 @@ import core;
 import app;
 import asset;
 import ecs;
+import engine;
 import math;
 import hid;
 import gfx;
@@ -34,12 +35,11 @@ struct UiControl {
     bool        enabled = true;
 };
 
-class USDViewer final : public core::RuntimeModule {
+class USDViewer final {
 public:
     USDViewer(Application& app, asset::ResourceLoadContext resources, core::FileIOManager& file_io,
               core::JobSystem& job_system, const std::filesystem::path& path, RendererType renderer, bool deterministic = false);
-    ~USDViewer() final { UnloadAllSubModules(); }
-    void Tick() final;
+    void ConfigureSchedule(ecs::Schedule& schedule);
     void SetRenderer(RendererType renderer);
 
     // Layout and snapshots let the replay driver inspect actual UI/GPU results.
@@ -50,6 +50,11 @@ public:
     auto FrameTimings() const noexcept -> const std::array<double, 4>& { return m_FrameTimings; }
 
 private:
+    void PrepareFrame();
+    void UpdateScene();
+    void PublishFrame();
+    void Measure(unsigned phase);
+    std::chrono::steady_clock::time_point m_PhaseStart;
     void OpenScene(const std::filesystem::path& path);
     void IndexScene(ecs::Entity entity, std::string parent, unsigned depth, std::size_t parent_index = std::numeric_limits<std::size_t>::max());
     void UpdateBounds();
@@ -89,9 +94,9 @@ private:
 
     RendererType                           m_Renderer = RendererType::Pbr;
     render::deferred::RenderGraphDebugView m_Debug    = render::deferred::RenderGraphDebugView::Final;
-    render::pbr::PbrRenderer*              m_Pbr      = nullptr;
-    render::toon::ToonRenderer*            m_Toon     = nullptr;
-    render::deferred::DeferredRenderer*    m_Deferred = nullptr;
+    std::unique_ptr<render::pbr::PbrRenderer> m_Pbr;
+    std::unique_ptr<render::toon::ToonRenderer> m_Toon;
+    std::unique_ptr<render::deferred::DeferredRenderer> m_Deferred;
 
     gui::GuiManager                  m_Gui;
     gui::GuiRenderUtils              m_GuiDraw;
@@ -108,8 +113,7 @@ namespace hitagi::examples {
 
 USDViewer::USDViewer(Application& app, asset::ResourceLoadContext resources, core::FileIOManager& file_io,
                      core::JobSystem& job_system, const std::filesystem::path& path, RendererType renderer, bool deterministic)
-    : RuntimeModule("USDViewer"),
-      m_App(app),
+    : m_App(app),
       m_Resources(resources),
       m_FileIO(file_io),
       m_Jobs(job_system),
@@ -128,41 +132,48 @@ USDViewer::USDViewer(Application& app, asset::ResourceLoadContext resources, cor
 
 void USDViewer::SetRenderer(RendererType renderer) {
     if (renderer == m_Renderer && (m_Pbr || m_Toon || m_Deferred)) return;
-    UnloadAllSubModules();
     m_Pbr      = nullptr;
     m_Toon     = nullptr;
     m_Deferred = nullptr;
     if (renderer == RendererType::Pbr) {
         auto module = std::make_unique<render::pbr::PbrRenderer>(m_Resources);
-        m_Pbr       = module.get();
-        AddSubModule(std::move(module));
+        m_Pbr = std::move(module);
     } else if (renderer == RendererType::Toon) {
         auto module = std::make_unique<render::toon::ToonRenderer>(m_Resources);
-        m_Toon = module.get();
-        AddSubModule(std::move(module));
+        m_Toon = std::move(module);
     } else {
         auto module = std::make_unique<render::deferred::DeferredRenderer>(
             m_Resources.device, m_Resources.queues, m_Resources.bindings, m_Resources.shader_compiler,
             m_FileIO, "assets/shaders");
-        m_Deferred = module.get();
-        AddSubModule(std::move(module));
+        m_Deferred = std::move(module);
     }
     m_Renderer = renderer;
     m_Debug    = render::deferred::RenderGraphDebugView::Final;
     m_Status   = std::format("{} renderer", RendererName(renderer));
 }
 
-void USDViewer::Tick() {
-    auto stamp = std::chrono::steady_clock::now();
-    const auto measure = [&](unsigned index) {
-        const auto end = std::chrono::steady_clock::now();
-        m_FrameTimings[index] = std::chrono::duration<double, std::milli>(end - stamp).count();
-        stamp = end;
-    };
+void USDViewer::ConfigureSchedule(ecs::Schedule& schedule) {
+    schedule.Request("Viewer.Input", [this] { PrepareFrame(); }, FrameStage::PreUpdate);
+    schedule.Request("Viewer.Scene", [this] { UpdateScene(); }, FrameStage::Update);
+    schedule.Request("Viewer.Render", [this] { RenderFrame(); Measure(2); }, FrameStage::Render);
+    schedule.Request("Viewer.Publish", [this] { PublishFrame(); }, FrameStage::Last);
+}
+
+void USDViewer::Measure(unsigned phase) {
+    const auto end = std::chrono::steady_clock::now();
+    m_FrameTimings[phase] = std::chrono::duration<double, std::milli>(end - m_PhaseStart).count();
+    m_PhaseStart = end;
+}
+
+void USDViewer::PrepareFrame() {
+    m_PhaseStart = std::chrono::steady_clock::now();
     ++m_Frame;
     m_Gui.PrepareFrame();
     DrainUi();
-    measure(0);
+    Measure(0);
+}
+
+void USDViewer::UpdateScene() {
     const auto   now     = std::chrono::steady_clock::now();
     const double elapsed = m_Deterministic ? 1.0 / 60.0 : std::chrono::duration<double>(now - m_LastAnimationTick).count();
     m_LastAnimationTick  = now;
@@ -170,7 +181,6 @@ void USDViewer::Tick() {
         m_Scene->GetWorld().Update(m_Jobs, elapsed);
         UpdateBounds();
     }
-    measure(1);
     const auto& input = m_App.GetInputManager();
     if (!m_Gui.WantsTextInput()) {
         if (input.GetBoolNew(hid::VirtualKeyCode::KEY_F)) ApplyCommand("fit");
@@ -184,9 +194,10 @@ void USDViewer::Tick() {
         m_Orbit.Update(m_Camera, input, rect.z / rect.w, rect.w,
                        !m_Gui.WantsTextInput() && m_Gui.PointerIn(m_Viewport));
     }
-    RuntimeModule::Tick();
-    RenderFrame();
-    measure(2);
+    Measure(1);
+}
+
+void USDViewer::PublishFrame() {
     // Average completed frame intervals, including event pumping and present waits.
     // Wall-clock metrics stay unavailable during deterministic replay.
     if (!m_Deterministic) {
@@ -204,7 +215,7 @@ void USDViewer::Tick() {
         }
     }
     PublishState();
-    measure(3);
+    Measure(3);
 }
 
 }  // namespace hitagi::examples

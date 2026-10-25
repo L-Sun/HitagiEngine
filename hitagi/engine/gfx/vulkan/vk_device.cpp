@@ -25,7 +25,7 @@ public:
     VulkanDevice(std::string_view name);
     ~VulkanDevice() final;
 
-    void Tick() final;
+    void BeginFrame() final;
 
     inline auto& GetInstance() const noexcept { return *m_Instance; }
     inline auto& GetCustomAllocator() const noexcept { return m_CustomAllocator; }
@@ -233,8 +233,8 @@ VulkanDevice::~VulkanDevice() {
     vmaDestroyAllocator(m_VmaAllocator);
 }
 
-void VulkanDevice::Tick() {
-    Device::Tick();
+void VulkanDevice::BeginFrame() {
+    Device::BeginFrame();
     if (m_EnableProfile) {
         Profile();
     }

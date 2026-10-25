@@ -1,6 +1,7 @@
 export module gui:manager;
 import interop.pocketjs;
 
+import ecs;
 import std;
 import core;
 import gfx;
@@ -21,17 +22,18 @@ export namespace hitagi::gui {
 struct GuiAppOptions {
     bool          desktop        = false;  // DPI-aware window layout and the overlay desktop-pointer channel.
     std::uint32_t raster_density = 1;      // Must match the bundle's font/resource density.
-    bool single_step = false;             // Exactly one virtual frame per PrepareFrame/Tick pair.
+    bool          single_step    = false;  // Exactly one virtual frame per PrepareFrame/Compose pair.
 };
 
 // All calls stay on the engine thread. PocketJS owns a retained component tree;
 // callers load a bundle once rather than submitting immediate-mode draw tasks.
-class GuiManager final : public core::RuntimeModule {
+class GuiManager final {
 public:
-    GuiManager(Application& application, core::FileIOManager& file_io);
-    ~GuiManager() final;
-    void Tick() final;
-    // Update layout/input before native viewport rendering; Tick later composites textures.
+    GuiManager(Application& application, core::FileIOManager& file_io, std::optional<ecs::Group> group = {});
+    ~GuiManager();
+    void Compose();
+    void ConfigureSchedule(ecs::Schedule& schedule);
+    // Update layout/input before native viewport rendering; Compose later composites textures.
     void PrepareFrame();
     // The active game viewport can own arrows/space without activating UI controls.
     void SetKeyboardNavigationEnabled(bool enabled);
@@ -46,7 +48,8 @@ public:
     auto GetDrawData() const noexcept -> const GuiDrawData& { return m_DrawData; }
 
 private:
-    void ApplyTextInputEffects();
+    std::optional<ecs::Group> m_Group;
+    void                      ApplyTextInputEffects();
     struct State;
     std::unique_ptr<State> m_State;
     Application&           m_App;
@@ -56,6 +59,10 @@ private:
 }  // namespace hitagi::gui
 
 namespace hitagi::gui {
+
+void GuiManager::ConfigureSchedule(ecs::Schedule& schedule) {
+    schedule.Request("Gui.Compose", [this] { Compose(); }, m_Group);
+}
 using Button  = interop::pocketjs::Button;
 using Runtime = std::unique_ptr<PocketApple, decltype(&pocket_apple_destroy)>;
 
@@ -122,8 +129,8 @@ struct GuiManager::State {
     }
 };
 
-GuiManager::GuiManager(Application& application, core::FileIOManager& file_io)
-    : RuntimeModule("GuiManager"), m_State(std::make_unique<State>()), m_App(application), m_FileIO(file_io) {}
+GuiManager::GuiManager(Application& application, core::FileIOManager& file_io, std::optional<ecs::Group> group)
+    : m_Group(group), m_State(std::make_unique<State>()), m_App(application), m_FileIO(file_io) {}
 
 GuiManager::~GuiManager() { m_App.SetTextInputSession(0); }
 
@@ -411,7 +418,7 @@ void GuiManager::PrepareFrame() {
     ApplyTextInputEffects();
 }
 
-void GuiManager::Tick() {
+void GuiManager::Compose() {
     PrepareFrame();
     m_State->frame.prepared = false;
     const auto images       = std::exchange(m_State->rendering.images, {});

@@ -54,7 +54,7 @@ AnimationClip      Skin
 ## Dependency direction
 
 ```text
-asset -> core   (Buffer, FileIOManager, JobSystem, RuntimeModule)
+asset -> core   (Buffer, FileIOManager, JobSystem)
       -> gfx    (Device, Texture, GPUBuffer, Shader, RenderPipeline, BindlessHandle)
       -> math   (vec/mat/Color)
       -> ecs    (entity storage for Scene)
@@ -144,3 +144,5 @@ USD import registers this system when it creates character physics components.
 Manual construction must register physics::CharacterPhysicsSystem on the World.
 Bounds are Viewer-local derived data, computed from immutable current geometry
 snapshots and never stored in engine asset components or cooked records.
+
+- `query_schedule.svg` / `query_schedule.png`: Query access declarations, explicit system order, and external JobSystem execution.

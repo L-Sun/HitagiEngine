@@ -8,3 +8,4 @@ export import :entity;
 export import :system_manager;
 export import :world;
 export import :schedule;
+export import :query;

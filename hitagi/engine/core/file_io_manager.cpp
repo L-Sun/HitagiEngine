@@ -8,14 +8,14 @@ import interop.tracy;
 
 import std;
 
-import :runtime_module;
+import utils;
 import :buffer;
 
 export namespace hitagi::core {
 
-class FileIOManager : public RuntimeModule {
+class FileIOManager {
 public:
-    FileIOManager() : RuntimeModule("FileIOManager") {}
+    FileIOManager() : m_Logger(utils::try_create_logger("FileIOManager")) {}
 
     auto SyncOpenAndReadBinary(const std::filesystem::path& file_path) -> const Buffer&;
     void SaveString(std::string_view str, const std::filesystem::path& path);
@@ -23,6 +23,7 @@ public:
     void SaveBuffer(std::span<const std::byte> buffer, const std::filesystem::path& path);
 
 private:
+    std::shared_ptr<spdlog::logger> m_Logger;
     bool          IsFileChanged(const std::filesystem::path& file_path) const;
     const Buffer& CacheFile(const std::filesystem::path& file_path, Buffer buffer);
 

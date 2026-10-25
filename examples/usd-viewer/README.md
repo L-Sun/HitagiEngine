@@ -59,9 +59,9 @@ native text/IME session path. Keyboard shortcuts are suppressed while editing.
 | `ui/` | PocketJS layout, inspector, reusable controls and text editing |
 | `test/e2e.cpp` | Tick driver, interaction journey, pixel/state replay checks |
 
-The viewer owns GUI composition and its swapchain. Its concrete renderer is a
-normal child `RuntimeModule`; the viewer calls that renderer's `Build()` to put
-the scene into its graph. Engine has no renderer accessor or special rendering
+The viewer owns GUI composition and its swapchain. It is registered as an ECS system, with separate input, scene, render and publish
+tasks. Its concrete renderer is an owned graph-building utility; the viewer
+calls `Build()` to put the scene into its graph. Engine has no renderer accessor or special rendering
 slot. Camera parameters remain an ordinary cookable `asset::Camera`.
 
 The importer supports static/skinned meshes and basic `UsdPreviewSurface` color,

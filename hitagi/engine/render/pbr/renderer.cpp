@@ -37,8 +37,8 @@ auto PbrMaterialDefaults() -> asset::MaterialParameters;
 // Forward pass shell `pbr_forward.slang`, specialized by material compilers.
 auto PbrForwardPassTemplate() -> asset::MaterialPassTemplate;
 
-using render::RenderView;
 using render::RenderDrawItem;
+using render::RenderView;
 
 struct RenderLight {
     math::vec3f position;
@@ -63,27 +63,29 @@ struct RenderResult {
 };
 
 // A concrete runtime renderer, also usable as a pass builder for caller-owned graphs.
-class PbrRenderer final : public core::RuntimeModule {
+class PbrRenderer final {
 public:
-    explicit PbrRenderer(const hitagi::asset::ResourceLoadContext& load_context);
+    explicit PbrRenderer(const hitagi::asset::ResourceLoadContext& load_context, std::optional<ecs::Group> group = {});
     // Window rendering: the application must outlive this renderer.
-    PbrRenderer(const asset::ResourceLoadContext& load_context, const Application& app);
+    PbrRenderer(const asset::ResourceLoadContext& load_context, const Application& app, std::optional<ecs::Group> group = {});
 
     // Adds passes without executing. Keep this renderer and borrowed resources
-    // alive through execution, before the next Build() or Tick() on this instance.
+    // alive through execution, before the next Build() or RenderPending() on this instance.
     auto Build(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult;
 
-    // Retains a snapshot for window rendering on every Tick; initially empty.
+    // Retains a snapshot for window rendering on every RenderPending call; initially empty.
     // Requires the constructor taking Application. Calls are host-serialized.
     void SetFrame(const RenderFrame& frame);
-    // Queues one offscreen render. Copies spans and retains the target until Tick.
+    // Queues one offscreen render. Copies spans and retains the target until RenderPending.
     void Submit(const RenderFrame& frame, std::shared_ptr<gfx::Texture> target);
-    void Tick() final;
-    ~PbrRenderer() final { UnloadAllSubModules(); }
+    void RenderPending();
+    void ConfigureSchedule(ecs::Schedule& schedule);
+    ~PbrRenderer() = default;
     auto GetRenderedFrameCount() const noexcept -> std::uint64_t { return m_RenderedFrames; }
 
 private:
-    auto CountRenderableSubMeshes(const RenderRequest& request) const -> std::size_t;
+    std::optional<ecs::Group> m_Group;
+    auto                      CountRenderableSubMeshes(const RenderRequest& request) const -> std::size_t;
 
     hitagi::gfx::Device&                  m_Device;
     hitagi::asset::ResourceLoadContext    m_LoadContext;
@@ -138,11 +140,15 @@ struct PbrBindlessInfo {
 
 namespace hitagi::render::pbr {
 
-PbrRenderer::PbrRenderer(const asset::ResourceLoadContext& load_context, const Application& app)
-    : PbrRenderer(load_context) {
+void PbrRenderer::ConfigureSchedule(ecs::Schedule& schedule) {
+    schedule.Request("PbrRenderer.Render", [this] { RenderPending(); }, m_Group);
+}
+
+PbrRenderer::PbrRenderer(const asset::ResourceLoadContext& load_context, const Application& app, std::optional<ecs::Group> group)
+    : PbrRenderer(load_context, group) {
     m_App       = &app;
     m_SwapChain = gfx::SwapChain::Create(m_LoadContext.device, m_LoadContext.queues.Get(gfx::CommandType::Graphics),
-                                         {.name = std::pmr::string(GetName()), .window = app.GetWindow()});
+                                         {.name = std::pmr::string("PbrRenderer"), .window = app.GetWindow()});
 }
 
 void PbrRenderer::SetFrame(const RenderFrame& frame) {
@@ -165,8 +171,7 @@ void PbrRenderer::Submit(const RenderFrame& frame, std::shared_ptr<gfx::Texture>
     });
 }
 
-void PbrRenderer::Tick() {
-    RuntimeModule::Tick();
+void PbrRenderer::RenderPending() {
     auto frames = std::exchange(m_PendingFrames, {});
     for (const auto& frame : frames) ExecuteFrame(frame);
 
@@ -180,7 +185,7 @@ void PbrRenderer::ExecuteFrame(const PendingFrame& frame, const std::shared_ptr<
     try {
         if (!m_Graph) {
             m_Graph = std::make_unique<rg::RenderGraph>(m_LoadContext.device, m_LoadContext.queues,
-                                                        m_LoadContext.bindings, GetName());
+                                                        m_LoadContext.bindings, "PbrRenderer");
         }
         const auto result = Build(*m_Graph, {
                                                 .frame  = {.view = frame.view, .draw_items = frame.draw_items, .lights = frame.lights},
@@ -305,22 +310,16 @@ auto PbrForwardPassTemplate() -> asset::MaterialPassTemplate {
     };
 }
 
-PbrRenderer::PbrRenderer(const asset::ResourceLoadContext& load_context)
-    : RuntimeModule("PbrRenderer"),
-      m_Device(load_context.device),
-      m_LoadContext(load_context),
-      m_Sampler(hitagi::gfx::Sampler::Create(
-          m_Device,
-          m_LoadContext.bindings,
-          {
-              .name          = "PbrSampler",
-              .address_u     = gfx::AddressMode::Repeat,
-              .address_v     = gfx::AddressMode::Repeat,
-              .address_w     = gfx::AddressMode::Repeat,
-              .mag_filter    = gfx::FilterMode::Linear,
-              .min_filter    = gfx::FilterMode::Linear,
-              .mipmap_filter = gfx::FilterMode::Linear,
-          })) {}
+PbrRenderer::PbrRenderer(const asset::ResourceLoadContext& load_context, std::optional<ecs::Group> group)
+    : m_Group(group), m_Device(load_context.device), m_LoadContext(load_context), m_Sampler(hitagi::gfx::Sampler::Create(m_Device, m_LoadContext.bindings, {
+                                                                                                                                                               .name          = "PbrSampler",
+                                                                                                                                                               .address_u     = gfx::AddressMode::Repeat,
+                                                                                                                                                               .address_v     = gfx::AddressMode::Repeat,
+                                                                                                                                                               .address_w     = gfx::AddressMode::Repeat,
+                                                                                                                                                               .mag_filter    = gfx::FilterMode::Linear,
+                                                                                                                                                               .min_filter    = gfx::FilterMode::Linear,
+                                                                                                                                                               .mipmap_filter = gfx::FilterMode::Linear,
+                                                                                                                                                           })) {}
 
 auto PbrRenderer::CountRenderableSubMeshes(const RenderRequest& request) const -> std::size_t {
     std::size_t count = 0;
