@@ -5,9 +5,6 @@ module;
 module engine;
 import interop.tracy;
 import interop.magic_enum;
-#ifdef __APPLE__
-import interop.metal;
-#endif
 
 import std;
 import physics;
@@ -62,16 +59,17 @@ void Engine::Tick() {
 void Engine::TickFrame() {
     ZoneScopedN("Engine");
     if (m_InFrame) return;
-#ifdef __APPLE__
-    // The frame can run inside Cocoa's live-resize callback. A lexical pool
-    // drains only this frame's objects and leaves the enclosing native pools intact.
-    auto autorelease_pool = interop::ns::TransferPtr(interop::ns::AutoreleasePool::alloc()->init());
-#endif
     m_InFrame = true;
     struct FrameGuard {
-        bool& active;
-        ~FrameGuard() { active = false; }
-    } guard{m_InFrame};
+        gfx::Device& device;
+        bool&        active;
+        ~FrameGuard() {
+            // Also runs when schedule compilation or a frame task throws. Keep
+            // reentry blocked until backend cleanup has finished.
+            device.EndFrame();
+            active = false;
+        }
+    } guard{*m_Device, m_InFrame};
     // The same ECS dependency graph runs on the caller: platform/GUI/GPU work
     // must not migrate to Taskflow workers. Scene worlds retain parallel Update.
     m_World->Update(m_FrameJobs, m_Clock.DeltaTime().count());

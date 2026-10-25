@@ -131,7 +131,13 @@ TEST(MetalQueueTest, SubmissionIsAsyncAndOwnsRerecordedResources) {
         ready.wait_for(lock, std::chrono::seconds(2), [&] { return submitted; });
         gate->Signal(1);
     });
+    struct FrameEnd {
+        Device& device;
+        ~FrameEnd() { device.EndFrame(); }
+    };
     for (unsigned round = 0; round < 2; ++round) {
+        device->BeginFrame();
+        FrameEnd frame_end{*device};
         const std::array data{std::uint32_t(0x11223344 + round)};
         auto             input = GPUBuffer::Create(*device, {.size = sizeof(data), .usages = GPUBufferUsageFlags::CopySrc | GPUBufferUsageFlags::MapWrite}, std::as_bytes(std::span(data)));
         outputs[round]         = GPUBuffer::Create(*device, {.size = sizeof(data), .usages = GPUBufferUsageFlags::CopyDst | GPUBufferUsageFlags::MapRead});
@@ -140,6 +146,9 @@ TEST(MetalQueueTest, SubmissionIsAsyncAndOwnsRerecordedResources) {
         context->End();
         recordings[round] = static_cast<MetalTransferCommandBuffer&>(*context).GetRecording();
         queue.Submit({{*context}}, {{FenceWaitInfo{*gate, 1}}}, {{FenceSignalInfo{*done, round + 1}}});
+        // Drain temporary native references while the GPU is still gated. The
+        // queue must retain submitted recordings across CPU frame boundaries.
+        device->EndFrame();
         EXPECT_FALSE(done->Wait(round + 1, std::chrono::milliseconds(0)));
     }
     context.reset();

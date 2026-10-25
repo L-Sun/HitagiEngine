@@ -23,7 +23,11 @@ public:
 
     virtual ~Device();
 
+    // The host pairs frames on the calling thread, including on exceptions.
+    // EndFrame releases CPU-side frame state, not in-flight GPU resources, and
+    // must also be safe if schedule preparation failed before BeginFrame ran.
     virtual void BeginFrame();
+    virtual void EndFrame() noexcept {}
     auto GetName() const noexcept -> std::string_view { return m_Name; }
 
     inline void SetProfile(bool enable) noexcept { m_EnableProfile = enable; }
