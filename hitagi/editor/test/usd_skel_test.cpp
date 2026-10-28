@@ -8,6 +8,16 @@ import engine;
 using namespace hitagi;
 
 namespace usd_skel_test {
+// These asset tests intentionally inspect CPU vertices. Rendering tests exercise
+// the default GPU path independently.
+void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt = 0) {
+    for (auto entity : world.GetEntityManager().GetEntities<asset::SkinnedMesh>())
+        entity.Get<asset::SkinnedMesh>().cpu_deformation = true;
+    world.Update(jobs, dt);
+}
+}
+
+namespace usd_skel_test {
 auto MeshNamed(const asset::Scene& scene, std::string_view name, std::string_view parent) -> ecs::Entity {
     for (auto entity : scene.GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>()) {
         auto parent_entity = entity.Get<asset::RelationShip>().parent;
@@ -83,7 +93,7 @@ TEST(UsdRigImportTest, InstanceStateAndCookBoundary) {
     }
     ASSERT_TRUE(worlds.size() >= 2u);
     EXPECT_NE(worlds[0], worlds[1]);
-    EXPECT_NO_THROW(scene->GetWorld().Update(jobs, 1.0 / 60.0));
+    EXPECT_NO_THROW(usd_skel_test::UpdateCpuReference(scene->GetWorld(), jobs, 1.0 / 60.0));
     EXPECT_THROW(CookEditorScene(*scene), std::runtime_error);
     usd_skel_test::Replace(source, "properties = [0.1,0,0,1,0.5,0.5,0,0]", "properties = []");
     EXPECT_THROW(UsdSceneImporter{}.Import(jobs, usd_skel_test::Write("runtime-physics/invalid.usda", source)), std::runtime_error);
@@ -127,7 +137,7 @@ TEST(UsdSkelImportTest, NativeInstancesShareMeshAndMatchUsdReferenceDeformation)
     for (double seconds : {0.0, 0.25, 0.5, 0.75}) {
         auto mutable_player                               = player;
         mutable_player.Get<asset::AnimationPlayer>().time = seconds;
-        scene->GetWorld().Update(jobs);
+        usd_skel_test::UpdateCpuReference(scene->GetWorld(), jobs);
         pxr::VtArray<pxr::GfMatrix4d> palette;
         pxr::VtArray<pxr::GfVec3f>    points;
         ASSERT_TRUE(skel_query.ComputeSkinningTransforms(&palette, pxr::UsdTimeCode(24.0 + seconds * 24.0)));
@@ -139,7 +149,7 @@ TEST(UsdSkelImportTest, NativeInstancesShareMeshAndMatchUsdReferenceDeformation)
             for (unsigned axis = 0; axis < 3; ++axis)
                 EXPECT_NEAR(output[i][axis], points[corners[i]][axis], 1e-5f);
     }
-    scene->GetWorld().Update(jobs, 0.5);
+    usd_skel_test::UpdateCpuReference(scene->GetWorld(), jobs, 0.5);
     EXPECT_NE(left.Get<asset::SkinnedMesh>().deformed_vertices->Span<asset::VertexAttribute::Position>()[2],
               right.Get<asset::SkinnedMesh>().deformed_vertices->Span<asset::VertexAttribute::Position>()[2]);
 }
@@ -160,7 +170,7 @@ TEST(UsdSkelImportTest, GeometryBindAndSkeletonPlacementMatchUsdWorldSpace) {
     const auto path  = usd_skel_test::Write("usd-skel-spaces.usda", source);
     const auto scene = UsdSceneImporter{}.Import(jobs, path);
     ASSERT_TRUE(scene);
-    scene->GetWorld().Update(jobs, 0.25);
+    usd_skel_test::UpdateCpuReference(scene->GetWorld(), jobs, 0.25);
     const auto mesh = usd_skel_test::MeshNamed(*scene, "Body", "Left");
     ASSERT_TRUE(mesh);
     const auto        stage = pxr::UsdStage::Open(path.generic_string());
@@ -199,8 +209,9 @@ TEST(UsdSkelImportTest, RestPoseAndImplicitAnimationRange) {
     const auto player         = animated_joint.Get<asset::AnimationTarget>().player;
     EXPECT_DOUBLE_EQ(player.Get<asset::AnimationPlayer>().clip->GetDuration(), 1.0);
     EXPECT_FALSE(right.Get<asset::SkinnedMesh>().joints[0].Has<asset::AnimationTarget>());
+    usd_skel_test::UpdateCpuReference(scene->GetWorld(), jobs);
     const auto rest = right.Get<asset::SkinnedMesh>().deformed_vertices->Span<asset::VertexAttribute::Position>()[2];
-    scene->GetWorld().Update(jobs, 0.5);
+    usd_skel_test::UpdateCpuReference(scene->GetWorld(), jobs, 0.5);
     EXPECT_EQ(right.Get<asset::SkinnedMesh>().deformed_vertices->Span<asset::VertexAttribute::Position>()[2], rest);
     EXPECT_NE(left.Get<asset::SkinnedMesh>().deformed_vertices->Span<asset::VertexAttribute::Position>()[2], rest);
     EXPECT_THROW(CookEditorScene(*scene), std::runtime_error);
@@ -240,7 +251,7 @@ TEST(UsdSkelImportTest, SharedClipKeepsIndependentPlayersAndUnweightedMeshStaysS
     EXPECT_NE(left_player, right_player);
     EXPECT_EQ(left_player.Get<asset::AnimationPlayer>().clip, right_player.Get<asset::AnimationPlayer>().clip);
     right_player.Get<asset::AnimationPlayer>().playing = false;
-    scene->GetWorld().Update(jobs, 0.5);
+    usd_skel_test::UpdateCpuReference(scene->GetWorld(), jobs, 0.5);
     EXPECT_DOUBLE_EQ(left_player.Get<asset::AnimationPlayer>().time, 0.5);
     EXPECT_DOUBLE_EQ(right_player.Get<asset::AnimationPlayer>().time, 0.0);
     EXPECT_NE(left.Get<asset::SkinnedMesh>().deformed_vertices->Span<asset::VertexAttribute::Position>()[2],
@@ -269,8 +280,8 @@ TEST(UsdSkelImportTest, CookedRoundTripRetainsDifferentClipsAndSharedMeshBinding
     auto right_player = right.Get<asset::SkinnedMesh>().joints[0].Get<asset::AnimationTarget>().player;
     EXPECT_NE(left_player.Get<asset::AnimationPlayer>().clip, right_player.Get<asset::AnimationPlayer>().clip);
     for (double dt : {0.0, .125, .25, .375, .8}) {
-        source->GetWorld().Update(jobs, dt);
-        loaded->GetWorld().Update(jobs, dt);
+        usd_skel_test::UpdateCpuReference(source->GetWorld(), jobs, dt);
+        usd_skel_test::UpdateCpuReference(loaded->GetWorld(), jobs, dt);
         for (auto original : source->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>()) {
             auto restored = usd_skel_test::MeshNamed(*loaded, original.Get<asset::MetaInfo>().name,
                                                      original.Get<asset::RelationShip>().parent.Get<asset::MetaInfo>().name);

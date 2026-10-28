@@ -1,4 +1,4 @@
-export module asset:camera;
+export module asset.base:camera;
 import math;
 
 export namespace hitagi::asset {

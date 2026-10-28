@@ -1,4 +1,4 @@
-export module asset:pipeline;
+export module asset.base:pipeline;
 import gfx;
 import :resource;
 import :shader;

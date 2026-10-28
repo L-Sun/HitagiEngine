@@ -1,4 +1,4 @@
-export module asset:texture;
+export module asset.base:texture;
 import std;
 import core;
 import gfx;

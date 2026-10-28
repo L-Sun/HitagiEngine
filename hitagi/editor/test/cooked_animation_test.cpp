@@ -8,6 +8,31 @@ using namespace hitagi;
 using namespace hitagi::asset;
 using namespace hitagi::math;
 
+TEST(CookedPoseProducerTest, RejectsUnencodedRuntimeBehavior) {
+    Scene scene;
+    auto& entities = scene.GetWorld().GetEntityManager();
+    auto actor = entities.Create(Transform{}, RelationShip{});
+    auto joint = entities.Create(Transform{}, RelationShip(actor));
+    const std::array slots{JointSlot{}};
+    auto layout = std::make_shared<JointLayout>(slots);
+    const std::array joints{joint};
+    actor.Emplace<AnimationPose>(JointBinding(layout, joints, actor));
+    EXPECT_THROW(CookEditorScene(scene), std::runtime_error);
+    actor.Remove<AnimationPose>();
+    actor.Emplace<RigInstance>(std::make_shared<RigDefinition>(layout, RigDesc{}));
+    EXPECT_THROW(CookEditorScene(scene), std::runtime_error);
+}
+
+namespace cooked_animation_test {
+// These asset tests intentionally inspect CPU vertices. Rendering tests exercise
+// the default GPU path independently.
+void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt = 0) {
+    for (auto entity : world.GetEntityManager().GetEntities<asset::SkinnedMesh>())
+        entity.Get<asset::SkinnedMesh>().cpu_deformation = true;
+    world.Update(jobs, dt);
+}
+}
+
 namespace cooked_animation_test {
 template <typename T>
 auto Read(const core::Buffer& bytes, std::uint64_t offset) -> T {
@@ -139,8 +164,8 @@ TEST_F(CookedAnimationTest, SharedAssetsIndependentInstancesAndHierarchyRoundTri
     const auto restored = left.Get<SkinnedMesh>().skin->GetInverseBindMatrices();
     EXPECT_TRUE(std::ranges::equal(std::as_bytes(original), std::as_bytes(restored)));
     for (double dt : {0.0, .125, .2, .3, .8}) {
-        source->GetWorld().Update(jobs, dt);
-        loaded->GetWorld().Update(jobs, dt);
+        cooked_animation_test::UpdateCpuReference(source->GetWorld(), jobs, dt);
+        cooked_animation_test::UpdateCpuReference(loaded->GetWorld(), jobs, dt);
         Compare(*source, *loaded);
     }
     EXPECT_NE(left.Get<SkinnedMesh>().deformed_vertices->Span<VertexAttribute::Position>()[0], right.Get<SkinnedMesh>().deformed_vertices->Span<VertexAttribute::Position>()[0]);
@@ -150,11 +175,12 @@ TEST_F(CookedAnimationTest, SharedAssetsIndependentInstancesAndHierarchyRoundTri
     auto       captured = manager.LoadCookedScene(CookEditorScene(*source, {.scene_state = SceneCookState::Current}));
     EXPECT_EQ(Find(*source, "mesh0").Get<SkinnedMesh>().deformed_vertices, snapshot);
     EXPECT_DOUBLE_EQ(Find(*source, "group0").Get<AnimationPlayer>().time, time);
+    cooked_animation_test::UpdateCpuReference(captured->GetWorld(), jobs);
     Compare(*source, *captured);
     Find(*loaded, "group1").Get<AnimationPlayer>().playing = true;
     Find(*source, "group1").Get<AnimationPlayer>().playing = true;
-    source->GetWorld().Update(jobs, .2);
-    loaded->GetWorld().Update(jobs, .2);
+    cooked_animation_test::UpdateCpuReference(source->GetWorld(), jobs, .2);
+    cooked_animation_test::UpdateCpuReference(loaded->GetWorld(), jobs, .2);
     Compare(*source, *loaded);
 }
 
@@ -214,8 +240,8 @@ TEST_F(CookedAnimationTest, AnimationOnlyNodesForwardReferencesAndMissingChannel
     child.Emplace<AnimationTarget>(parent, 123);
     auto loaded = manager.LoadCookedScene(CookEditorScene(source));
     EXPECT_TRUE(loaded->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent>().empty());
-    source.GetWorld().Update(jobs, .5);
-    loaded->GetWorld().Update(jobs, .5);
+    cooked_animation_test::UpdateCpuReference(source.GetWorld(), jobs, .5);
+    cooked_animation_test::UpdateCpuReference(loaded->GetWorld(), jobs, .5);
     Compare(source, *loaded);
     EXPECT_EQ(Find(*loaded, "child").Get<Transform>().position, vec3f(3, 4, 5));
 }
@@ -307,8 +333,8 @@ TEST_F(CookedAnimationTest, UnweightedVerticesAndDormantPlayersRemainValid) {
     Find(*source, "group0").Get<AnimationPlayer>().clip.reset();
     auto loaded = manager.LoadCookedScene(CookEditorScene(*source));
     EXPECT_FALSE(Find(*loaded, "group0").Get<AnimationPlayer>().clip);
-    source->GetWorld().Update(jobs, .3);
-    loaded->GetWorld().Update(jobs, .3);
+    cooked_animation_test::UpdateCpuReference(source->GetWorld(), jobs, .3);
+    cooked_animation_test::UpdateCpuReference(loaded->GetWorld(), jobs, .3);
     Compare(*source, *loaded);
     EXPECT_EQ(Find(*loaded, "mesh0").Get<SkinnedMesh>().deformed_vertices->Span<VertexAttribute::Position>()[0], vec3f(0));
 }

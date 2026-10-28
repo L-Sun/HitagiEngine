@@ -1,4 +1,4 @@
-export module asset:scene;
+export module asset.base:scene;
 import std;
 import ecs;
 import core;
@@ -6,13 +6,14 @@ import :resource;
 import :mesh;
 import :transform;
 import :animation;
+import :pose;
 import :skin;
 
 export namespace hitagi::asset {
 
 struct ScenePlugin {
     void Build(ecs::World& world) const {
-        world.RegisterSystem<RelationShipSystem, AnimationSystem, TransformSystem, SkinningSystem>();
+        world.RegisterSystem<RelationShipSystem, AnimationSystem, PoseSystem, TransformSystem, SkinningSystem>();
     }
 };
 

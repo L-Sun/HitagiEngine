@@ -1,4 +1,4 @@
-export module asset:image_codec;
+export module asset.base:image_codec;
 import std;
 import core;
 import gfx;

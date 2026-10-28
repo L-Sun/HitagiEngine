@@ -1,7 +1,10 @@
 # Skeletal animation through ECS
 
-The initial runtime implementation uses joint entities and CPU linear blend
-skinning. `AnimationClip` and `Skin` are shared resources; neither owns a mesh
+The animation foundation lives in `asset.base`, re-exported by `asset`. Optional
+techniques live in `asset.plugins`; see [Animation Rig](rig.md) for
+Pose constraints, layout binding and plugin composition.
+
+The runtime uses joint entities and GPU compute linear blend skinning. `AnimationClip` and `Skin` are shared resources; neither owns a mesh
 instance, playback state, or current pose. Joint entities use the existing
 `Transform` and `RelationShip` components. A separate Skeleton resource is not
 required by this version.
@@ -16,7 +19,7 @@ required by this version.
 | Clip, time, speed, looping, playing | `AnimationPlayer` component | Per player entity |
 | Player reference and logical target ID | `AnimationTarget` component | Per animated entity |
 | Current local/world pose | Joint entities' `Transform` components | Multiple skinned instances can reference the same joints |
-| Skin reference, joint entity list and deformed vertices | `SkinnedMesh` component | Per mesh instance |
+| Skin reference, joint entity list and immutable matrix/bounds snapshot | `SkinnedMesh` component | Per mesh instance |
 
 The two bindings are independent:
 
@@ -49,14 +52,15 @@ The default duration is zero: `GetWorld().Update(job_system)` still propagates t
 and evaluates the current pose, without advancing animation time.
 Durations must be finite and nonnegative; negative player speed plays backward.
 
-The phase order is playback time, animation sampling, local/world transform
-propagation, then skinning. These phases have explicit `Schedule::SetOrder`
+The phase order is playback time, legacy animation sampling, optional plugin
+evaluation, pose application, local/world transform propagation, then skinning. These phases have explicit `Schedule::SetOrder`
 dependencies because cross-entity component accesses are not inferred by the
 scheduler. User systems touching joint transforms or playback state must declare
 their relationship to `advance_animations`, `animate_targets`,
-`update_local_matrix`, `update_world_matrix_flat`, and `skin_meshes` as appropriate.
+`apply_animation_poses`, `update_local_matrix`, `update_world_matrix_flat`, and
+`skin_meshes` as appropriate.
 The current scheduler executes each task's entity loop serially; this version
-does not claim parallel skinning across characters.
+updates palettes serially; vertex deformation is parallel GPU work.
 
 Extract draws after the update:
 
@@ -67,13 +71,17 @@ render::deferred::RenderDrawItem deferred =
     render::deferred::RenderDrawItem::FromEntity(mesh_entity, object_id);
 ```
 
-Both helpers capture the shared Mesh, world transform and current deformation
+Both helpers capture the shared Mesh, world transform and current `SkinPose`
 snapshot. Extraction before a skinned instance has been evaluated throws.
-For manually assembled draw items, pass `deformed_vertices` explicitly.
+For manually assembled draw items, pass `skin_pose` explicitly.
 
-The renderers override position/normal/tangent/bitangent streams with the
-snapshot, and use the source Mesh for all other attributes, indices and
-materials. Deferred geometry caching includes the deformation snapshot identity;
+Toon, PBR and Deferred share `render::GpuSkinning`. A compute pass consumes
+immutable source streams and the captured joint palette, then writes position,
+normal, tangent and bitangent buffers. Graphics passes declare vertex reads of
+those outputs; RenderGraph supplies queue dependencies, barriers and retention.
+Toon outline and fill reuse the same deformation. Other attributes, indices and
+materials remain shared. Transient output buffers are pooled by RenderGraph;
+there is no runtime vertex readback or per-frame upload of deformed vertices. Deferred geometry caching includes the deformation snapshot identity;
 keying only by Mesh would incorrectly combine independent poses. `Submit` and
 `SetFrame` retain the captured snapshot across later Scene updates.
 
@@ -149,15 +157,19 @@ fallback for a degenerate LBS pose, not a solution to LBS collapse artifacts.
   [cooked animation encoding](cooked_binary_format.md#animation-and-skin-encoding).
   Independent external clip packages and cross-file rig/clip resolution are not
   implemented.
-- Each player samples one clip. Crossfades, animation graphs, retargeting, IK,
-  root-motion extraction, animation events and additive layers are not included.
-- CPU skinning allocates a new deformation snapshot per instance/update, then
-  uploads its streams when rendered. It favors clear ownership and validation,
-  not crowd performance. GPU skinning and pooled frame buffers are future work.
-- Bounds live in the USD Viewer. It computes local bounds from the current
-  deformation snapshot (or the static Mesh vertices), caches them by immutable
-  snapshot identity, then transforms and combines them for framing. Skinning,
-  Mesh assets and cooked records contain no bounds.
+- Each legacy player samples one clip. Base provides root-motion extraction;
+  the optional Rig plugin provides pose constraints and IK. Animation graphs,
+  retargeting, events and additive layers remain unsupported.
+- Runtime skin updates validate immutable weights/indices once per source and
+  palette size, then update matrices and conservative bounds in O(joints).
+  `SkinnedMesh::cpu_deformation` is an explicit offline/test reference option,
+  disabled by default. Its vertex snapshots preserve the older CPU oracle for
+  import tests and CPU/GPU numerical comparisons.
+- Per-joint source bounds include all vertices with a positive influence;
+  transformed bounds are unioned, including unweighted vertices. Nonnegative
+  normalized LBS stays inside this conservative union. USD Viewer uses these
+  bounds without scanning deformed vertices. They may be looser than exact
+  mesh bounds; source assets and cooked records still contain no baked bounds.
 - Rendering and Scene mutation remain host-serialized. Snapshots protect later
   frame consumption, not concurrent mutation of shared assets or a World.
 

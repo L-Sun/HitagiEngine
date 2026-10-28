@@ -1,4 +1,4 @@
-module asset;
+module asset.base;
 import interop.jpeg;
 import interop.spdlog;
 import std;

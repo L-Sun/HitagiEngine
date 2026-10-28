@@ -518,6 +518,8 @@ auto CookEditorScene(asset::Scene& scene, EditorCookOptions options) -> core::Bu
     StringTableBuilder             strings;
     std::vector<asset::NodeRecord> nodes;
     for (auto entity : entities) {
+        if (entity.Has<asset::AnimationPose>() || entity.Has<asset::RigInstance>())
+            throw std::runtime_error("HTGC does not yet serialize pose producers or animation rigs; keep the runtime binding in the host");
         if (entity.Has<physics::CharacterPhysics>())
             throw std::runtime_error("HTGC does not yet serialize runtime physics rigs; use USD import");
         if (!entity.Has<asset::Transform>() || !entity.Has<asset::RelationShip>())

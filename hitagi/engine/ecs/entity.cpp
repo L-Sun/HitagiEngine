@@ -39,6 +39,9 @@ public:
 
     auto GetId() const noexcept { return m_Id; }
     bool Valid() const noexcept;
+    // Check whether both entities belong to the same World without dereferencing either handle.
+    // This does not validate entity liveness or extend the World's lifetime.
+    bool IsInSameWorld(const Entity& other) const noexcept { return m_Storage && m_Storage == other.m_Storage; }
 
     explicit operator bool() const noexcept { return Valid(); }
     bool     operator!() const noexcept { return !Valid(); }

@@ -8,7 +8,7 @@ What it does **not** do matters just as much: it does not parse USD, compile mat
 
 | Document | Contents |
 | --- | --- |
-| [animation.md](animation.md) | Joint entities, shared clips/skins, playback and CPU skinning, render snapshots and current limits |
+| [animation.md](animation.md) | Joint entities, shared clips/skins, playback and GPU skinning, render snapshots and current limits |
 | [resource_lifecycle.md](resource_lifecycle.md) | The `Resource` base class, the `ResourceLoadState` state machine, Load/Unload behavior per resource, asynchronous texture decode, and the `AssetService` registry and unload policy |
 | [material.md](material.md) | The `Material` / `MaterialPass` boundary, the parameter-value model, GPU ABI packing rules for `material_data`, and the placeholder-texture mechanism |
 | [cooked_binary_format.md](cooked_binary_format.md) | The HTGC binary container specification, and the full contract between the writer (editor cook) and the reader (runtime parser) |
@@ -97,8 +97,8 @@ There are no Modify, Resize, AddSubMesh or mutable Span APIs on these resources.
 
 Load/Unload change GPU residency, never geometry content. Changes to instance bindings
 belong in ECS components. USD import stages complete geometry and inherited skin influences
-before publishing/deduplicating assets. CPU skinning builds a new vertex snapshot from
-temporary buffers and publishes it only after completion; previous frames retain theirs.
+before publishing/deduplicating assets. Skinning publishes an immutable matrix/bounds snapshot; renderers evaluate vertices
+on the GPU. Submitted frames retain their own snapshots across Scene updates.
 
 ## Scene composition
 
@@ -148,3 +148,11 @@ Bounds are Viewer-local derived data, computed from immutable current geometry
 snapshots and never stored in engine asset components or cooked records.
 
 - `query_schedule.svg` / `query_schedule.png`: Query access declarations, explicit system order, and external JobSystem execution.
+
+## Optional animation techniques
+
+`asset` aggregates `asset.base` and `asset.plugins`. See [animation](animation.md)
+for the shared animation foundation.
+
+See [Animation Rig](rig.md) for ordered Aim/TwoBoneIK pose constraints, controls,
+instance ownership and host scheduling.

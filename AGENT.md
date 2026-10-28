@@ -117,6 +117,8 @@ Current engine code generally uses `hitagi::`; some editor and example types sti
 - Mesh, VertexArray and IndexArray geometry is immutable after complete construction and validation. Prepare plain CPU buffers before constructing runtime assets; do not reintroduce mutation APIs or dirty geometry flags. GPU residency remains mutable through Load/Unload; instance bindings and derived snapshots belong to ECS state. See [asset contracts](docs/assets/README.md#immutable-geometry).
 - Matrices use row-major layout on CPU and GPU. DX12 is Windows-only. macOS defaults to Metal and also supports the Vulkan backend through KosmicKrisp with descriptor indexing and shared native queues. The Vulkan/platform code also has Linux/Wayland paths. Do not claim platform validation without running it.
 
+`asset` aggregates `asset.base` and `asset.plugins`. Base resource/animation APIs live in `asset/base`; optional Rig constraints live in `asset/plugins`. Scene registers base pose application; install `RigPlugin` explicitly on the Scene World. See [animation](docs/assets/animation.md) and [Rig](docs/assets/rig.md) for pose ownership, layout binding and host scheduling.
+
 ### Modules and Source Navigation
 
 The project uses C++23 modules. Determine a file's role from its module declaration: interfaces commonly use `.cppm`, but asset also has interface partitions declared in `.cpp`. Keep third-party includes at module boundaries using the global module fragment where needed.

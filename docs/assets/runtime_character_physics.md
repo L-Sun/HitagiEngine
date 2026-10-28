@@ -1,8 +1,9 @@
 # Runtime authored character physics
 
 `physics::CharacterPhysics` imports an authored rigid-body character rig and
-solves it with Bullet 3.25 or Jolt 5.6 during Viewer playback. The Viewer exposes
-a Bullet/Jolt switch beside Physics On/Off. Bullet remains the default. It restores the sampled pose,
+solves it with Jolt during Viewer playback. Jolt is the only runtime backend;
+Bullet and its build dependency have been removed. The Viewer exposes Physics
+On/Off and a read-only Jolt label. It restores the sampled pose,
 evaluates UsdSkel animation, advances dynamics, writes bone transforms, then
 runs transform propagation and skinning. The current Miku asset contains
 173 bodies and 229 six-degree-of-freedom spring constraints.
@@ -30,20 +31,23 @@ This keeps the module dependency one-way: physics imports asset, not vice versa.
   alongside VMD-derived skeletal animation in USD. The USD importer validates
   this data and binds it to each character's skeleton entities.
 - **Character integration:** `physics::CharacterPhysics` owns bindings, animation
-  input history, fixed-step timing and the selected rig world. Its system restores
+  input history, fixed-step timing and the rig world. Its system restores
   the animation input, lets animation sampling run, then solves and writes bones
   before transform propagation and skinning.
 - **Solver boundary:** `physics::RigWorld` exposes reset, step and pose access.
-  Bullet and Jolt are alternative implementations; only the selected backend is
-  instantiated. The Jolt implementation reuses the existing `PhysicsWorld` and
+  It uses Jolt directly and reuses the existing `PhysicsWorld` and
   job adapter. Asset binding logic stays out of backend code.
 - **Viewer and evidence:** the existing Viewer/rendering path gains physics
-  controls, backend selection, restart behavior and comparison/replay coverage.
+  controls, restart behavior and on/off comparison/replay coverage.
   Its graphics in this illustration represent responsibilities, not the actual UI.
 
 Each character has an independent simulation world. This is an authored rigid-body
 rig for secondary motion, not triangle cloth simulation or shared scene physics.
 The earlier independent-tail spring prototype has been removed.
+
+The legacy fixture filename `miku_bullet_physics.usda` is retained for existing
+local assets; it contains backend-independent body/joint descriptions and now
+runs exclusively on Jolt. It does not select a Bullet backend.
 
 ## Source conversion
 
@@ -68,14 +72,13 @@ from the asset.
 
 ## Solver and ownership
 
-Each imported character owns one selected physics world. Bullet owns its shapes,
-motion states, bodies and constraints. Jolt reuses the engine PhysicsWorld and
+Each imported character owns one Jolt rig world. It reuses the engine PhysicsWorld and
 job adapter, with one worker plus the caller. Objects are removed before destruction.
 Mode 0 follows animation; mode 1 writes position and rotation; mode 2 writes
 rotation and realigns the body centre with its animated bone.
 
 The owner and joints are Scene entities with Transform/RelationShip. Skeleton
-topology is fixed for the component lifetime. Parameter/backend changes set
+topology is fixed for the component lifetime. Parameter changes set
 `reset`, which rebuilds both binding caches and the solver; topology changes
 require replacing the component. Joint indices are checked when binding, not
 on every animation frame.
@@ -86,8 +89,14 @@ Simulation operates in the PMX skeleton's source units, with gravity
 Kinematic inputs are interpolated within a frame. Runtime initialization
 settles one second at the current pose; this is not an offline bake.
 Pause keeps the solver still. Restart/seek recreates the world, including
-contact caches; unusually large frame gaps reset rather than accumulate
-unbounded work. Sampling rates can still affect interpolated motion/contact.
+contact caches. Slow frames do not reset or re-run the one-second settling
+phase. Catch-up is capped at eight 120 Hz steps per frame (66.7 ms of simulation);
+excess wall time is discarded, while kinematic anchors interpolate to the
+current animation pose. Non-looping clips reaching their endpoint do not cause
+repeated resets; loop discontinuities still reset. This budget prevents a slow
+frame from producing an unbounded physics backlog, at the cost of secondary
+motion losing elapsed simulation time during long stalls. Sampling rates can
+still affect interpolated motion/contact.
 
 ## USD configuration
 
@@ -109,6 +118,10 @@ is cylinder height. The importer validates array sizes and indices. The discarde
 converter. HTGC cooking rejects CharacterPhysics until its format supports it.
 
 ## Jolt parameter mapping
+
+The legacy Bullet column below documents the authored PMX conversion convention,
+not an available runtime backend. The angle sign conversion remains necessary
+for existing assets. Historical diagrams/research may also name the removed backend.
 
 | Parameter | Bullet baseline | Jolt |
 |---|---|---|
@@ -140,16 +153,16 @@ xmake build usd-viewer usd-viewer-e2e asset_pipeline_tests unit_tests
 xmake r unit_tests --gtest_filter=RigWorldTest.*:PhysicsWorldTest.*
 xmake r asset_pipeline_tests --gtest_filter=UsdRigImportTest.*:UsdSkelImportTest.*:CharacterPhysicsAssetTest.*
 xmake r usd-viewer-e2e DX12 --verify-physics temp/runtime-physics/usd/miku_bullet_physics.usda jolt
-xmake r usd-viewer-e2e DX12 --record-animation temp/runtime-physics/usd/miku_bullet_physics.usda 600 0 toon bullet
-xmake r usd-viewer-e2e DX12 --record-animation temp/runtime-physics/usd/miku_bullet_physics.usda 600 0 toon jolt
-python examples/usd-viewer/tools/encode-runtime-comparison.py --solvers
+xmake r usd-viewer-e2e DX12 --record-animation temp/runtime-physics/usd/miku_bullet_physics.usda 600 0 toon physics-off
+xmake r usd-viewer-e2e DX12 --record-animation temp/runtime-physics/usd/miku_bullet_physics.usda 600 0 toon physics-on
+python examples/usd-viewer/tools/encode-runtime-comparison.py
 xmake r usd-viewer-e2e DX12 --benchmark temp/runtime-physics/usd/miku_bullet_physics.usda 600 jolt
 # Remove-Item Env:XMAKE_CONFIGDIR when returning to the normal configuration.
 ```
 
 Run these sequentially: XMake stages runtime DLLs, which cannot be replaced while
 an executable in that output directory is running. The local Miku asset test is
-optional and skips when the external asset is absent. It checks both backends for
+optional and skips when the external asset is absent. It checks Jolt for
 finite bone transforms, normalized rotations, and the complete ten-second
 hair-tip regression, while reporting physics/binding and scene CPU time.
 

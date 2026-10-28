@@ -1,4 +1,4 @@
-export module asset:transform;
+export module asset.base:transform;
 import std;
 import math;
 import ecs;
@@ -17,7 +17,9 @@ private:
 
     ecs::Entity                          prev_parent = {};
     std::pmr::unordered_set<ecs::Entity> children;
-    bool                                 subtree_dirty = true;
+    // This node needs a world-matrix update. Changes propagate to descendants,
+    // never to ancestors: a child transform cannot change its parent transform.
+    bool                                 world_dirty = true;
 };
 static_assert(ecs::Component<RelationShip>);
 
@@ -99,21 +101,13 @@ void RelationShipSystem::ConfigureSchedule(ecs::Schedule& schedule) {
                 if (relation_ship.prev_parent) {
                     auto& prev_parent = relation_ship.prev_parent.Get<RelationShip>();
                     prev_parent.children.erase(entity);
-                    prev_parent.subtree_dirty = true;
-                    for (auto parent = prev_parent.parent; parent; parent = parent.Get<RelationShip>().parent) {
-                        parent.Get<RelationShip>().subtree_dirty = true;
-                    }
                 }
                 if (relation_ship.parent) {
                     auto& parent = relation_ship.parent.Get<RelationShip>();
                     parent.children.insert(entity);
-                    parent.subtree_dirty = true;
-                    for (auto ancestor = parent.parent; ancestor; ancestor = ancestor.Get<RelationShip>().parent) {
-                        ancestor.Get<RelationShip>().subtree_dirty = true;
-                    }
                 }
-                relation_ship.prev_parent   = relation_ship.parent;
-                relation_ship.subtree_dirty = true;
+                relation_ship.prev_parent = relation_ship.parent;
+                relation_ship.world_dirty = true;
             }
         });
     });
@@ -142,10 +136,7 @@ void TransformSystem::ConfigureSchedule(ecs::Schedule& schedule) {
                     transform.cached_rotation = transform.rotation;
                     transform.cached_scaling  = transform.scaling;
 
-                    relation_ship.subtree_dirty = true;
-                    for (auto parent = relation_ship.parent; parent; parent = parent.Get<RelationShip>().parent) {
-                        parent.Get<RelationShip>().subtree_dirty = true;
-                    }
+                    relation_ship.world_dirty = true;
                 });
             })
         .Request(
@@ -167,7 +158,7 @@ void TransformSystem::ConfigureSchedule(ecs::Schedule& schedule) {
                     cache->previous_parents = cache->parents;
                     cache->hierarchy_dirty  = true;
                     for (auto entity : cache->hierarchy_entities)
-                        entity.Get<RelationShip>().subtree_dirty = true;
+                        entity.Get<RelationShip>().world_dirty = true;
                 }
 
                 // rebuild hierarchy order
@@ -226,7 +217,7 @@ void TransformSystem::ConfigureSchedule(ecs::Schedule& schedule) {
                         relation_ship.parent &&
                         updated_entities.contains(relation_ship.parent);
 
-                    if (!parent_dirty && !relation_ship.subtree_dirty) continue;
+                    if (!parent_dirty && !relation_ship.world_dirty) continue;
 
                     if (relation_ship.parent && relation_ship.parent.Has<Transform>()) {
                         transform.world_matrix = relation_ship.parent.Get<Transform>().world_matrix * transform.local_matrix;
@@ -234,7 +225,7 @@ void TransformSystem::ConfigureSchedule(ecs::Schedule& schedule) {
                         transform.world_matrix = transform.local_matrix;
                     }
 
-                    relation_ship.subtree_dirty = false;
+                    relation_ship.world_dirty = false;
                     updated_entities.emplace(entity);
                 }
             });

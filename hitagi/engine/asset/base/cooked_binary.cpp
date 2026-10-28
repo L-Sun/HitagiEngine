@@ -3,7 +3,7 @@ module;
 // Implementation partition (not exported from the module interface): the cooked
 // parsers stay internal to hitagi::asset. Module implementation units such as
 // asset_service.cpp import :cooked_binary to use these declarations.
-module asset:cooked_binary;
+module asset.base:cooked_binary;
 import std;
 import core;
 import gfx;

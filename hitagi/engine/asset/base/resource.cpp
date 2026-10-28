@@ -1,4 +1,4 @@
-export module asset:resource;
+export module asset.base:resource;
 import std;
 import core;
 import gfx;

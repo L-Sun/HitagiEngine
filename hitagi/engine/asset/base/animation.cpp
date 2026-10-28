@@ -1,4 +1,4 @@
-export module asset:animation;
+export module asset.base:animation;
 import std;
 import math;
 import ecs;
@@ -60,6 +60,23 @@ struct AnimationTarget {
     std::uint32_t target = 0;
 };
 
+// Local pose data has no entity, matrix cache, or playback ownership.
+struct LocalPose {
+    math::vec3f position = math::vec3f(0.0f);
+    math::quatf rotation = math::quatf::identity();
+    math::vec3f scaling  = math::vec3f(1.0f);
+    auto        ToMatrix() const -> math::mat4f {
+        return math::translate(position) * math::rotate(rotation) * math::scale(scaling);
+    }
+};
+
+// Missing channels preserve the supplied input. Sampling never mutates a World.
+auto SampleAnimationTrack(const AnimationTrack& track, double time, LocalPose input) -> LocalPose;
+auto BlendLocalPose(const LocalPose& from, const LocalPose& to, float alpha) -> LocalPose;
+auto ReadLocalPose(const Transform& transform) -> LocalPose;
+void WriteLocalPose(const LocalPose& pose, Transform& transform);
+auto ResolveAnimationTime(double time, double duration, bool looping) -> double;
+
 struct AnimationSystem {
     static void ConfigureSchedule(ecs::Schedule& schedule);
 };
@@ -105,6 +122,29 @@ auto AnimationClip::FindTrack(std::uint32_t target) const noexcept -> const Anim
     return it != m_Tracks.end() && it->target == target ? std::addressof(*it) : nullptr;
 }
 
+auto InterpolateRotation(const math::quatf& from, const math::quatf& to, float alpha) -> math::quatf {
+    // Shortest-arc slerp; near-identical rotations use normalized lerp.
+    auto  end    = to;
+    float cosine = math::dot(from, end);
+    if (cosine < 0.0f) {
+        for (auto& value : end.data) value = -value;
+        cosine = -cosine;
+    }
+    cosine  = std::clamp(cosine, 0.0f, 1.0f);
+    float a = 1.0f - alpha;
+    float b = alpha;
+    if (cosine < 0.9995f) {
+        const float angle = std::acos(cosine);
+        a                 = std::sin((1.0f - alpha) * angle) / std::sin(angle);
+        b                 = std::sin(alpha * angle) / std::sin(angle);
+    }
+    math::quatf result;
+    for (unsigned i = 0; i < 4; ++i) result[i] = from[i] * a + end[i] * b;
+    const float length = result.norm();
+    for (auto& value : result.data) value /= length;
+    return result;
+}
+
 template <typename T>
 auto SampleAnimationCurve(const AnimationCurve<T>& curve, double time) -> T {
     if (time <= curve.keys.front().time) return curve.keys.front().value;
@@ -114,29 +154,45 @@ auto SampleAnimationCurve(const AnimationCurve<T>& curve, double time) -> T {
     if (curve.interpolation == AnimationInterpolation::Step) return left.value;
     const float alpha = static_cast<float>((time - left.time) / (right->time - left.time));
     if constexpr (std::same_as<T, math::quatf>) {
-        // Shortest-arc slerp; near-identical rotations use normalized lerp.
-        auto  end    = right->value;
-        float cosine = math::dot(left.value, end);
-        if (cosine < 0.0f) {
-            for (auto& value : end.data) value = -value;
-            cosine = -cosine;
-        }
-        cosine  = std::clamp(cosine, 0.0f, 1.0f);
-        float a = 1.0f - alpha;
-        float b = alpha;
-        if (cosine < 0.9995f) {
-            const float angle = std::acos(cosine);
-            a                 = std::sin((1.0f - alpha) * angle) / std::sin(angle);
-            b                 = std::sin(alpha * angle) / std::sin(angle);
-        }
-        math::quatf result;
-        for (unsigned i = 0; i < 4; ++i) result[i] = left.value[i] * a + end[i] * b;
-        const float length = result.norm();
-        for (auto& value : result.data) value /= length;
-        return result;
+        return InterpolateRotation(left.value, right->value, alpha);
     } else {
         return left.value * (1.0f - alpha) + right->value * alpha;
     }
+}
+
+auto ReadLocalPose(const Transform& transform) -> LocalPose {
+    return {.position = transform.position, .rotation = transform.rotation, .scaling = transform.scaling};
+}
+
+void WriteLocalPose(const LocalPose& pose, Transform& transform) {
+    transform.position = pose.position;
+    transform.rotation = pose.rotation;
+    transform.scaling  = pose.scaling;
+}
+
+auto SampleAnimationTrack(const AnimationTrack& track, double time, LocalPose input) -> LocalPose {
+    if (!std::isfinite(time)) throw std::invalid_argument("Non-finite animation sample time");
+    if (!track.positions.keys.empty()) input.position = SampleAnimationCurve(track.positions, time);
+    if (!track.rotations.keys.empty()) input.rotation = SampleAnimationCurve(track.rotations, time);
+    if (!track.scales.keys.empty()) input.scaling = SampleAnimationCurve(track.scales, time);
+    return input;
+}
+
+auto BlendLocalPose(const LocalPose& from, const LocalPose& to, float alpha) -> LocalPose {
+    if (!std::isfinite(alpha) || alpha < 0.0f || alpha > 1.0f)
+        throw std::invalid_argument("Pose blend alpha must be in [0, 1]");
+    return {.position = from.position * (1.0f - alpha) + to.position * alpha,
+            .rotation = InterpolateRotation(from.rotation, to.rotation, alpha),
+            .scaling  = from.scaling * (1.0f - alpha) + to.scaling * alpha};
+}
+
+auto ResolveAnimationTime(double time, double duration, bool looping) -> double {
+    if (!std::isfinite(time) || !std::isfinite(duration) || duration < 0.0)
+        throw std::invalid_argument("Invalid animation time or duration");
+    if (duration == 0.0) return 0.0;
+    if (!looping) return std::clamp(time, 0.0, duration);
+    const double wrapped = std::fmod(time, duration);
+    return wrapped < 0.0 ? wrapped + duration : wrapped;
 }
 
 void AnimationSystem::ConfigureSchedule(ecs::Schedule& schedule) {
@@ -146,16 +202,7 @@ void AnimationSystem::ConfigureSchedule(ecs::Schedule& schedule) {
             if (!std::isfinite(player.time) || !std::isfinite(player.speed)) throw std::invalid_argument("Invalid animation playback state");
             double time = player.time + (player.playing ? schedule.GetDeltaSeconds() * player.speed : 0.0);
             if (!std::isfinite(time)) throw std::invalid_argument("Animation time overflow");
-            const double duration = player.clip->GetDuration();
-            if (duration == 0.0)
-                time = 0.0;
-            else if (player.looping) {
-                time = std::fmod(time, duration);
-                if (time < 0.0) time += duration;
-            } else {
-                time = std::clamp(time, 0.0, duration);
-            }
-            player.time = time;
+            player.time = ResolveAnimationTime(time, player.clip->GetDuration(), player.looping);
         });
     });
     schedule.Request("animate_targets", [](ecs::Query<ecs::Entity, const AnimationTarget&> query) {
@@ -166,9 +213,7 @@ void AnimationSystem::ConfigureSchedule(ecs::Schedule& schedule) {
             const auto* track = player.clip->FindTrack(target.target);
             if (!track) return;
             auto& transform = entity.Get<Transform>();
-            if (!track->positions.keys.empty()) transform.position = SampleAnimationCurve(track->positions, player.time);
-            if (!track->rotations.keys.empty()) transform.rotation = SampleAnimationCurve(track->rotations, player.time);
-            if (!track->scales.keys.empty()) transform.scaling = SampleAnimationCurve(track->scales, player.time);
+            WriteLocalPose(SampleAnimationTrack(*track, player.time, ReadLocalPose(transform)), transform);
         });
     });
     // Cross-entity reads/writes are not inferred by Schedule. Declare the phase

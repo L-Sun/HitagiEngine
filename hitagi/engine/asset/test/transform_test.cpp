@@ -177,3 +177,33 @@ TEST_F(LocalToWorldSystemTest, DirectRootCreationAndRemovalInvalidateTraversal) 
     world.Update(job_system);
     EXPECT_EQ(replacement.Get<Transform>().world_matrix, math::translate(math::vec3f(9, 0, 0)));
 }
+TEST_F(LocalToWorldSystemTest, SparseChangesAndReparentingMatchFullHierarchyEvaluation) {
+    // Parents precede children, but siblings share ancestors. Exercise sparse and
+    // dense edits, detachment, and archetype relocation over multiple updates.
+    std::vector<ecs::Entity> entities;
+    std::vector<int> parents;
+    for (int i = 0; i < 48; ++i) {
+        const int parent = i == 0 ? -1 : (i - 1) / 2;
+        parents.push_back(parent);
+        entities.push_back(em.Create(Transform(math::vec3f(float(i % 5), 0, 0)),
+                                     RelationShip(parent < 0 ? ecs::Entity{} : entities[parent])));
+    }
+    for (int frame = 0; frame < 32; ++frame) {
+        for (int i = 0; i < 48; ++i) {
+            if ((i + frame) % 7 == 0 || frame == 20)
+                entities[i].Get<Transform>().position.x += 0.25f;
+        }
+        if (frame == 6 || frame == 12) {
+            parents[8] = frame == 6 ? -1 : 2;
+            entities[8].Get<RelationShip>().parent = parents[8] < 0 ? ecs::Entity{} : entities[parents[8]];
+        }
+        if (frame == 10) entities[5].Emplace<MetaInfo>("relocated");
+        world.Update(job_system);
+        std::vector<math::mat4f> expected;
+        for (int i = 0; i < 48; ++i) {
+            const auto& transform = entities[i].Get<Transform>();
+            expected.push_back(parents[i] < 0 ? transform.ToMatrix() : expected[parents[i]] * transform.ToMatrix());
+            EXPECT_EQ(transform.world_matrix, expected.back()) << "frame " << frame << ", entity " << i;
+        }
+    }
+}

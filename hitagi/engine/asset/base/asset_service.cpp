@@ -1,4 +1,4 @@
-module asset;
+module asset.base;
 import std;
 import core;
 import gfx;

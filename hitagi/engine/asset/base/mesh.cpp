@@ -1,4 +1,4 @@
-export module asset:mesh;
+export module asset.base:mesh;
 import std;
 import interop.magic_enum;
 import core;
@@ -287,7 +287,7 @@ void VertexArray::Load(const ResourceLoadContext& context) {
             {
                 .name   = std::pmr::string(std::format("{}-{}", m_Name, magic_enum::enum_name(attribute.type))),
                 .size   = attribute.cpu_buffer.GetDataSize(),
-                .usages = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::CopyDst,
+                .usages = gfx::GPUBufferUsageFlags::Vertex | gfx::GPUBufferUsageFlags::StorageRead | gfx::GPUBufferUsageFlags::CopyDst,
             },
             attribute.cpu_buffer.Span<const std::byte>());
     }

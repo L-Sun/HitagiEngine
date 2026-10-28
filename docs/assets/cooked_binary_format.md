@@ -200,7 +200,7 @@ Record arrays are written **children first, then the parent**: `BuildMaterialRec
 
 ## Reader
 
-Reading lives in `hitagi/engine/asset/cooked_binary.cpp` (the implementation partition `asset:cooked_binary`, not exported outside the module):
+Reading lives in `hitagi/engine/asset/base/cooked_binary.cpp` (the implementation partition `asset.base:cooked_binary`, not exported outside the module):
 
 ```cpp
 auto ParseCookedMaterial(std::span<const std::byte>, root, CookedTextureResolver) -> std::shared_ptr<Material>;

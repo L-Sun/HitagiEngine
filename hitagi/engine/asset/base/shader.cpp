@@ -1,4 +1,4 @@
-export module asset:shader;
+export module asset.base:shader;
 import gfx;
 import :resource;
 

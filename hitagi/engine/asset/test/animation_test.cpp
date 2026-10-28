@@ -13,6 +13,16 @@ using namespace hitagi;
 using namespace hitagi::asset;
 
 namespace animation_test {
+// These asset tests intentionally inspect CPU vertices. Rendering tests exercise
+// the default GPU path independently.
+void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt = 0) {
+    for (auto entity : world.GetEntityManager().GetEntities<asset::SkinnedMesh>())
+        entity.Get<asset::SkinnedMesh>().cpu_deformation = true;
+    world.Update(jobs, dt);
+}
+}
+
+namespace animation_test {
 
 auto TranslationClip(float distance = 2.0f) -> std::shared_ptr<AnimationClip> {
     AnimationTrack track{.target = 7};
@@ -79,7 +89,7 @@ class SkeletalAnimationTest : public testing::Test {
 protected:
     Scene           scene{"AnimationTest"};
     core::JobSystem jobs{2};
-    void            Update(double seconds) { scene.GetWorld().Update(jobs, seconds); }
+    void            Update(double seconds) { animation_test::UpdateCpuReference(scene.GetWorld(), jobs, seconds); }
 };
 
 TEST_F(SkeletalAnimationTest, SharedMeshIndependentPlayersAndSharedJoints) {
@@ -247,9 +257,9 @@ TEST(AnimationValidationTest, RejectsInvalidAssetsAndFrameTime) {
     EXPECT_THROW(Skin(std::vector{math::mat4f::zero()}), std::invalid_argument);
     Scene           scene;
     core::JobSystem jobs;
-    EXPECT_THROW(scene.GetWorld().Update(jobs, -1.0), std::invalid_argument);
-    EXPECT_THROW(scene.GetWorld().Update(jobs, std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
-    EXPECT_NO_THROW(scene.GetWorld().Update(jobs, 0.0));
+    EXPECT_THROW(animation_test::UpdateCpuReference(scene.GetWorld(), jobs, -1.0), std::invalid_argument);
+    EXPECT_THROW(animation_test::UpdateCpuReference(scene.GetWorld(), jobs, std::numeric_limits<double>::quiet_NaN()), std::invalid_argument);
+    EXPECT_NO_THROW(animation_test::UpdateCpuReference(scene.GetWorld(), jobs, 0.0));
 }
 
 TEST(AnimationValidationTest, RejectsInvalidPaletteAndWeights) {
@@ -260,19 +270,19 @@ TEST(AnimationValidationTest, RejectsInvalidPaletteAndWeights) {
     const auto      joint    = scene.GetWorld().GetEntityManager().Create(asset::Transform(math::mat4f::identity()), asset::RelationShip{}, asset::MetaInfo("Joint"));
     auto       instance = animation_test::Bind(scene, mesh, skin, joint);
     instance.Get<SkinnedMesh>().joints.clear();
-    EXPECT_THROW(scene.GetWorld().Update(jobs), std::invalid_argument);
+    EXPECT_THROW(animation_test::UpdateCpuReference(scene.GetWorld(), jobs), std::invalid_argument);
     instance.Get<SkinnedMesh>().joints.emplace_back(joint);
     auto vertex_data                                                   = animation_test::TriangleVertices();
     vertex_data[VertexAttribute::BlendIndex].Span<math::vec4u>()[0][0] = 1;
     instance.Get<MeshComponent>().mesh                                 = animation_test::WeightedTriangle(vertex_data);
-    EXPECT_THROW(scene.GetWorld().Update(jobs), std::invalid_argument);
+    EXPECT_THROW(animation_test::UpdateCpuReference(scene.GetWorld(), jobs), std::invalid_argument);
     vertex_data[VertexAttribute::BlendIndex].Span<math::vec4u>()[0][0]  = 0;
     vertex_data[VertexAttribute::BlendWeight].Span<math::vec4f>()[0][0] = -1.0f;
     instance.Get<MeshComponent>().mesh                                  = animation_test::WeightedTriangle(vertex_data);
-    EXPECT_THROW(scene.GetWorld().Update(jobs), std::invalid_argument);
+    EXPECT_THROW(animation_test::UpdateCpuReference(scene.GetWorld(), jobs), std::invalid_argument);
     vertex_data[VertexAttribute::BlendWeight].Span<math::vec4f>()[0][0] = 1.0f;
     instance.Get<MeshComponent>().mesh                                  = animation_test::WeightedTriangle(std::move(vertex_data));
-    EXPECT_NO_THROW(scene.GetWorld().Update(jobs));
+    EXPECT_NO_THROW(animation_test::UpdateCpuReference(scene.GetWorld(), jobs));
 }
 
 TEST(SkinningResidencyTest, SceneLoadsReplacementSnapshotAndUnloadsCurrentStreams) {
@@ -287,12 +297,12 @@ TEST(SkinningResidencyTest, SceneLoadsReplacementSnapshotAndUnloadsCurrentStream
     const auto                skin     = std::make_shared<Skin>(std::vector{math::mat4f::identity()});
     auto                      joint    = scene.GetWorld().GetEntityManager().Create(asset::Transform(math::mat4f::identity()), asset::RelationShip{}, asset::MetaInfo("Joint"));
     const auto                instance = animation_test::Bind(scene, mesh, skin, joint);
-    scene.GetWorld().Update(jobs);
+    animation_test::UpdateCpuReference(scene.GetWorld(), jobs);
     scene.Load(context);
     const auto previous = instance.Get<SkinnedMesh>().deformed_vertices;
     EXPECT_EQ(previous->GetLoadState(), ResourceLoadState::Loaded);
     joint.Get<Transform>().position.x = 1.0f;
-    scene.GetWorld().Update(jobs);
+    animation_test::UpdateCpuReference(scene.GetWorld(), jobs);
     const auto current = instance.Get<SkinnedMesh>().deformed_vertices;
     EXPECT_NE(previous, current);
     EXPECT_EQ(current->GetLoadState(), ResourceLoadState::Unloaded);
@@ -301,4 +311,42 @@ TEST(SkinningResidencyTest, SceneLoadsReplacementSnapshotAndUnloadsCurrentStream
     scene.Unload();
     EXPECT_EQ(current->GetLoadState(), ResourceLoadState::Unloaded);
     EXPECT_FALSE(current->GetAttributeData(VertexAttribute::Position)->get().gpu_buffer);
+}
+
+TEST(AnimationValidationTest, AcceptsAffineRoundingButRejectsProjectiveSkin) {
+    auto matrix = math::mat4f::identity();
+    matrix[3][3] = std::nextafter(1.0f, 2.0f);
+    EXPECT_NO_THROW(Skin(std::vector{matrix}));
+    matrix[3][0] = 0.01f;
+    EXPECT_THROW(Skin(std::vector{matrix}), std::invalid_argument);
+    matrix[3][0] = std::numeric_limits<float>::infinity();
+    EXPECT_THROW(Skin(std::vector{matrix}), std::invalid_argument);
+}
+
+TEST_F(SkeletalAnimationTest, PaletteCacheRespectsMeshSpaceAndBindingsAcrossFrames) {
+    const auto mesh = animation_test::WeightedTriangle();
+    const auto skin = std::make_shared<Skin>(std::vector{math::mat4f::identity()});
+    auto root = scene.GetWorld().GetEntityManager().Create(Transform{}, RelationShip{}, MetaInfo("root"));
+    const auto joint = animation_test::Joint(scene, root);
+    auto a = animation_test::Bind(scene, mesh, skin, joint, root);
+    auto shared = animation_test::Bind(scene, mesh, skin, joint, root);
+    auto offset = animation_test::Bind(scene, mesh, skin, joint, root);
+    offset.Get<Transform>().position = {3, 0, 0};
+    scene.GetWorld().Update(jobs, 0);
+    const auto old = a.Get<SkinnedMesh>().pose;
+    const auto check = [&] {
+        for (auto entity : {a, shared, offset}) {
+            const auto& instance = entity.Get<SkinnedMesh>();
+            const auto expected = math::inverse(entity.Get<Transform>().world_matrix) * joint.Get<Transform>().world_matrix;
+            for (unsigned r = 0; r < 4; ++r)
+                for (unsigned c = 0; c < 4; ++c) EXPECT_NEAR(instance.pose->matrices[0][r][c], expected[r][c], 1e-5f);
+        }
+    };
+    check();
+    auto mutable_joint = joint;
+    mutable_joint.Get<Transform>().position.x += 2;
+    scene.GetWorld().Update(jobs, 0);
+    check();
+    EXPECT_NE(old, a.Get<SkinnedMesh>().pose);
+    EXPECT_NEAR(a.Get<SkinnedMesh>().pose->matrices[0][0][3] - old->matrices[0][0][3], 2, 1e-5f);
 }

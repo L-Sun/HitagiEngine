@@ -1,4 +1,4 @@
-export module asset:light;
+export module asset.base:light;
 import std;
 import math;
 

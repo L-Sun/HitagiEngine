@@ -2,7 +2,7 @@ module;
 #include <cassert>
 
 
-module asset;
+module asset.base;
 import interop.spdlog;
 import std;
 import math;

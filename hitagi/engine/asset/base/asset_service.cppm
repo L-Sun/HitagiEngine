@@ -1,4 +1,4 @@
-export module asset:service;
+export module asset.base:service;
 import interop.spdlog;
 import std;
 import core;

@@ -1,4 +1,4 @@
-export module asset:cooked_format;
+export module asset.base:cooked_format;
 import std;
 import math;
 

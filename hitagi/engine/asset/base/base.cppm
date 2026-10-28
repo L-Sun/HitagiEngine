@@ -1,0 +1,17 @@
+export module asset.base;
+export import :cooked_format;
+export import :resource;
+export import :image_codec;
+export import :texture;
+export import :material;
+export import :mesh;
+export import :camera;
+export import :light;
+export import :transform;
+export import :animation;
+export import :pose;
+export import :skin;
+export import :scene;
+export import :service;
+export import :shader;
+export import :pipeline;

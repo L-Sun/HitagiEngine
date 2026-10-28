@@ -2,7 +2,7 @@ module;
 
 #include <concepts>
 
-export module asset:material;
+export module asset.base:material;
 import std;
 import core;
 import gfx;

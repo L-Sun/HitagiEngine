@@ -2,7 +2,7 @@ module;
 #include <csetjmp>
 
 
-module asset;
+module asset.base;
 import interop.png;
 import interop.spdlog;
 import std;
