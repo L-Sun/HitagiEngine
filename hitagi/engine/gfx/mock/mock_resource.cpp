@@ -215,6 +215,7 @@ struct MockComputeCommandContext : public ComputeCommandContext {
         std::span<const TextureBarrier>   texture_barriers = {}) final {}
 
     void SetPipeline(const ComputePipeline& pipeline) final {}
+    void Dispatch(math::vec3u) final {}
 
     void PushBindlessMetaInfo(const BindlessMetaInfo& info) final {}
 };
@@ -264,8 +265,8 @@ namespace hitagi::gfx {
 MockRenderPipeline::MockRenderPipeline(RenderPipelineDesc desc, const std::pmr::vector<std::shared_ptr<Shader>>&)
     : RenderPipeline(std::move(desc)) {}
 
-MockComputePipeline::MockComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>&)
-    : ComputePipeline(std::move(desc)) {}
+MockComputePipeline::MockComputePipeline(ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs)
+    : ComputePipeline(std::move(desc), *cs) {}
 
 MockGPUBufferView::MockGPUBufferView(BindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc)
     : GPUBufferView(bindings, storage_requirements, std::move(desc)) {

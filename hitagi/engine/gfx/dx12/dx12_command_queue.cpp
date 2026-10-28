@@ -42,14 +42,17 @@ public:
     void NewFrame() final;
 
     inline auto GetDX12Queue() const noexcept { return m_Queue; }
+    inline auto GetCommandStorage() const noexcept { return m_CommandStorage; }
     inline auto GetTracyCtx() const noexcept { return m_TracyCtx; }
 
 private:
-    std::shared_ptr<spdlog::logger> m_Logger;
-    ComPtr<ID3D12CommandQueue>      m_Queue;
-    DX12Fence                       m_Fence;
-    std::uint64_t                   m_SubmitCount = 0;
-    TracyD3D12Ctx                   m_TracyCtx    = nullptr;
+    std::shared_ptr<DX12CommandStorage> m_CommandStorage = std::make_shared<DX12CommandStorage>();
+    std::mutex                          m_SubmitMutex;
+    std::shared_ptr<spdlog::logger>     m_Logger;
+    ComPtr<ID3D12CommandQueue>          m_Queue;
+    DX12Fence                           m_Fence;
+    std::uint64_t                       m_SubmitCount = 0;
+    TracyD3D12Ctx                       m_TracyCtx    = nullptr;
 };
 
 }  // namespace hitagi::gfx
@@ -86,6 +89,7 @@ DX12CommandQueue::~DX12CommandQueue() {
 void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const CommandContext>> contexts,
                               std::span<const FenceWaitInfo>                                wait_fences,
                               std::span<const FenceSignalInfo>                              signal_fences) {
+    std::scoped_lock submit_lock(m_SubmitMutex);
     // make sure all context are same command type
     if (auto iter = std::find_if(
             contexts.begin(), contexts.end(),
@@ -105,15 +109,48 @@ void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const Comma
         [](const CommandContext& ctx) -> ID3D12CommandList* {
             switch (ctx.GetType()) {
                 case CommandType::Graphics:
-                    return dynamic_cast<const DX12GraphicsCommandList&>(ctx).command_list.Get();
+                    return dynamic_cast<const DX12GraphicsCommandList&>(ctx).storage_entry->list.Get();
                 case CommandType::Compute:
-                    return dynamic_cast<const DX12ComputeCommandList&>(ctx).command_list.Get();
+                    return dynamic_cast<const DX12ComputeCommandList&>(ctx).storage_entry->list.Get();
                 case CommandType::Copy:
-                    return dynamic_cast<const DX12CopyCommandList&>(ctx).command_list.Get();
+                    return dynamic_cast<const DX12CopyCommandList&>(ctx).storage_entry->list.Get();
                 default:
                     utils::unreachable();
             }
         });
+
+    // Record completion ownership before submitting GPU work (allocation may throw).
+    const auto completion_value = m_SubmitCount + 1;
+    try {
+        for (const CommandContext& context : contexts) {
+            switch (context.GetType()) {
+                case CommandType::Graphics: {
+                    const auto& native = dynamic_cast<const DX12GraphicsCommandList&>(context);
+                    if (!native.closed) throw std::logic_error("Cannot submit an open command list");
+                    native.storage->Submitted(native.storage_entry.get(), m_Fence.GetFence(), completion_value);
+                    break;
+                }
+                case CommandType::Compute: {
+                    const auto& native = dynamic_cast<const DX12ComputeCommandList&>(context);
+                    if (!native.closed) throw std::logic_error("Cannot submit an open command list");
+                    native.storage->Submitted(native.storage_entry.get(), m_Fence.GetFence(), completion_value);
+                    break;
+                }
+                case CommandType::Copy: {
+                    const auto& native = dynamic_cast<const DX12CopyCommandList&>(context);
+                    if (!native.closed) throw std::logic_error("Cannot submit an open command list");
+                    native.storage->Submitted(native.storage_entry.get(), m_Fence.GetFence(), completion_value);
+                    break;
+                }
+                default:
+                    utils::unreachable();
+            }
+        }
+    } catch (...) {
+        // No GPU work from this call was issued; complete any prepared stamps.
+        m_Queue->Signal(m_Fence.GetFence().Get(), ++m_SubmitCount);
+        throw;
+    }
 
     for (const auto& wait_fence : wait_fences) {
         if (wait_fence.value == 0) continue;
@@ -130,7 +167,8 @@ void DX12CommandQueue::Submit(std::span<const std::reference_wrapper<const Comma
         const auto& fence = dynamic_cast<DX12Fence&>(signal_fence.fence);
         m_Queue->Signal(fence.GetFence().Get(), signal_fence.value);
     }
-    m_Queue->Signal(m_Fence.GetFence().Get(), ++m_SubmitCount);
+    if (interop::failed(m_Queue->Signal(m_Fence.GetFence().Get(), ++m_SubmitCount)))
+        throw std::runtime_error("Failed to signal command retirement fence");
 }
 
 void DX12CommandQueue::WaitIdle() {
@@ -139,6 +177,7 @@ void DX12CommandQueue::WaitIdle() {
 }
 
 void DX12CommandQueue::NewFrame() {
+    m_CommandStorage->CollectCompleted();
     TracyD3D12NewFrame(m_TracyCtx);
 }
 

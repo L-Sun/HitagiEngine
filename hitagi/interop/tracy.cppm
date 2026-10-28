@@ -1,5 +1,7 @@
 module;
 #include <tracy/Tracy.hpp>
+#include <cstddef>
+#include <new>
 
 export module interop.tracy;
 
@@ -35,3 +37,28 @@ void plot_profiling_value(const char* name, double value) {
 }
 #endif
 }  // namespace hitagi::interop
+
+#ifdef TRACY_ENABLE
+export namespace hitagi::interop {
+// Keep Tracy inline implementation within one module, including destruction.
+class ProfilingScope {
+public:
+    ProfilingScope(const tracy::SourceLocationData* location, int depth, bool active);
+    ~ProfilingScope();
+    void Name(const char* text, size_t size);
+    void Text(const char* text, size_t size);
+    ProfilingScope(const ProfilingScope&) = delete;
+    ProfilingScope& operator=(const ProfilingScope&) = delete;
+private:
+    alignas(tracy::ScopedZone) unsigned char storage[sizeof(tracy::ScopedZone)];
+};
+}
+namespace hitagi::interop {
+ProfilingScope::ProfilingScope(const tracy::SourceLocationData* location, int depth, bool active) {
+    new (storage) tracy::ScopedZone(location, depth, active);
+}
+ProfilingScope::~ProfilingScope() { reinterpret_cast<tracy::ScopedZone*>(storage)->~ScopedZone(); }
+void ProfilingScope::Name(const char* text, size_t size) { reinterpret_cast<tracy::ScopedZone*>(storage)->Name(text, size); }
+void ProfilingScope::Text(const char* text, size_t size) { reinterpret_cast<tracy::ScopedZone*>(storage)->Text(text, size); }
+}
+#endif

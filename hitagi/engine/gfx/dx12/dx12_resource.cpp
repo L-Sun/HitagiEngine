@@ -1,4 +1,5 @@
 module;
+#include "interop/tracy_macros.hpp"
 #include <climits>
 #include "interop/win32_macros.hpp"
 
@@ -6,6 +7,7 @@ export module gfx.dx12:resource;
 #ifdef _WIN32
 import interop.win32;
 #endif
+import interop.tracy;
 import interop.fmt;
 import interop.spdlog;
 import interop.dx12;
@@ -27,6 +29,7 @@ export namespace hitagi::gfx {
 struct DX12GPUBuffer : public GPUBuffer {
     DX12GPUBuffer(D3D12MA::Allocator& allocator, std::shared_ptr<spdlog::logger> logger, GPUBufferDesc desc, std::span<const std::byte> initial_data = {});
 
+    ~DX12GPUBuffer() override;
     auto GetAllocationSize() const noexcept -> std::uint64_t final { return allocation ? allocation->GetSize() : Size(); }
     auto Map() -> std::byte* final;
     void UnMap() final;
@@ -48,6 +51,7 @@ struct DX12Texture : public Texture {
     DX12Texture(DX12SwapChain& swap_chain, const std::shared_ptr<spdlog::logger>& logger, std::uint32_t index);
     DX12Texture(DX12Texture&&) = default;
 
+    ~DX12Texture() override;
     auto GetAllocationSize() const noexcept -> std::uint64_t final { return allocation ? allocation->GetSize() : 0; }
 
     ComPtr<D3D12MA::Allocation> allocation;
@@ -242,10 +246,11 @@ auto DX12GPUBuffer::Map() -> std::byte* {
     }
 
     std::byte* mapped_ptr = nullptr;
-    if (interop::failed(resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)))) {
+    const auto map_result = resource->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr));
+    if (interop::failed(map_result)) {
         const auto error_message = fmt::format(
-            "Failed to map GPU buffer({})",
-            fmt::styled(GetName(), fmt::fg(fmt::color::green)));
+            "Failed to map GPU buffer({}): HRESULT 0x{:08x}",
+            fmt::styled(GetName(), fmt::fg(fmt::color::green)), static_cast<unsigned>(map_result));
         logger->error(error_message);
         throw std::runtime_error(error_message);
     }
@@ -553,7 +558,7 @@ DX12RenderPipeline::DX12RenderPipeline(ID3D12Device& device, ID3D12RootSignature
     set_debug_name(pipeline.Get(), GetName());
 }
 
-DX12ComputePipeline::DX12ComputePipeline(ID3D12Device& device, ID3D12RootSignature& root_signature, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(std::move(desc)) {
+DX12ComputePipeline::DX12ComputePipeline(ID3D12Device& device, ID3D12RootSignature& root_signature, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) : ComputePipeline(std::move(desc), *cs) {
     logger->trace("Create compute pipeline ({})", fmt::styled(GetName(), fmt::fg(fmt::color::green)));
 
 
@@ -723,3 +728,14 @@ auto DX12SwapChain::AcquireTextureForRendering() -> utils::optional_ref<Texture>
 }
 
 }  // namespace hitagi::gfx
+
+namespace hitagi::gfx {
+DX12GPUBuffer::~DX12GPUBuffer() {
+        { ZoneScopedNS("DX12GPUBuffer.ReleaseResource", 0); resource.Reset(); }
+        { ZoneScopedNS("DX12GPUBuffer.ReleaseAllocation", 0); allocation.Reset(); }
+    }
+DX12Texture::~DX12Texture() {
+        { ZoneScopedNS("DX12Texture.ReleaseResource", 0); resource.Reset(); }
+        { ZoneScopedNS("DX12Texture.ReleaseAllocation", 0); allocation.Reset(); }
+    }
+}

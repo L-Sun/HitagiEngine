@@ -80,6 +80,8 @@ public:
 
     virtual void SetPipeline(const ComputePipeline& pipeline) = 0;
 
+    virtual void Dispatch(math::vec3u group_count) = 0;
+
     virtual void PushBindlessMetaInfo(const BindlessMetaInfo& info) = 0;
 
 protected:

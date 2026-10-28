@@ -184,3 +184,25 @@ TEST(ShaderProgramTest, RejectsInvalidProgramsWithoutPoisoningTheCompiler) {
     const auto desc = ToShaderDesc(shader_descs[1]);
     EXPECT_FALSE(compiler.LoadProgram(desc.program, ShaderTarget::SPIRV)->Compile(desc.entry, desc.type).bytecode.Empty());
 }
+
+TEST(ShaderProgramTest, ReflectsComputeThreadGroupSizesPerEntryPoint) {
+    ShaderCompiler compiler("ComputeGroupReflection");
+    const ShaderProgramDesc desc{.modules = {{.name = "compute_groups", .source_code = R"(
+        RWStructuredBuffer<uint> output;
+        [shader("compute")][numthreads(8, 4, 2)]
+        void volume(uint3 id : SV_DispatchThreadID) { output[id.x] = id.y + id.z; }
+        [shader("compute")][numthreads(64, 1, 1)]
+        void skin(uint3 id : SV_DispatchThreadID) { output[id.x] = id.x; }
+    )"}}};
+    for (auto target : {ShaderTarget::DXIL, ShaderTarget::SPIRV, ShaderTarget::Metal}) {
+        auto program = compiler.LoadProgram(desc, target);
+        const auto volume = program->Compile("volume", ShaderType::Compute);
+        EXPECT_EQ(volume.thread_group_size.x, 8u);
+        EXPECT_EQ(volume.thread_group_size.y, 4u);
+        EXPECT_EQ(volume.thread_group_size.z, 2u);
+        const auto skin = program->Compile("skin", ShaderType::Compute);
+        EXPECT_EQ(skin.thread_group_size.x, 64u);
+        EXPECT_EQ(skin.thread_group_size.y, 1u);
+        EXPECT_EQ(skin.thread_group_size.z, 1u);
+    }
+}

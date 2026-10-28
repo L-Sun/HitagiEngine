@@ -210,7 +210,7 @@ TEST_P(BindlessTest, RawBufferRoundTrip) {
     context->PushBindlessMetaInfo({.handle = argument_view->GetBindlessHandle()});
 // Dispatch through the backend: the public compute context has no Dispatch API yet.
     if (GetParam() == Device::Type::Vulkan) {
-        static_cast<VulkanComputeCommandBuffer&>(*context).command_buffer.dispatch(1, 1, 1);
+        static_cast<VulkanComputeCommandBuffer&>(*context).GetCommandBuffer().dispatch(1, 1, 1);
     }
 #ifdef __APPLE__
     else {
@@ -219,7 +219,7 @@ TEST_P(BindlessTest, RawBufferRoundTrip) {
 #endif
 #ifdef _WIN32
     else {
-        static_cast<DX12ComputeCommandList&>(*context).command_list->Dispatch(1, 1, 1);
+        static_cast<DX12ComputeCommandList&>(*context).storage_entry->list->Dispatch(1, 1, 1);
     }
 #endif
     context->ResourceBarrier({}, std::array{output->Transition(BarrierAccess::CopySrc, PipelineStage::Copy)});
@@ -594,7 +594,7 @@ TEST_P(BindlessTest, RenderGraphReadsIndexedScalarRecords) {
         cmd.SetPipeline(*pipeline);
         cmd.PushBindlessMetaInfo({.handle = pass.Resolve(argument_access).GetBindlessHandle(), .record_index = 1, .record_stride = sizeof(Arguments)});
         if (GetParam() == Device::Type::Vulkan) {
-            static_cast<VulkanComputeCommandBuffer&>(cmd).command_buffer.dispatch(1, 1, 1);
+            static_cast<VulkanComputeCommandBuffer&>(cmd).GetCommandBuffer().dispatch(1, 1, 1);
         }
 #ifdef __APPLE__
         else {
@@ -603,7 +603,7 @@ TEST_P(BindlessTest, RenderGraphReadsIndexedScalarRecords) {
 #endif
 #ifdef _WIN32
         else {
-            static_cast<DX12ComputeCommandList&>(cmd).command_list->Dispatch(1, 1, 1);
+            static_cast<DX12ComputeCommandList&>(cmd).storage_entry->list->Dispatch(1, 1, 1);
         }
 #endif
         cmd.ResourceBarrier({}, std::array{output->Transition(BarrierAccess::CopySrc, PipelineStage::Copy)});

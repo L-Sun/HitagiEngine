@@ -104,7 +104,7 @@ TEST(VulkanQueueTest, ComputeTextureToGraphicsToCopy) {
     compute->ResourceBarrier({}, {}, std::array{texture->Transition(BarrierAccess::ShaderWrite, TextureLayout::ShaderWrite, PipelineStage::ComputeShader)});
     compute->SetPipeline(*compute_pipeline);
     compute->PushBindlessMetaInfo({.handle = argument_view->GetBindlessHandle()});
-    static_cast<VulkanComputeCommandBuffer&>(*compute).command_buffer.dispatch(2, 2, 1);
+    static_cast<VulkanComputeCommandBuffer&>(*compute).GetCommandBuffer().dispatch(2, 2, 1);
     compute->End();
     auto graphics = GraphicsCommandContext::Create(*device, queues, *bindings);
     graphics->Begin();
@@ -183,4 +183,85 @@ TEST(VulkanSurfaceFormatTest, DisplayEncodedOutputUsesUnormRegardlessOfEnumerati
         vk::SurfaceFormatKHR{.format = vk::Format::eUndefined, .colorSpace = vk::ColorSpaceKHR::eSrgbNonlinear},
     };
     EXPECT_EQ(choose_surface_format(unrestricted).format, vk::Format::eB8G8R8A8Unorm);
+}
+
+TEST(VulkanQueueTest, PoolResetWaitsForWrappersAndActualSubmissionQueue) {
+    auto device = create_device(Device::Type::Vulkan, "PoolRetirement");
+    CommandQueues owners(*device), submitters(*device);
+    auto bindings = BindlessUtils::Create(*device);
+    auto acquire = [&] { return CommandContext::Create(*device, owners, *bindings, CommandType::Copy); };
+    auto first = acquire();
+    auto& native = static_cast<VulkanTransferCommandBuffer&>(*first);
+    auto* batch = native.command_batch.get();
+    auto buffer = *native.GetCommandBuffer();
+    auto reset_count = batch->reset_count;
+    first->Begin(); first->End();
+    owners.NewFrame();
+    auto second = acquire();
+    EXPECT_NE(static_cast<VulkanTransferCommandBuffer&>(*second).command_batch.get(), batch);
+    EXPECT_EQ(batch->reset_count, reset_count); // still holding unsubmitted commands
+    auto gate = Fence::Create(*device);
+    auto& queue = submitters.Get(CommandType::Copy);
+    queue.Submit({{std::cref(*first)}}, {{FenceWaitInfo{.fence = *gate, .value = 1}}});
+    first.reset();
+    owners.NewFrame();
+    auto third = acquire();
+    EXPECT_NE(static_cast<VulkanTransferCommandBuffer&>(*third).command_batch.get(), batch);
+    EXPECT_EQ(batch->reset_count, reset_count); // wrapper gone, GPU still pending
+    gate->Signal(1); queue.WaitIdle();
+    owners.NewFrame();
+    auto fourth = acquire();
+    auto& reused = static_cast<VulkanTransferCommandBuffer&>(*fourth);
+    EXPECT_EQ(reused.command_batch.get(), batch);
+    EXPECT_EQ(*reused.GetCommandBuffer(), buffer);
+    EXPECT_GT(batch->reset_count, reset_count);
+    fourth->Begin(); fourth->End();
+    queue.Submit({{std::cref(*fourth)}}); queue.WaitIdle();
+}
+
+TEST(VulkanQueueTest, AbandonedRecordingAndUtilityCallsRecycleWholePool) {
+    auto device = create_device(Device::Type::Vulkan, "AbandonedPool");
+    CommandQueues queues(*device);
+    auto bindings = BindlessUtils::Create(*device);
+    auto acquire = [&] { return CommandContext::Create(*device, queues, *bindings, CommandType::Compute); };
+    auto first = acquire();
+    auto& native = static_cast<VulkanComputeCommandBuffer&>(*first);
+    auto* batch = native.command_batch.get();
+    auto buffer = *native.GetCommandBuffer();
+    first->Begin(); first.reset(); // no End, no Submit, no NewFrame
+    auto second = acquire();
+    EXPECT_EQ(static_cast<VulkanComputeCommandBuffer&>(*second).command_batch.get(), batch);
+    EXPECT_EQ(*static_cast<VulkanComputeCommandBuffer&>(*second).GetCommandBuffer(), buffer);
+    second->Begin(); second->End();
+    queues.Get(CommandType::Compute).Submit({{std::cref(*second)}});
+    queues.WaitIdle();
+}
+
+TEST(VulkanQueueTest, ConcurrentRecordingUsesSeparateThreadPools) {
+    auto device = create_device(Device::Type::Vulkan, "ThreadPools");
+    CommandQueues queues(*device);
+    auto bindings = BindlessUtils::Create(*device);
+    std::array<std::shared_ptr<CommandContext>, 4> contexts;
+    std::array<std::exception_ptr, 4> errors;
+    std::array<std::jthread, 4> workers;
+    std::barrier start(4);
+    for (std::size_t i = 0; i < workers.size(); ++i) {
+        workers[i] = std::jthread([&, i] {
+            start.arrive_and_wait();
+            try {
+                contexts[i] = CommandContext::Create(*device, queues, *bindings, CommandType::Copy);
+                contexts[i]->Begin(); contexts[i]->End();
+                queues.Get(CommandType::Copy).Submit({{std::cref(*contexts[i])}});
+            } catch (...) { errors[i] = std::current_exception(); }
+        });
+    }
+    for (auto& worker : workers) worker.join();
+    for (const auto& error : errors) ASSERT_FALSE(error);
+    for (std::size_t i = 0; i < contexts.size(); ++i)
+        for (std::size_t j = i + 1; j < contexts.size(); ++j)
+            EXPECT_NE(static_cast<VulkanTransferCommandBuffer&>(*contexts[i]).command_batch,
+                      static_cast<VulkanTransferCommandBuffer&>(*contexts[j]).command_batch);
+    queues.WaitIdle();
+    contexts.fill(nullptr);
+    queues.NewFrame();
 }

@@ -14,6 +14,11 @@ import :configs;
 
 export namespace hitagi::gfx {
 
+struct VulkanAllocationRecord {
+    std::mutex mutex;
+    std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>> allocations;
+};
+
 auto custom_vk_allocation_fn(void* p_this, std::size_t size, std::size_t alignment, vk::SystemAllocationScope) -> void*;
 auto custom_vk_reallocation_fn(void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, vk::SystemAllocationScope) -> void*;
 auto custom_vk_free_fn(void* p_this, void* ptr) -> void;
@@ -1011,7 +1016,9 @@ namespace hitagi::gfx {
 
 auto custom_vk_allocation_fn(
     void* p_this, std::size_t size, std::size_t alignment, vk::SystemAllocationScope) -> void* {
-    auto& allocation_record = *static_cast<std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>*>(p_this);
+    auto& record = *static_cast<VulkanAllocationRecord*>(p_this);
+    std::scoped_lock lock(record.mutex);
+    auto& allocation_record = record.allocations;
     auto  allocator         = std::pmr::get_default_resource();
     auto  ptr               = allocator->allocate(size, alignment);
     allocation_record.emplace(ptr, std::make_pair(size, alignment));
@@ -1020,7 +1027,9 @@ auto custom_vk_allocation_fn(
 
 auto custom_vk_reallocation_fn(
     void* p_this, void* origin_ptr, std::size_t new_size, std::size_t alignment, vk::SystemAllocationScope) -> void* {
-    auto& allocation_record = *static_cast<std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>*>(p_this);
+    auto& record = *static_cast<VulkanAllocationRecord*>(p_this);
+    std::scoped_lock lock(record.mutex);
+    auto& allocation_record = record.allocations;
 
     auto allocator = std::pmr::get_default_resource();
     // just like allocation
@@ -1058,7 +1067,9 @@ auto custom_vk_reallocation_fn(
 auto custom_vk_free_fn(void* p_this, void* ptr) -> void {
     if (ptr == nullptr) return;
 
-    auto& allocation_record = *static_cast<std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>*>(p_this);
+    auto& record = *static_cast<VulkanAllocationRecord*>(p_this);
+    std::scoped_lock lock(record.mutex);
+    auto& allocation_record = record.allocations;
 
     auto allocator         = std::pmr::get_default_resource();
     auto [size, alignment] = allocation_record.at(ptr);

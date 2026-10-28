@@ -6,6 +6,7 @@ export module interop.slang;
 
 export namespace hitagi::interop {
 namespace slang {
+using ::SlangUInt;
 using ::slang::CompilerOptionEntry;
 using ::slang::CompilerOptionName;
 using ::slang::CompilerOptionValueKind;

@@ -40,7 +40,6 @@ public:
     }
     inline auto GetBindlessRootSignature() const noexcept { return m_RootSignature; }
 
-public:
     auto CreateBindlessHandle(ID3D12Resource& resource, const GPUBufferViewDesc& view_desc, std::uint64_t size) -> BindlessHandle;
     auto CreateBindlessHandle(ID3D12Resource& resource, const TextureViewDesc& view_desc) -> BindlessHandle;
 
@@ -140,11 +139,13 @@ DX12BindlessUtils::DX12BindlessUtils(ID3D12Device& device, std::shared_ptr<spdlo
 }
 
 auto DX12BindlessUtils::CreateBindlessHandle(ID3D12Resource& resource, const GPUBufferViewDesc& view_desc, std::uint64_t size) -> BindlessHandle {
+    ZoneScopedNS("DX12.BufferDescriptor.Create", 0);
     const auto  view_type  = view_desc.type;
     const auto writable   = view_type == GPUBufferViewType::StorageWrite;
 
     BindlessHandle handle;
     {
+        ZoneScopedNS("DX12.BufferDescriptor.AcquireSlot", 0);
         std::scoped_lock lock{m_Mutex};
         if (m_Available_CBV_SRV_UAV_BindlessHandlePool.empty()) throw std::runtime_error("Bindless descriptor heap exhausted");
         handle = m_Available_CBV_SRV_UAV_BindlessHandlePool.front();
@@ -160,6 +161,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(ID3D12Resource& resource, const GPU
         descriptor_increment_size);
 
     if (writable) {
+        ZoneScopedNS("DX12.BufferDescriptor.WriteUAV", 0);
         D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
             .Format        = DXGI_FORMAT_R32_TYPELESS,
             .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
@@ -176,6 +178,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(ID3D12Resource& resource, const GPU
             &uav_desc,
             descriptor_cpu_handle);
     } else {
+        ZoneScopedNS("DX12.BufferDescriptor.WriteSRV", 0);
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
             .Format                  = DXGI_FORMAT_R32_TYPELESS,
             .ViewDimension           = D3D12_SRV_DIMENSION_BUFFER,
@@ -286,6 +289,7 @@ auto DX12BindlessUtils::CreateBindlessHandle(const SamplerDesc& desc) -> Bindles
 }
 
 void DX12BindlessUtils::DiscardBindlessHandle(BindlessHandle handle) {
+    ZoneScopedNS("DX12.DiscardDescriptor", 0);
     if (handle.type == BindlessHandleType::Invalid) return;
 
     std::scoped_lock lock{m_Mutex};

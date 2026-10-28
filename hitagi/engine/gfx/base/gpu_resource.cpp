@@ -1,4 +1,7 @@
+module;
+#include "interop/tracy_macros.hpp"
 export module gfx.base:gpu_resource;
+import interop.tracy;
 import std;
 import utils;
 import math;
@@ -281,6 +284,7 @@ struct CompiledShader {
     core::Buffer bytecode;
     VertexLayout vertex_layout;
     std::pmr::string entry;
+    math::vec3u thread_group_size = {0, 0, 0};
 };
 
 struct ShaderDesc {
@@ -297,6 +301,7 @@ public:
 
     virtual auto GetDXILData() const noexcept -> std::span<const std::byte> { return {}; }
     virtual auto GetSPIRVData() const noexcept -> std::span<const std::byte> { return {}; }
+    auto GetThreadGroupSize() const noexcept -> math::vec3u { return m_Compiled.thread_group_size; }
     auto GetVertexLayout() const noexcept -> const VertexLayout& { return m_Compiled.vertex_layout; }
     auto GetEntryPointName() const noexcept -> const std::pmr::string& { return m_Compiled.entry; }
 
@@ -332,8 +337,14 @@ class ComputePipeline : public ResourceWithDesc<ComputePipelineDesc> {
 public:
     static auto Create(Device& device, BindlessUtils& bindings, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs) -> std::shared_ptr<ComputePipeline>;
 
+    auto GetThreadGroupSize() const noexcept -> math::vec3u { return m_ThreadGroupSize; }
+
 protected:
-    using ResourceWithDesc::ResourceWithDesc;
+    inline ComputePipeline(ComputePipelineDesc desc, const Shader& shader)
+        : ResourceWithDesc(std::move(desc)), m_ThreadGroupSize(shader.GetThreadGroupSize()) {}
+
+private:
+    math::vec3u m_ThreadGroupSize;
 };
 
 }  // namespace hitagi::gfx
@@ -559,6 +570,7 @@ namespace hitagi::gfx {
 
 GPUBufferView::GPUBufferView(BindlessUtils& bindings, GPUBuffer::StorageViewRequirements storage_requirements, GPUBufferViewDesc desc)
     : ResourceWithDesc(std::move(desc)), m_BindlessUtils(bindings) {
+    ZoneScopedNS("GFX.BufferView.ValidateRange", 0);
     const auto fail = [&](std::string_view reason) {
         throw std::invalid_argument(std::format("Invalid GPU buffer view({}): {}", GetName(), reason));
     };
@@ -641,6 +653,7 @@ bool Sampler::RequiresBindlessHandle() {
 }
 
 GPUBufferView::~GPUBufferView() {
+    ZoneScopedNS("GFX.BufferView.DestroyBody", 0);
     if (m_BindlessHandle) {
         m_BindlessUtils.DiscardBindlessHandle(m_BindlessHandle);
         m_BindlessHandle = {};

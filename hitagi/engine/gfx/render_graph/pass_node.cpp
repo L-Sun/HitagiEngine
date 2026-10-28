@@ -17,7 +17,7 @@ public:
     friend RenderGraph;
     friend PassBuilder;
 
-    ~PassNode() override = default;
+    ~PassNode() override;
 
     auto Resolve(GPUBufferHandle buffer) const -> gfx::GPUBuffer&;
     auto Resolve(GPUBufferEdgeHandle edge) const -> gfx::GPUBufferView&;
@@ -59,6 +59,7 @@ public:
     using Executor = std::function<void(const RenderGraph&, const RenderPassNode&)>;
 
     RenderPassNode(RenderGraph& render_graph) : PassNode(render_graph, Type::RenderPass) {}
+    ~RenderPassNode() override;
 
     inline auto& GetCmd() const noexcept { return static_cast<gfx::GraphicsCommandContext&>(*m_CommandContext); }
 
@@ -80,6 +81,7 @@ public:
     using Executor = std::function<void(const RenderGraph&, const ComputePassNode&)>;
 
     ComputePassNode(RenderGraph& render_graph) : PassNode(render_graph, Type::ComputePass) {}
+    ~ComputePassNode() override;
 
     inline auto& GetCmd() const noexcept { return static_cast<gfx::ComputeCommandContext&>(*m_CommandContext); }
 
@@ -97,6 +99,7 @@ public:
     using Executor = std::function<void(const RenderGraph&, const CopyPassNode&)>;
 
     CopyPassNode(RenderGraph& render_graph) : PassNode(render_graph, Type::CopyPass) {}
+    ~CopyPassNode() override;
 
     inline auto& GetCmd() const noexcept { return static_cast<gfx::CopyCommandContext&>(*m_CommandContext); }
 
@@ -114,6 +117,7 @@ public:
     using Executor = std::function<void(const RenderGraph&, const PresentPassNode&)>;
 
     PresentPassNode(RenderGraph& render_graph) : PassNode(render_graph, Type::PresentPass) {}
+    ~PresentPassNode() override;
 
     inline auto& GetCmd() const noexcept { return static_cast<gfx::GraphicsCommandContext&>(*m_CommandContext); }
 
@@ -237,3 +241,18 @@ void PresentPassNode::Execute() {
 }
 
 }  // namespace hitagi::rg
+
+namespace hitagi::rg {
+PassNode::~PassNode() {
+        ZoneScopedNS("RG.DestroyPassMembers", 0);
+        { ZoneScopedNS("RG.DestroyPass.Context", 0); m_CommandContext.reset(); }
+        { ZoneScopedNS("RG.DestroyPass.Barriers", 0); m_TextureBarriers.clear(); m_GPUBufferBarriers.clear(); }
+        { ZoneScopedNS("RG.DestroyPass.Samplers", 0); m_Samplers.clear(); }
+        { ZoneScopedNS("RG.DestroyPass.TextureViews", 0); m_TextureEdges.clear(); }
+        { ZoneScopedNS("RG.DestroyPass.BufferViews", 0); m_GPUBufferEdges.clear(); }
+    }
+RenderPassNode::~RenderPassNode() { ZoneScopedNS("RG.DestroyPass.Executor", 0); m_Executor = nullptr; }
+ComputePassNode::~ComputePassNode() { ZoneScopedNS("RG.DestroyPass.Executor", 0); m_Executor = nullptr; }
+CopyPassNode::~CopyPassNode() { ZoneScopedNS("RG.DestroyPass.Executor", 0); m_Executor = nullptr; }
+PresentPassNode::~PresentPassNode() { ZoneScopedNS("RG.DestroyPass.Executor", 0); m_Executor = nullptr; }
+}

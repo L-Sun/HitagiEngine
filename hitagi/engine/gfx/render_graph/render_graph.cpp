@@ -248,6 +248,7 @@ auto GPUBufferNode::Move(GPUBufferHandle new_handle, std::string_view new_name) 
 }
 
 void GPUBufferNode::Initialize() {
+    ZoneScopedNS("RG.InitBuffer", 0);
     if (m_MoveFromNode) {
         if (m_MoveFromNode->m_Resource == nullptr) m_MoveFromNode->Initialize();
         m_Resource = m_MoveFromNode->m_Resource;
@@ -279,6 +280,7 @@ auto TextureNode::Move(TextureHandle new_handle, std::string_view new_name) -> s
 }
 
 void TextureNode::Initialize() {
+    ZoneScopedNS("RG.InitTexture", 0);
     if (m_MoveFromNode) {
         if (m_MoveFromNode->m_Resource == nullptr) m_MoveFromNode->Initialize();
         m_Resource = m_MoveFromNode->m_Resource;
@@ -348,6 +350,7 @@ auto PassNode::Resolve(SamplerHandle sampler) const -> gfx::Sampler& {
 }
 
 void PassNode::Initialize() {
+    ZoneScopedNS("RG.InitCommandContext", 0);
     auto& device = m_RenderGraph->GetDevice();
 
     if (m_CommandContext == nullptr)
@@ -357,6 +360,7 @@ void PassNode::Initialize() {
 }
 
 void PassNode::PrepareResourceBarriers() {
+    ZoneScopedNS("RG.PrepareBarriers", 0);
     auto& device = m_RenderGraph->GetDevice();
 
     m_GPUBufferBarriers.clear();
@@ -407,6 +411,20 @@ void PassNode::PrepareResourceBarriers() {
 
     // https://microsoft.github.io/DirectX-Specs/d3d/D3D12EnhancedBarriers.html#command-queue-layout-compatibility
     if (device.device_type == gfx::Device::Type::DX12) {
+        if (GetCommandType() == gfx::CommandType::Compute) {
+            for (auto& barrier : m_GPUBufferBarriers) {
+                constexpr auto graphics_stages = gfx::PipelineStage::VertexInput | gfx::PipelineStage::VertexShader |
+                    gfx::PipelineStage::PixelShader | gfx::PipelineStage::DepthStencil | gfx::PipelineStage::Render |
+                    gfx::PipelineStage::Resolve | gfx::PipelineStage::AllGraphics;
+                if ((barrier.src_stage & graphics_stages) != static_cast<gfx::PipelineStage>(0)) {
+                    // The producer is on the graphics queue (or a completed prior
+                    // execution). Graph fences establish visibility; graphics-only
+                    // sync/access bits are illegal in a compute command list.
+                    barrier.src_stage = gfx::PipelineStage::None;
+                    barrier.src_access = gfx::BarrierAccess::None;
+                }
+            }
+        }
         if (GetCommandType() == gfx::CommandType::Copy) {
             for (auto& buffer_barrier : m_GPUBufferBarriers) {
                 if (buffer_barrier.src_access != gfx::BarrierAccess::CopySrc &&
@@ -441,12 +459,14 @@ void PassNode::PrepareResourceViews() {
     auto& device = m_RenderGraph->GetDevice();
     for (auto& edge : m_GPUBufferEdges) {
         if (!edge.create_view || edge.view) continue;
+        ZoneScopedNS("RG.CreateBufferView", 0);
         auto desc   = edge.view_desc;
         desc.buffer = edge.resource->GetBuffer();
         edge.view   = hitagi::gfx::GPUBufferView::Create(device, m_RenderGraph->GetBindings(), std::move(desc));
     }
     for (auto& edge : m_TextureEdges) {
         if (!edge.create_view || edge.view) continue;
+        ZoneScopedNS("RG.CreateTextureView", 0);
         auto desc    = edge.view_desc;
         desc.texture = edge.resource->GetTexture();
         edge.view    = hitagi::gfx::TextureView::Create(device, m_RenderGraph->GetBindings(), std::move(desc));
@@ -513,6 +533,7 @@ void PassBuilder::Invalidate(std::string_view error_message) noexcept {
 }
 
 auto PassBuilder::AddGPUBufferEdge(GPUBufferHandle handle, GPUBufferEdge edge) noexcept -> GPUBufferEdgeHandle {
+    ZoneScopedNS("RG.AddBufferEdge", 0);
     if (m_Invalid || m_Finished) return {};
     if (!m_RenderGraph.IsValid(handle)) {
         Invalidate("Invalid buffer handle");
@@ -538,6 +559,8 @@ auto PassBuilder::AddGPUBufferEdge(GPUBufferHandle handle, GPUBufferEdge edge) n
         Invalidate("buffer already has a writer");
         return {};
     }
+    {
+    ZoneScopedNS("RG.AddBufferEdge.FindExisting", 0);
     for (std::size_t index = 0; index < pass_base->m_GPUBufferEdges.size(); ++index) {
         auto& existing = pass_base->m_GPUBufferEdges[index];
         if (existing.resource != node) continue;
@@ -550,13 +573,18 @@ auto PassBuilder::AddGPUBufferEdge(GPUBufferHandle handle, GPUBufferEdge edge) n
             return {.owner = pass_base->m_AccessOwner, .index = index};
         }
     }
+    }
+    {
+    ZoneScopedNS("RG.AddBufferEdge.Append", 0);
     edge.resource = node;
     const GPUBufferEdgeHandle result{.owner = pass_base->m_AccessOwner, .index = pass_base->m_GPUBufferEdges.size()};
     pass_base->m_GPUBufferEdges.emplace_back(std::move(edge));
     return result;
+    }
 }
 
 auto PassBuilder::AddTextureEdge(TextureHandle handle, TextureEdge edge) noexcept -> TextureEdgeHandle {
+    ZoneScopedNS("RG.AddTextureEdge", 0);
     if (m_Invalid || m_Finished) return {};
     if (!m_RenderGraph.IsValid(handle)) {
         Invalidate("Invalid texture handle");
@@ -1059,11 +1087,13 @@ bool RenderGraph::Compile() {
         return true;
     }
 
-    const auto side_effect_roots = m_Nodes                                                                                               //
-                                   | std::ranges::views::filter([](const auto& node) { return node && node->IsPassNode(); })             //
-                                   | std::ranges::views::transform([](const auto& node) { return static_cast<PassNode*>(node.get()); })  //
-                                   | std::ranges::views::filter([](const auto* pass_node) { return !pass_node->m_Cullable; })            //
-                                   | std::ranges::to<std::pmr::vector<PassNode*>>();
+    std::pmr::vector<PassNode*> side_effect_roots;
+    for (const auto& node : m_Nodes) {
+        if (node && node->IsPassNode()) {
+            auto* pass = static_cast<PassNode*>(node.get());
+            if (!pass->m_Cullable) side_effect_roots.push_back(pass);
+        }
+    }
 
     const auto present_enabled =
         m_PresentPassNode != nullptr &&
@@ -1082,103 +1112,61 @@ bool RenderGraph::Compile() {
         return true;
     }
 
-    std::pmr::unordered_set<RenderGraphNode*> essential_nodes;
-    {
-        const std::function<void(RenderGraphNode*)> do_dfs = [&](RenderGraphNode* node) {
-            if (essential_nodes.contains(node)) return;
-            essential_nodes.emplace(node);
-
-            for (auto input_node : node->m_InputNodes) {
-                do_dfs(input_node);
-            }
-        };
-
-        // Present is not the only legal side effect. Debug extraction passes write
-        // caller-owned resources, so they must seed culling just like present does.
-        if (present_enabled) {
-            do_dfs(m_PresentPassNode.get());
-        }
-        for (auto* pass_node : side_effect_roots) {
-            do_dfs(pass_node);
-        }
-
-        // we need keep all output resource node in essential pass node to avoid execution failure
-        auto write_resource_nodes = essential_nodes                                                                                //
-                                    | std::ranges::views::filter([](const auto& node) { return node->IsPassNode(); })              //
-                                    | std::ranges::views::transform([](auto node) -> const auto& { return node->m_OutputNodes; })  //
-                                    | std::ranges::views::join                                                                     //
-                                    | std::ranges::to<std::pmr::unordered_set<RenderGraphNode*>>();
-        essential_nodes.merge(write_resource_nodes);
-    }
-
-    {
-        const auto sort_by_handle = [this](std::pmr::vector<RenderGraphNode*>& nodes) {
-            std::ranges::sort(nodes, [](const auto* lhs, const auto* rhs) {
-                return lhs->m_Handle < rhs->m_Handle;
-            });
-        };
-
-        auto in_degrees = essential_nodes  //
-                          | std::ranges::views::transform([&essential_nodes](const auto& node) {
-                                return std::make_pair(
-                                    node,
-                                    std::ranges::count_if(node->m_InputNodes, [&](auto* input_node) {
-                                        return essential_nodes.contains(input_node);
-                                    }));
-                            })  //
-                          | std::ranges::to<std::pmr::unordered_map<RenderGraphNode*, std::size_t>>();
-
-        // use vector is ok
-        auto start_nodes = in_degrees                                                                       //
-                           | std::ranges::views::filter([](const auto& item) { return item.second == 0; })  //
-                           | std::ranges::views::keys                                                       //
-                           | std::ranges::to<std::pmr::vector<RenderGraphNode*>>();
-        sort_by_handle(start_nodes);
-
-        std::size_t num_visited_nodes = 0;
-        while (!start_nodes.empty()) {
-            ExecuteLayer current_layer;
-
-            std::ranges::for_each(
-                start_nodes                                                                                  //
-                    | std::ranges::views::filter([](const auto& node) { return node->IsPassNode(); })        //
-                    | std::ranges::views::transform([](auto node) { return static_cast<PassNode*>(node); })  //
-                ,
-                [&](auto node) { current_layer[node->GetCommandType()].emplace_back(node); });
-            for (auto& pass_nodes : current_layer) {
-                std::ranges::sort(pass_nodes, [](const auto* lhs, const auto* rhs) {
-                    return lhs->m_Handle < rhs->m_Handle;
-                });
-            }
-
-            m_ExecuteLayers.emplace_back(std::move(current_layer));
-
-            std::pmr::vector<RenderGraphNode*> new_start_nodes;
-            for (auto node : start_nodes) {
-                num_visited_nodes++;
-                for (auto output_node : node->m_OutputNodes) {
-                    auto it = in_degrees.find(output_node);
-                    if (it != in_degrees.end() && --it->second == 0) {
-                        new_start_nodes.emplace_back(output_node);
-                    }
-                }
-            }
-            sort_by_handle(new_start_nodes);
-            start_nodes = std::move(new_start_nodes);
-        }
-
-        if (num_visited_nodes != essential_nodes.size()) {
-            m_Logger->error("RenderGraph has cycle");
-            const auto message = std::format("{} has cycle", m_Name);
-            TracyMessageCS(message.data(), message.size(), tracy::Color::Red3, 8);
-            m_ExecuteLayers.clear();
-            return false;
+    // Node handles are dense slot indices. Use indexed storage instead of hashing
+    // nodes repeatedly through filter/join views during every frame's compilation.
+    std::pmr::vector<std::uint8_t> essential(m_Nodes.size(), 0);
+    std::pmr::vector<RenderGraphNode*> essential_nodes;
+    const auto visit = [&](auto&& self, RenderGraphNode* node) -> void {
+        if (essential[node->m_Handle]) return;
+        essential[node->m_Handle] = 1;
+        essential_nodes.push_back(node);
+        for (auto* input : node->m_InputNodes) self(self, input);
+    };
+    if (present_enabled) visit(visit, m_PresentPassNode.get());
+    for (auto* pass : side_effect_roots) visit(visit, pass);
+    const auto reachable_count = essential_nodes.size();
+    for (std::size_t i = 0; i < reachable_count; ++i) {
+        auto* node = essential_nodes[i];
+        if (!node->IsPassNode()) continue;
+        for (auto* output : node->m_OutputNodes) {
+            if (essential[output->m_Handle]) continue;
+            essential[output->m_Handle] = 1;
+            essential_nodes.push_back(output);
         }
     }
-
-    for (auto node : essential_nodes) {
-        node->Initialize();
+    std::pmr::vector<std::size_t> in_degrees(m_Nodes.size(), 0);
+    std::pmr::vector<RenderGraphNode*> ready, next;
+    for (auto* node : essential_nodes) {
+        auto& degree = in_degrees[node->m_Handle];
+        for (auto* input : node->m_InputNodes) degree += essential[input->m_Handle] != 0;
+        if (!degree) ready.push_back(node);
     }
+    const auto by_handle = [](const auto* lhs, const auto* rhs) { return lhs->m_Handle < rhs->m_Handle; };
+    std::size_t visited = 0;
+    while (!ready.empty()) {
+        std::ranges::sort(ready, by_handle);
+        ExecuteLayer layer;
+        for (auto* node : ready) {
+            if (node->IsPassNode()) {
+                auto* pass = static_cast<PassNode*>(node);
+                layer[pass->GetCommandType()].push_back(pass);
+            }
+            ++visited;
+            for (auto* output : node->m_OutputNodes)
+                if (essential[output->m_Handle] && --in_degrees[output->m_Handle] == 0) next.push_back(output);
+        }
+        m_ExecuteLayers.push_back(std::move(layer));
+        ready.swap(next);
+        next.clear();
+    }
+    if (visited != essential_nodes.size()) {
+        m_Logger->error("RenderGraph has cycle");
+        const auto message = std::format("{} has cycle", m_Name);
+        TracyMessageCS(message.data(), message.size(), tracy::Color::Red3, 8);
+        m_ExecuteLayers.clear();
+        return false;
+    }
+    for (auto* node : essential_nodes) node->Initialize();
 
     m_Compiled = true;
 
@@ -1313,8 +1301,11 @@ void RenderGraph::Reset() noexcept {
         auto& node = m_Nodes[handle];
         if (!node) continue;
 
-        node->m_InputNodes.clear();
-        node->m_OutputNodes.clear();
+        {
+            ZoneScopedNS("RG.ResetClearEdges", 0);
+            node->m_InputNodes.clear();
+            node->m_OutputNodes.clear();
+        }
 
         if (node->IsResourceNode()) {
             const auto* resource = static_cast<ResourceNode*>(node.get());
@@ -1330,7 +1321,10 @@ void RenderGraph::Reset() noexcept {
             }
         }
 
-        node.reset();
+        {
+            ZoneScopedNS("RG.ResetReleaseNode", 0);
+            node.reset();
+        }
         m_FreeNodeSlots.emplace_back(handle);
     }
 
@@ -1356,6 +1350,7 @@ auto RenderGraph::AllocateNode(std::shared_ptr<RenderGraphNode> node) noexcept -
 }
 
 void RenderGraph::RebuildBlackBoard() noexcept {
+    ZoneScopedNS("RG.RebuildBlackboard", 0);
     for (auto& black_board : m_BlackBoard) {
         black_board.clear();
     }
@@ -1627,6 +1622,7 @@ auto RenderGraph::ToDot() const noexcept -> std::pmr::string {
 }
 
 void RenderGraph::Profile() const noexcept {
+    ZoneScopedNS("RG.ProfileStats", 0);
     static bool configured = false;
     if (!configured) {
         TracyPlotConfig("Retired Resource Counts", tracy::PlotFormatType::Number, true, true, 0);

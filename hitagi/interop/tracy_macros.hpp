@@ -12,7 +12,7 @@
 
 #define HITAGI_TRACY_SCOPE(name, depth) \
     static constexpr ::tracy::SourceLocationData HITAGI_TRACY_JOIN(hitagi_tracy_location_, __LINE__){name, __FUNCTION__, __FILE__, __LINE__, 0}; \
-    ::tracy::ScopedZone hitagi_tracy_zone{&HITAGI_TRACY_JOIN(hitagi_tracy_location_, __LINE__), depth, true}
+    ::hitagi::interop::ProfilingScope hitagi_tracy_zone{&HITAGI_TRACY_JOIN(hitagi_tracy_location_, __LINE__), depth, true}
 #define ZoneScoped HITAGI_TRACY_SCOPE(nullptr, ::hitagi::interop::profiling_callstack_depth)
 #define ZoneScopedN(name) HITAGI_TRACY_SCOPE(name, ::hitagi::interop::profiling_callstack_depth)
 #define ZoneScopedNS(name, depth) HITAGI_TRACY_SCOPE(name, depth)

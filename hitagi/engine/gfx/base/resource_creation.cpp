@@ -1,4 +1,5 @@
 module;
+#include "interop/tracy_macros.hpp"
 #ifdef _WIN32
 #include "interop/win32_macros.hpp"
 #endif
@@ -8,6 +9,7 @@ import interop.win32;
 import interop.dx12;
 import interop.d3d12ma;
 #endif
+import interop.tracy;
 import interop.fmt;
 import interop.vulkan;
 import interop.magic_enum;
@@ -27,6 +29,7 @@ import gfx.mock;
 namespace hitagi::gfx {
 
 void validate_bindings(Device& device, const BindlessUtils& bindings) {
+    ZoneScopedNS("GFX.ValidateBindings", 0);
     bool compatible = false;
     switch (device.device_type) {
 #ifdef _WIN32
@@ -114,7 +117,7 @@ void initialize_dx12_texture(DX12Device& device, CommandQueues& queues, Bindless
         context->ResourceBarrier({}, {}, {{
                                              texture.Transition(is_rt ? BarrierAccess::RenderTarget : BarrierAccess::DepthStencilWrite, is_rt ? TextureLayout::RenderTarget : TextureLayout::DepthStencilWrite),
                                          }});
-        static_cast<DX12GraphicsCommandList&>(*context).command_list->DiscardResource(resource.Get(), nullptr);
+        static_cast<DX12GraphicsCommandList&>(*context).storage_entry->list->DiscardResource(resource.Get(), nullptr);
         context->ResourceBarrier({}, {}, {{
                                              texture.Transition(BarrierAccess::None, TextureLayout::Unkown),
                                          }});
@@ -185,7 +188,7 @@ void initialize_dx12_texture(DX12Device& device, CommandQueues& queues, Bindless
                 auto copy_context = hitagi::gfx::CopyCommandContext::Create(device, queues, "UploadTexture");
                 copy_context->Begin();
                 UpdateSubresources(
-                    std::static_pointer_cast<DX12CopyCommandList>(copy_context)->command_list.Get(),
+                    std::static_pointer_cast<DX12CopyCommandList>(copy_context)->storage_entry->list.Get(),
                     resource.Get(),
                     staging_resource.Get(),
                     0,
@@ -304,11 +307,11 @@ auto CommandContext::Create(Device& device, CommandQueues& queues, BindlessUtils
             auto& backend = dynamic_cast<DX12Device&>(device);
             switch (type) {
                 case CommandType::Graphics:
-                    return std::make_shared<DX12GraphicsCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12BindlessUtils&>(bindings), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Graphics)).GetTracyCtx(), name);
+                    return std::make_shared<DX12GraphicsCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12BindlessUtils&>(bindings), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Graphics)).GetTracyCtx(), name, static_cast<DX12CommandQueue&>(queues.Get(CommandType::Graphics)).GetCommandStorage());
                 case CommandType::Compute:
-                    return std::make_shared<DX12ComputeCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12BindlessUtils&>(bindings), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Compute)).GetTracyCtx(), name);
+                    return std::make_shared<DX12ComputeCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12BindlessUtils&>(bindings), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Compute)).GetTracyCtx(), name, static_cast<DX12CommandQueue&>(queues.Get(CommandType::Compute)).GetCommandStorage());
                 case CommandType::Copy:
-                    return std::make_shared<DX12CopyCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
+                    return std::make_shared<DX12CopyCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name, static_cast<DX12CommandQueue&>(queues.Get(CommandType::Copy)).GetCommandStorage());
                 default:
                     throw std::runtime_error("Invalid command type.");
             }
@@ -334,11 +337,11 @@ auto CommandContext::Create(Device& device, CommandQueues& queues, BindlessUtils
             auto& backend = dynamic_cast<VulkanDevice&>(device);
             switch (type) {
                 case CommandType::Graphics:
-                    return std::make_shared<VulkanGraphicsCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Graphics)).GetCommandPool(), backend.GetLogger(), static_cast<VulkanBindlessUtils&>(bindings), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Graphics)).GetTracyCtx(), name);
+                    return std::make_shared<VulkanGraphicsCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Graphics)).GetCommandStorage(), backend.GetLogger(), static_cast<VulkanBindlessUtils&>(bindings), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Graphics)).GetTracyCtx(), name);
                 case CommandType::Compute:
-                    return std::make_shared<VulkanComputeCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Compute)).GetCommandPool(), backend.GetLogger(), static_cast<VulkanBindlessUtils&>(bindings), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Compute)).GetTracyCtx(), name);
+                    return std::make_shared<VulkanComputeCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Compute)).GetCommandStorage(), backend.GetLogger(), static_cast<VulkanBindlessUtils&>(bindings), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Compute)).GetTracyCtx(), name);
                 case CommandType::Copy:
-                    return std::make_shared<VulkanTransferCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetCommandPool(), backend.GetLogger(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
+                    return std::make_shared<VulkanTransferCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetCommandStorage(), backend.GetLogger(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
                 default:
                     throw std::runtime_error("Invalid command type.");
             }
@@ -417,6 +420,7 @@ auto GPUBuffer::Create(Device& device, GPUBufferDesc desc, std::span<const std::
 }
 
 auto GPUBufferView::Create(Device& device, BindlessUtils& bindings, GPUBufferViewDesc desc) -> std::shared_ptr<GPUBufferView> {
+    ZoneScopedNS("GFX.BufferView.Factory", 0);
     validate_bindings(device, bindings);
     if (!desc.buffer) throw std::invalid_argument("buffer is nullptr");
     switch (device.device_type) {
@@ -424,8 +428,12 @@ auto GPUBufferView::Create(Device& device, BindlessUtils& bindings, GPUBufferVie
         case Device::Type::DX12: {
             auto&                                backend  = dynamic_cast<DX12Device&>(device);
             const auto*                          resource = dynamic_cast<const DX12GPUBuffer*>(desc.buffer.get());
-            Microsoft::WRL::ComPtr<ID3D12Device> owner;
-            if (!resource || interop::failed(resource->resource->GetDevice(IID_PPV_ARGS(&owner))) || owner.Get() != backend.GetDevice().Get()) throw std::invalid_argument("buffer belongs to another device");
+            {
+                ZoneScopedNS("DX12.BufferView.CheckOwner", 0);
+                Microsoft::WRL::ComPtr<ID3D12Device> owner;
+                if (!resource || interop::failed(resource->resource->GetDevice(IID_PPV_ARGS(&owner))) || owner.Get() != backend.GetDevice().Get()) throw std::invalid_argument("buffer belongs to another device");
+            }
+            ZoneScopedNS("DX12.BufferView.AllocateConstruct", 0);
             return std::make_shared<DX12GPUBufferView>(static_cast<DX12BindlessUtils&>(bindings), GPUBuffer::GetStorageViewRequirements(device), std::move(desc));
         }
 #endif
@@ -659,7 +667,7 @@ auto CopyCommandContext::Create(Device& device, CommandQueues& queues, std::stri
 #ifdef _WIN32
         case Device::Type::DX12: {
             auto& backend = dynamic_cast<DX12Device&>(device);
-            return std::make_shared<DX12CopyCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
+            return std::make_shared<DX12CopyCommandList>(*backend.GetDevice().Get(), backend.GetLogger(), static_cast<DX12CommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name, static_cast<DX12CommandQueue&>(queues.Get(CommandType::Copy)).GetCommandStorage());
         }
 #endif
 #ifdef __APPLE__
@@ -670,7 +678,7 @@ auto CopyCommandContext::Create(Device& device, CommandQueues& queues, std::stri
 #endif
         case Device::Type::Vulkan: {
             auto& backend = dynamic_cast<VulkanDevice&>(device);
-            return std::make_shared<VulkanTransferCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetCommandPool(), backend.GetLogger(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
+            return std::make_shared<VulkanTransferCommandBuffer>(backend.GetDevice(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetCommandStorage(), backend.GetLogger(), static_cast<VulkanCommandQueue&>(queues.Get(CommandType::Copy)).GetTracyCtx(), name);
         }
         case Device::Type::Mock: {
             auto& backend = dynamic_cast<MockDevice&>(device);

@@ -317,7 +317,7 @@ MetalRenderPipeline::MetalRenderPipeline(const ns::SharedPtr<mtl::Device>& devic
     check_metal(logger, depth.get() != nullptr, "Create Metal depth state");
 }
 
-MetalComputePipeline::MetalComputePipeline(mtl4::Compiler& compiler, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& shader) : ComputePipeline(std::move(desc)) {
+MetalComputePipeline::MetalComputePipeline(mtl4::Compiler& compiler, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& shader) : ComputePipeline(std::move(desc), *shader) {
     ns::Error* error         = nullptr;
     auto       pipeline_desc = ns::TransferPtr(mtl4::ComputePipelineDescriptor::alloc()->init());
     pipeline_desc->setComputeFunctionDescriptor(dynamic_cast<MetalShader&>(*shader).descriptor.get());

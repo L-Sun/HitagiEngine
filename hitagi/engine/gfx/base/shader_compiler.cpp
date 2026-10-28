@@ -274,6 +274,15 @@ auto ShaderProgram::Compile(std::string_view entry, ShaderType stage,
         .bytecode = core::Buffer(code->getBufferSize(), static_cast<const std::byte*>(code->getBufferPointer())),
         .entry    = std::pmr::string(entry),
     };
+    if (stage == ShaderType::Compute) {
+        sl::SlangUInt sizes[3]{};
+        linked->getLayout()->getEntryPointByIndex(0)->getComputeThreadGroupSize(3, sizes);
+        for (const auto size : sizes) {
+            if (size == 0 || size > std::numeric_limits<std::uint32_t>::max())
+                throw std::runtime_error("Compute thread-group size must be resolved and nonzero: " + entry_name);
+        }
+        result.thread_group_size = {static_cast<std::uint32_t>(sizes[0]), static_cast<std::uint32_t>(sizes[1]), static_cast<std::uint32_t>(sizes[2])};
+    }
     if (stage == ShaderType::Vertex) {
         auto* reflection = linked->getLayout()->getEntryPointByIndex(0);
         for (unsigned i = 0; i < reflection->getParameterCount(); ++i)

@@ -98,11 +98,13 @@ public:
     void End() final;
     void ResourceBarrier(std::span<const GlobalBarrier>, std::span<const GPUBufferBarrier>, std::span<const TextureBarrier>) final;
     void SetPipeline(const ComputePipeline& pipeline) final;
+    void Dispatch(math::vec3u group_count) final;
     void PushBindlessMetaInfo(const BindlessMetaInfo& info) final;
 
     inline auto GetMetalEncoder() const noexcept { return m_Encoder.get(); }
 
 private:
+    math::vec3u m_ThreadGroupSize = {0, 0, 0};
     MetalBindlessUtils&                        m_BindlessUtils;
     ns::SharedPtr<mtl4::ComputeCommandEncoder> m_Encoder;
 };
@@ -416,6 +418,7 @@ MetalComputeCommandBuffer::MetalComputeCommandBuffer(const ns::SharedPtr<mtl::De
 void MetalComputeCommandBuffer::Begin() {
     ZoneScoped;
     BeginRecording();
+    m_ThreadGroupSize = {0, 0, 0};
     m_Encoder = ns::RetainPtr(m_Recording->command_buffer->computeCommandEncoder());
     check_metal(m_Logger, bool(m_Encoder), "Create Metal compute encoder failed");
     EncoderBarrier(m_Encoder.get());
@@ -432,7 +435,17 @@ void MetalComputeCommandBuffer::ResourceBarrier(std::span<const GlobalBarrier> g
     if (m_Encoder && (!global.empty() || !buffers.empty() || !textures.empty())) EncoderBarrier(m_Encoder.get());
 }
 
+void MetalComputeCommandBuffer::Dispatch(math::vec3u group_count) {
+    if (!group_count.x || !group_count.y || !group_count.z)
+        throw std::invalid_argument("Dispatch dimensions must be nonzero");
+    const auto group_size = m_ThreadGroupSize;
+    if (!group_size.x || !group_size.y || !group_size.z)
+        throw std::logic_error("Dispatch requires a compute pipeline with a reflected thread-group size");
+    m_Encoder->dispatchThreadgroups({group_count.x, group_count.y, group_count.z}, {group_size.x, group_size.y, group_size.z});
+}
+
 void MetalComputeCommandBuffer::SetPipeline(const ComputePipeline& pipeline) {
+    m_ThreadGroupSize = pipeline.GetThreadGroupSize();
     auto* native = static_cast<const MetalComputePipeline&>(pipeline).native.get();
     m_Recording->objects.emplace_back(ns::RetainPtr(static_cast<ns::Object*>(native)));
     m_Encoder->setComputePipelineState(native);

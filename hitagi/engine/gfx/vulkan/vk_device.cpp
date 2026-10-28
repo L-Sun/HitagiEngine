@@ -55,8 +55,7 @@ private:
     void Profile() const;
 
     vk::AllocationCallbacks m_CustomAllocator;
-    using AllocationRecord = std::pmr::unordered_map<void*, std::pair<std::size_t, std::size_t>>;
-    AllocationRecord m_CustomAllocationRecord;
+    VulkanAllocationRecord m_CustomAllocationRecord;
 
     vk::raii::Context                   m_Context;
     std::unique_ptr<vk::raii::Instance> m_Instance;

@@ -679,6 +679,7 @@ void VulkanSwapChain::Present() {
 }
 
 void VulkanSwapChain::Resize() {
+    ZoneScopedNS("Vulkan.SwapChain.Resize", 0);
     wait_vulkan_device_idle(m_Device, m_DeviceQueues);
     m_CurrentIndex       = -1;
     m_NextSemaphoreIndex = 0;
@@ -1010,7 +1011,7 @@ VulkanRenderPipeline::VulkanRenderPipeline(const vk::raii::Device& device, const
 }
 
 VulkanComputePipeline::VulkanComputePipeline(const vk::raii::Device& device, const vk::AllocationCallbacks& callbacks, const VulkanBindlessUtils& bindings, const std::shared_ptr<spdlog::logger>& logger, ComputePipelineDesc desc, const std::shared_ptr<Shader>& cs)
-    : ComputePipeline(std::move(desc)) {
+    : ComputePipeline(std::move(desc), *cs) {
     auto compute_shader = std::dynamic_pointer_cast<VulkanShader>(cs);
 
     if (compute_shader == nullptr) {
