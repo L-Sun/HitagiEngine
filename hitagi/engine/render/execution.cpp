@@ -1,4 +1,8 @@
+module;
+#include "interop/tracy_macros.hpp"
+
 export module render:execution;
+import interop.tracy;
 import std;
 import gfx;
 import utils;
@@ -72,11 +76,13 @@ bool PrepareWindowTarget(
     const std::shared_ptr<gfx::SwapChain>& swap_chain,
     std::shared_ptr<gfx::Texture>&         target,
     math::Color                            clear_color) {
+    ZoneScopedNS("Render.PrepareWindowTarget", 0);
     // Window changes also include destruction, even when cached dimensions stay
     // unchanged. Let the swapchain reconcile that state before rendering.
     if (app.WindowSizeChanged() ||
         (!app.WindowsMinimized() &&
          (swap_chain->GetWidth() != app.GetWindowWidth() || swap_chain->GetHeight() != app.GetWindowHeight()))) {
+        ZoneScopedNS("Render.ResizeSwapChain", 0);
         swap_chain->Resize();
     }
     if (app.WindowsMinimized() || app.GetWindowWidth() == 0 || app.GetWindowHeight() == 0) return false;
@@ -121,8 +127,14 @@ void FinishFrame(rg::RenderGraph& graph, rg::TextureHandle color, const std::sha
     }
     if (!graph.Compile()) throw std::runtime_error("Renderer graph compilation failed");
     graph.Execute();
-    graph.ClearImportedResources();
-    if (swap_chain) swap_chain->Present();
+    {
+        ZoneScopedNS("Render.ClearImportedResources", 0);
+        graph.ClearImportedResources();
+    }
+    if (swap_chain) {
+        ZoneScopedNS("Render.Present", 0);
+        swap_chain->Present();
+    }
 }
 
 }  // namespace hitagi::render::detail
@@ -155,6 +167,7 @@ void RenderContext::Submit(FrameBuilder build, std::shared_ptr<gfx::Texture> tar
 }
 
 void RenderContext::RenderPending() {
+    ZoneScopedNS("Render.Pending", 0);
     if (m_Stopped) throw std::logic_error("RenderContext has stopped");
     if (m_Rendering) throw std::logic_error("Cannot render recursively");
     m_Rendering = true;
@@ -169,13 +182,21 @@ void RenderContext::RenderPending() {
                                                      m_SwapChain, m_WindowTarget, m_ClearColor)) {
         ExecuteFrame(m_WindowFrame, m_WindowTarget, m_SwapChain);
     }
+    {
+        ZoneScopedNS("Render.ReleasePendingFrames", 0);
+        frames.clear();
+    }
 }
 
 void RenderContext::ExecuteFrame(const FrameBuilder& build, const std::shared_ptr<gfx::Texture>& target,
                                  const std::shared_ptr<gfx::SwapChain>& swap_chain) {
     try {
         if (!m_Graph) m_Graph = std::make_unique<rg::RenderGraph>(m_Device, m_Queues, m_Bindings, "RenderApp");
-        const auto color = build(*m_Graph, m_Graph->Import(target));
+        rg::TextureHandle color;
+        {
+            ZoneScopedNS("Render.BuildFrame", 0);
+            color = build(*m_Graph, m_Graph->Import(target));
+        }
         if (!m_Graph->IsValid(color)) throw std::logic_error("Frame builder returned an invalid output");
         detail::FinishFrame(*m_Graph, color, swap_chain);
         ++m_RenderedFrames;

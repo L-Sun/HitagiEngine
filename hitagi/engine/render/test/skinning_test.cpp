@@ -119,6 +119,91 @@ INSTANTIATE_TEST_SUITE_P(Backends, SkinningRendererTest, testing::Values(gfx::De
 INSTANTIATE_TEST_SUITE_P(Backends, SkinningRendererTest, testing::Values(gfx::Device::Type::Vulkan));
 #endif
 
+TEST_P(SkinningRendererTest, ComputeMatchesCpuReferenceAndConservativeBounds) {
+    core::JobSystem jobs;
+    auto device = gfx::create_device(GetParam());
+    gfx::CommandQueues queues(*device);
+    auto bindings = gfx::BindlessUtils::Create(*device);
+    gfx::ShaderCompiler compiler("GPU skin reference");
+    asset::ResourceLoadContext context{*device, queues, *bindings, compiler};
+    render::GpuSkinning skinning;
+    hitagi::rg::RenderGraph graph(*device, queues, *bindings);
+    constexpr std::size_t count = 65; // Exercises the partial final workgroup.
+    constexpr std::array attributes{asset::VertexAttribute::Position, asset::VertexAttribute::Normal,
+        asset::VertexAttribute::Tangent, asset::VertexAttribute::Bitangent};
+    asset::VertexArray::Data data;
+    for (auto attribute : attributes) {
+        data[attribute] = core::Buffer(count * sizeof(math::vec3f));
+        auto span = data[attribute].Span<math::vec3f>();
+        for (std::size_t i = 0; i < count; ++i) span[i] = {float(i) / 100, .3f, .7f};
+    }
+    data[asset::VertexAttribute::BlendIndex] = core::Buffer(count * sizeof(math::vec4u));
+    data[asset::VertexAttribute::BlendWeight] = core::Buffer(count * sizeof(math::vec4f));
+    for (std::size_t i = 0; i < count; ++i) {
+        data[asset::VertexAttribute::BlendIndex].Span<math::vec4u>()[i] = {0, 1, 999, 999};
+        data[asset::VertexAttribute::BlendWeight].Span<math::vec4f>()[i] = i % 3 == 0 ? math::vec4f(0) : math::vec4f(2, 1, 0, 0);
+    }
+    auto vertices = std::make_shared<asset::VertexArray>(count, std::move(data));
+    auto mesh = std::make_shared<asset::Mesh>(vertices);
+    asset::Scene scene;
+    auto& entities = scene.GetWorld().GetEntityManager();
+    auto a = entities.Create(asset::Transform{}, asset::RelationShip{});
+    auto b = entities.Create(asset::Transform{}, asset::RelationShip{});
+    auto entity = entities.Create(asset::Transform{}, asset::RelationShip{}, asset::MeshComponent{mesh});
+    entity.Get<asset::Transform>().position = {.1f, -.2f, .3f};
+    entity.Get<asset::Transform>().scaling = {.8f, 1.2f, 1.1f};
+    entity.Emplace<asset::SkinnedMesh>(std::make_shared<asset::Skin>(std::vector{
+        math::translate(math::vec3f(.2f, .1f, -.3f)),
+        math::translate(math::vec3f(-.1f, .4f, .2f))}), std::vector{a, b});
+    for (bool gpu_palette : {false, true}) for (float scale : {2.0f, -2.0f, 0.0f}) {
+        a.Get<asset::Transform>().scaling = {scale, 3, .5f};
+        a.Get<asset::Transform>().position = {.4f, -.2f, .1f};
+        b.Get<asset::Transform>().scaling = {scale, 3, .5f};
+        auto& skin = entity.Get<asset::SkinnedMesh>();
+        skin.gpu_palette = gpu_palette;
+        skin.cpu_deformation = true;
+        scene.GetWorld().Update(jobs);
+        const auto reference = skin.deformed_vertices;
+        skin.cpu_deformation = false;
+        scene.GetWorld().Update(jobs);
+        const auto snapshot = skin.pose;
+        EXPECT_EQ(snapshot->matrices.empty(), gpu_palette);
+        EXPECT_FALSE(skin.deformed_vertices);
+        ASSERT_TRUE(snapshot);
+        for (auto point : reference->Span<asset::VertexAttribute::Position>()) {
+            for (unsigned c = 0; c < 3; ++c) {
+                EXPECT_GE(point[c] + 1e-5f, snapshot->bounds.min_point[c]);
+                EXPECT_LE(point[c] - 1e-5f, snapshot->bounds.max_point[c]);
+            }
+        }
+        skinning.BeginFrame();
+        const auto streams = skinning.Build(graph, context, vertices, snapshot);
+        std::array<std::shared_ptr<gfx::GPUBuffer>, 4> readbacks;
+        for (std::size_t i = 0; i < attributes.size(); ++i) {
+            readbacks[i] = gfx::GPUBuffer::Create(*device, {.size = count * sizeof(math::vec3f),
+                .usages = gfx::GPUBufferUsageFlags::CopyDst | gfx::GPUBufferUsageFlags::MapRead});
+            const auto from = streams[attributes[i]], to = graph.Import(readbacks[i]);
+            rg::CopyPassBuilder copy(graph);
+            copy.AllowPassCulling(false);
+            copy.BufferToBuffer(from, to);
+            copy.SetExecutor([from, to](const rg::RenderGraph&, const rg::CopyPassNode& pass) {
+                pass.GetCmd().CopyBuffer(pass.Resolve(from), 0, pass.Resolve(to), 0, count * sizeof(math::vec3f));
+            });
+            copy.Finish();
+        }
+        ASSERT_TRUE(graph.Compile());
+        graph.Execute();
+        for (std::size_t i = 0; i < attributes.size(); ++i) {
+            const auto expected = reference->GetAttributeData(attributes[i])->get().cpu_buffer.Span<const math::vec3f>();
+            const auto* actual = reinterpret_cast<const math::vec3f*>(readbacks[i]->Map());
+            for (std::size_t v = 0; v < count; ++v)
+                for (unsigned c = 0; c < 3; ++c) EXPECT_NEAR(actual[v][c], expected[v][c], 2e-5f) << i << ":" << v;
+            readbacks[i]->UnMap();
+        }
+        graph.ClearImportedResources();
+    }
+}
+
 TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmittedSnapshots) {
     core::JobSystem     jobs;
     auto                device = gfx::create_device(GetParam());
@@ -126,7 +211,7 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
     auto                bindings = gfx::BindlessUtils::Create(*device);
     gfx::ShaderCompiler compiler("Skinning renderer test");
     core::IOService     file_io;
-    for (unsigned variant : {0u, 1u, 2u, 3u, 4u, 5u}) {
+    for (bool gpu_palette : {false, true}) for (unsigned variant : {0u, 1u, 2u, 3u, 4u, 5u}) {
         const unsigned           kind       = variant % 3;
         const bool               hide_right = variant >= 3;
         const bool               deferred = kind == 1, toon = kind == 2;
@@ -138,6 +223,7 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
             auto joint    = scene.GetWorld().GetEntityManager().Create(asset::Transform(math::translate(math::vec3f(offset, 0.0f, 0.0f))), asset::RelationShip{}, asset::MetaInfo("Joint"));
             auto instance = scene.GetWorld().GetEntityManager().Create(asset::Transform(math::mat4f::identity()), asset::RelationShip{}, asset::MetaInfo("Instance"), asset::MeshComponent{mesh});
             instance.Emplace<asset::SkinnedMesh>(skin, std::vector{joint});
+            instance.Get<asset::SkinnedMesh>().gpu_palette = gpu_palette;
             joints.emplace_back(joint);
             instances.emplace_back(instance);
         }
@@ -152,6 +238,11 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
                                                                                         .clear_value = math::Color::Black(),
                                                                                         .usages      = gfx::TextureUsageFlags::RenderTarget | gfx::TextureUsageFlags::CopySrc,
                                                                                     });
+        for (unsigned i = 0; i < 2; ++i) {
+            const auto pose = instances[i].Get<asset::SkinnedMesh>().pose;
+            const auto& matrix = gpu_palette ? (*pose->joint_worlds)[0] : pose->matrices[0];
+            EXPECT_NEAR(matrix[0][3], i ? .5f : -.5f, 1e-6f);
+        }
         const auto advance_scene = [&] {
             instances[1].Get<asset::MeshComponent>().material_overrides.clear();
             for (auto joint : joints) joint.Get<asset::Transform>().position.x = 5.0f;
@@ -162,28 +253,49 @@ TEST_P(SkinningRendererTest, AllRenderersKeepSharedMeshInstanceStreamsAndSubmitt
             render::RenderContext                         rendering(*device, queues, *bindings);
             std::vector<render::deferred::RenderDrawItem> items;
             for (auto entity : instances) items.emplace_back(render::deferred::RenderDrawItem::FromEntity(entity));
-            rendering.Submit(renderer.Capture({.draw_items = items}, render::deferred::RenderGraphDebugView::BaseColor), target);
+            auto capture = renderer.Capture({.draw_items = items}, render::deferred::RenderGraphDebugView::BaseColor);
+            rendering.Submit(capture, target);
             items.clear();
             advance_scene();
             rendering.RenderPending();
+            // Reuse pooled output buffers after graphics consumed them. DX12
+            // must not carry vertex-input barriers onto the compute queue.
+            for (unsigned frame = 0; frame < 2; ++frame) {
+                rendering.Submit(capture, target);
+                rendering.RenderPending();
+            }
         } else if (toon) {
             render::toon::ToonRenderer          renderer({*device, queues, *bindings, compiler});
             render::RenderContext               rendering(*device, queues, *bindings);
             std::vector<render::RenderDrawItem> items;
             for (auto entity : instances) items.emplace_back(render::RenderDrawItem::FromEntity(entity));
-            rendering.Submit(renderer.Capture({.draw_items = items}), target);
+            auto capture = renderer.Capture({.draw_items = items});
+            rendering.Submit(capture, target);
             items.clear();
             advance_scene();
             rendering.RenderPending();
+            // Reuse pooled output buffers after graphics consumed them. DX12
+            // must not carry vertex-input barriers onto the compute queue.
+            for (unsigned frame = 0; frame < 2; ++frame) {
+                rendering.Submit(capture, target);
+                rendering.RenderPending();
+            }
         } else {
             render::pbr::PbrRenderer                 renderer({*device, queues, *bindings, compiler});
             render::RenderContext                    rendering(*device, queues, *bindings);
             std::vector<render::pbr::RenderDrawItem> items;
             for (auto entity : instances) items.emplace_back(render::pbr::RenderDrawItem::FromEntity(entity));
-            rendering.Submit(renderer.Capture({.draw_items = items}), target);
+            auto capture = renderer.Capture({.draw_items = items});
+            rendering.Submit(capture, target);
             items.clear();
             advance_scene();
             rendering.RenderPending();
+            // Reuse pooled output buffers after graphics consumed them. DX12
+            // must not carry vertex-input barriers onto the compute queue.
+            for (unsigned frame = 0; frame < 2; ++frame) {
+                rendering.Submit(capture, target);
+                rendering.RenderPending();
+            }
         }
         const auto pixels = gfx::readback_texture(*device, queues, *bindings, *target);
         ASSERT_EQ(pixels.GetDataSize(), 64u * 64u * 4u);

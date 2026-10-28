@@ -12,6 +12,7 @@ import interop.magic_enum;
 import ecs;
 import std;
 import :execution;
+import :skinning;
 import utils;
 import math;
 import core;
@@ -42,6 +43,7 @@ public:
     void ClearExtensions();
 
 private:
+    render::GpuSkinning m_Skinning;
     auto BuildFrame(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult;
     void RecordMaterial(rg::RenderGraph& render_graph, const std::shared_ptr<asset::Material>& material);
     void RecordMesh(rg::RenderGraph& render_graph, const RenderDrawItem& item);
@@ -97,6 +99,7 @@ constexpr auto ToIndexFormat(asset::IndexType type) noexcept -> gfx::Format {
 }
 
 auto DeferredRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult {
+    m_Skinning.BeginFrame();
     if (!graph.IsValid(request.target)) {
         return RenderResult{.color = request.target};
     }
@@ -402,8 +405,8 @@ void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const RenderDra
     if (!mesh || mesh->Empty()) return;
 
     auto [it, inserted] = m_DrawState.mesh_infos.try_emplace(
-        std::pair{mesh.get(), item.deformed_vertices.get()},
-        MeshInfo{.mesh = mesh, .deformed_vertices = item.deformed_vertices});
+        std::tuple{mesh.get(), item.deformed_vertices.get(), item.skin_pose.get()},
+        MeshInfo{.mesh = mesh, .deformed_vertices = item.deformed_vertices, .skin_pose = item.skin_pose});
     auto& info = it->second;
 
     if (inserted) {
@@ -413,7 +416,13 @@ void DeferredRenderer::RecordMesh(rg::RenderGraph& render_graph, const RenderDra
             item.deformed_vertices->Load(m_LoadContext);
         }
 
+        const auto& skin_streams = m_Skinning.Build(render_graph, m_LoadContext, mesh->vertices,
+            item.deformed_vertices ? nullptr : item.skin_pose);
         magic_enum::enum_for_each<asset::VertexAttribute>([&](asset::VertexAttribute attr) {
+            if (render_graph.IsValid(skin_streams[attr])) {
+                info.vertices[attr] = skin_streams[attr];
+                return;
+            }
             auto attr_data = mesh->vertices->GetAttributeData(attr);
             if (item.deformed_vertices) {
                 if (auto deformed = item.deformed_vertices->GetAttributeData(attr)) attr_data = deformed;
@@ -439,6 +448,7 @@ void DeferredRenderer::RecordInstance(rg::RenderGraph& render_graph, const Rende
         .material_overrides = item.material_overrides,
         .mesh               = item.mesh,
         .deformed_vertices  = item.deformed_vertices,
+        .skin_pose = item.skin_pose,
         .instance_data      = {
             .model = item.transform,
         },

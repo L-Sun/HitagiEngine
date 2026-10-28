@@ -1,4 +1,7 @@
+module;
+#include "interop/tracy_macros.hpp"
 export module render:toon_renderer;
+import interop.tracy;
 import core;
 import asset;
 import ecs;
@@ -7,6 +10,7 @@ import math;
 import utils;
 import std;
 import :execution;
+import :skinning;
 export import :scene;
 
 export namespace hitagi::render::toon {
@@ -83,6 +87,7 @@ public:
     ~ToonRenderer() = default;
 
 private:
+    render::GpuSkinning m_Skinning;
     auto CountRenderableSubMeshes(const RenderRequest& request, std::string_view contract) const -> std::size_t;
     auto BuildPass(rg::RenderGraph& graph, const RenderRequest& request, rg::TextureHandle depth, std::string_view contract, bool clear) -> RenderResult;
     auto Resolve(rg::RenderGraph& graph, const RenderResult& source, rg::TextureHandle target) -> RenderResult;
@@ -291,6 +296,8 @@ auto ToonRenderer::CountRenderableSubMeshes(const RenderRequest& request, std::s
 }
 
 auto ToonRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult {
+    ZoneScopedNS("Toon.Build", 0);
+    m_Skinning.BeginFrame();
     if (!graph.IsValid(request.target)) return {};
     auto target_desc = graph.GetResourceDesc(request.target);
     if (target_desc.format != gfx::Format::R8G8B8A8_UNORM)
@@ -314,6 +321,7 @@ auto ToonRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) -
 
 auto ToonRenderer::BuildPass(rg::RenderGraph& graph, const RenderRequest& request, rg::TextureHandle depth,
                              std::string_view contract, bool clear) -> RenderResult {
+    ZoneScopedNS("Toon.BuildPass", 0);
     const auto color = request.target;
     if (!graph.IsValid(color)) return {};
 
@@ -365,7 +373,10 @@ auto ToonRenderer::BuildPass(rg::RenderGraph& graph, const RenderRequest& reques
             ++instance_index;
             continue;
         }
+        const auto& skin_streams = m_Skinning.Build(graph, m_LoadContext, item.mesh->vertices,
+            item.deformed_vertices ? nullptr : item.skin_pose);
         for (const auto& sub_mesh : item.SubMeshes()) {
+            ZoneScopedNS("Toon.BuildDrawRecord", 0);
             if (!IsRenderableToonMaterial(sub_mesh.material, contract)) continue;
 
             sub_mesh.material->Load(m_LoadContext);
@@ -410,6 +421,10 @@ auto ToonRenderer::BuildPass(rg::RenderGraph& graph, const RenderRequest& reques
 
             for (const auto& vertex_attr : record.pipeline->GetDesc().vertex_input_layout) {
                 const auto mesh_attr = asset::semantic_to_vertex_attribute(vertex_attr.semantic);
+                if (graph.IsValid(skin_streams[mesh_attr])) {
+                    record.vertex_buffers.emplace_back(vertex_attr.binding, skin_streams[mesh_attr]);
+                    continue;
+                }
                 auto       attr      = item.mesh->vertices->GetAttributeData(mesh_attr);
                 if (item.deformed_vertices) {
                     if (auto deformed = item.deformed_vertices->GetAttributeData(mesh_attr)) attr = deformed;
@@ -456,6 +471,7 @@ auto ToonRenderer::BuildPass(rg::RenderGraph& graph, const RenderRequest& reques
     builder.AddSampler(sampler);
 
     for (auto& record : draw_records) {
+        ZoneScopedNS("Toon.DeclareDrawAccess", 0);
         record.material_access = builder.Read(record.material_data_handle);
         for (const auto& view : record.texture_views)
             builder.Read(view, gfx::PipelineStage::VertexShader | gfx::PipelineStage::PixelShader);

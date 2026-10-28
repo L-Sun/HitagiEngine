@@ -7,6 +7,7 @@ export import :deferred_gbuffer_debug;
 export import :deferred_renderer;
 export import :pbr_renderer;
 export import :scene;
+export import :skinning;
 export import :toon_renderer;
 export import :plugin;
 export import :pbr_plugin;

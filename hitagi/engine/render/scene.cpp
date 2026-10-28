@@ -15,6 +15,7 @@ struct RenderDrawItem {
     std::shared_ptr<asset::Mesh>        mesh;
     math::mat4f                         transform = math::mat4f::identity();
     std::shared_ptr<asset::VertexArray> deformed_vertices;
+    std::shared_ptr<const asset::SkinPose> skin_pose;
 
     std::vector<std::shared_ptr<asset::Material>> material_overrides;
     auto                                          SubMeshes() const { return asset::ResolveSubMeshes(*mesh, material_overrides); }
@@ -25,7 +26,8 @@ struct RenderDrawItem {
         item.material_overrides = entity.Get<asset::MeshComponent>().material_overrides;
         if (entity.Has<asset::SkinnedMesh>()) {
             item.deformed_vertices = entity.Get<asset::SkinnedMesh>().deformed_vertices;
-            if (!item.deformed_vertices) throw std::logic_error("Update the skinned scene before extracting draws");
+            item.skin_pose = entity.Get<asset::SkinnedMesh>().pose;
+            if (!item.deformed_vertices && !item.skin_pose) throw std::logic_error("Update the skinned scene before extracting draws");
         }
         return item;
     }

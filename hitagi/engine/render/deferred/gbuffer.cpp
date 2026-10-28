@@ -569,7 +569,7 @@ void passes::GBuffer::BuildAlbedoPass(rg::RenderGraph& graph, RenderDrawState& d
 
         std::size_t draw_index = 0;
         for (const auto& instance_info : draw_state.instance_infos) {
-            const auto& mesh_info = draw_state.mesh_infos.at({instance_info.mesh.get(), instance_info.deformed_vertices.get()});
+            const auto& mesh_info = draw_state.mesh_infos.at({instance_info.mesh.get(), instance_info.deformed_vertices.get(), instance_info.skin_pose.get()});
 
             for (const auto& sub_mesh : instance_info.SubMeshes()) {
                 if (!sub_mesh.material) continue;
@@ -702,7 +702,7 @@ void passes::GBuffer::BuildAttributePass(rg::RenderGraph& graph, RenderDrawState
 
         std::size_t draw_index = 0;
         for (const auto& instance_info : draw_state.instance_infos) {
-            const auto& mesh_info = draw_state.mesh_infos.at({instance_info.mesh.get(), instance_info.deformed_vertices.get()});
+            const auto& mesh_info = draw_state.mesh_infos.at({instance_info.mesh.get(), instance_info.deformed_vertices.get(), instance_info.skin_pose.get()});
 
             for (const auto& sub_mesh : instance_info.SubMeshes()) {
                 if (!sub_mesh.material) continue;

@@ -7,6 +7,7 @@ import math;
 import utils;
 import std;
 import :execution;
+import :skinning;
 export import :scene;
 
 export namespace hitagi::render::pbr {
@@ -75,6 +76,7 @@ public:
     ~PbrRenderer() = default;
 
 private:
+    render::GpuSkinning m_Skinning;
     auto CountRenderableSubMeshes(const RenderRequest& request) const -> std::size_t;
 
     hitagi::gfx::Device&                  m_Device;
@@ -252,6 +254,7 @@ auto PbrRenderer::CountRenderableSubMeshes(const RenderRequest& request) const -
 }
 
 auto PbrRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) -> RenderResult {
+    m_Skinning.BeginFrame();
     const auto color = request.target;
     if (!graph.IsValid(color)) return {};
 
@@ -304,6 +307,8 @@ auto PbrRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) ->
             ++instance_index;
             continue;
         }
+        const auto& skin_streams = m_Skinning.Build(graph, m_LoadContext, item.mesh->vertices,
+            item.deformed_vertices ? nullptr : item.skin_pose);
         for (const auto& sub_mesh : item.SubMeshes()) {
             if (!IsRenderablePbrMaterial(sub_mesh.material)) continue;
 
@@ -335,6 +340,10 @@ auto PbrRenderer::Build(rg::RenderGraph& graph, const RenderRequest& request) ->
 
             for (const auto& vertex_attr : record.pipeline->GetDesc().vertex_input_layout) {
                 const auto mesh_attr = asset::semantic_to_vertex_attribute(vertex_attr.semantic);
+                if (graph.IsValid(skin_streams[mesh_attr])) {
+                    record.vertex_buffers.emplace_back(vertex_attr.binding, skin_streams[mesh_attr]);
+                    continue;
+                }
                 auto       attr      = item.mesh->vertices->GetAttributeData(mesh_attr);
                 if (item.deformed_vertices) {
                     if (auto deformed = item.deformed_vertices->GetAttributeData(mesh_attr)) attr = deformed;
