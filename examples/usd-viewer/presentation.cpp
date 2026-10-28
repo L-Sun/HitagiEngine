@@ -1,4 +1,8 @@
+module;
+#include "interop/tracy_macros.hpp"
+
 module viewer;
+import interop.tracy;
 
 import std;
 import utils;
@@ -23,13 +27,16 @@ auto USDViewer::BuildFrame(rg::RenderGraph& graph, rg::TextureHandle output) -> 
     if (m_Scene && m_Viewport.z > 0 && m_Viewport.w > 0) {
         std::vector<render::pbr::RenderDrawItem>      pbr_items;
         std::vector<render::deferred::RenderDrawItem> deferred_items;
-        for (const auto& node : m_Nodes) {
-            if (!Visible(node) || !node.entity.Has<asset::MeshComponent>()) continue;
-            const auto& mesh = node.entity.Get<asset::MeshComponent>().mesh;
+        {
+        ZoneScopedNS("Viewer.CollectDrawItems", 0);
+        for (auto entity : m_Scene->GetWorld().GetEntityManager().GetEntities<asset::MeshComponent, asset::Transform>()) {
+            if (!Visible(entity)) continue;
+            const auto& mesh = entity.Get<asset::MeshComponent>().mesh;
             if (!mesh || mesh->Empty()) continue;
-            pbr_items.emplace_back(render::pbr::RenderDrawItem::FromEntity(node.entity));
+            pbr_items.emplace_back(render::pbr::RenderDrawItem::FromEntity(entity));
             deferred_items.emplace_back(render::deferred::RenderDrawItem::FromEntity(
-                node.entity, static_cast<std::uint32_t>(deferred_items.size() + 1)));
+                entity, static_cast<std::uint32_t>(deferred_items.size() + 1)));
+        }
         }
         const auto  rect   = m_Gui.DisplayRect(m_Viewport);
         const auto  target = graph.Create(gfx::TextureDesc{
@@ -59,8 +66,12 @@ auto USDViewer::BuildFrame(rg::RenderGraph& graph, rg::TextureHandle output) -> 
             };
             color = m_Pbr.Build(graph, request).color;
         } else if (m_Renderer == RendererType::Toon) {
+            // A lower frontal studio key keeps facial planes readable. Material
+            // ramps provide the fill instead of a dark blue band across the chin.
+            const auto toon_light = math::normalize(-m_Orbit.LookDirection() +
+                (math::vec3f(0, 1, 0) * 0.3f - right * 0.25f) * distance);
             const render::toon::RenderRequest request{
-                .frame  = {.view = {.camera_position = m_Orbit.Eye(), .view = view, .projection = projection}, .draw_items = pbr_items, .light = {.direction_to_light = math::normalize(light_position - (m_Orbit.Eye() + m_Orbit.LookDirection())), .intensity = m_Light}},
+                .frame  = {.view = {.camera_position = m_Orbit.Eye(), .view = view, .projection = projection}, .draw_items = pbr_items, .light = {.direction_to_light = toon_light, .intensity = m_Light}},
                 .target = target,
             };
             color = m_Toon.Build(graph, request).color;

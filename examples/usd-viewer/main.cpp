@@ -27,6 +27,7 @@ int main(int argc, char** argv) {
             .scene     = options.scene,
             .renderer  = options.renderer,
         });
+        world.GetResource<hitagi::examples::USDViewer>().SetGpuPalette(options.gpu_palette);
         hitagi::examples::PrintUsage();
         return app.Run(options.frames);
     } catch (const std::exception& error) {

@@ -63,11 +63,13 @@ function Viewer() {
   const [collapsed, setCollapsed] = createSignal(new Set<string>());
   const text = new TextInputHost();
   let lastPath = "";
+  let lastRoot = "";
   const bridge = connectOverlay<Record<string, unknown>, never>((value) => {
     if (text.receive(value)) return;
     if (value.kind === "viewer") {
       const next = value as unknown as ViewerState;
-      if (next.path !== lastPath) {
+      if (next.path !== lastPath || (next.nodes[0]?.id || "") !== lastRoot) {
+        lastRoot = next.nodes[0]?.id || "";
         lastPath = next.path;
         setOpening(false);
         setDraft(next.path);
@@ -88,6 +90,7 @@ function Viewer() {
         const old = previous.get(node.id);
         return old &&
           old.name === node.name &&
+          old.parent === node.parent &&
           old.depth === node.depth &&
           old.mesh === node.mesh &&
           old.visible === node.visible
@@ -125,11 +128,13 @@ function Viewer() {
   const rows = () => Math.max(1, Math.floor((size().h - 276) / 34));
   const nodes = createMemo(() => {
     const term = search().toLowerCase();
-    return state().nodes.filter((node) =>
-      term
-        ? node.name.toLowerCase().includes(term)
-        : ![...collapsed()].some((parent) => node.id.startsWith(parent + "/")),
-    );
+    const hidden = new Set<string>();
+    return state().nodes.filter((node) => {
+      if (term) return node.name.toLowerCase().includes(term);
+      const ancestorCollapsed = hidden.has(node.parent) || collapsed().has(node.parent);
+      if (ancestorCollapsed) hidden.add(node.id);
+      return !ancestorCollapsed;
+    });
   });
   const toggle = (id: string) =>
     setCollapsed((old) => {
@@ -372,9 +377,7 @@ function Viewer() {
           />
         </Show>
         <Show when={state().physicsBackend}>
-          <Button id="physics.backend" label={state().physicsBackend}
-            rect={[left() + 290, size().h - 98, 72, 28]}
-            action={() => command("physics-backend")} />
+          <Label rect={[left() + 290, size().h - 92, 72, 20]}>{state().physicsBackend}</Label>
         </Show>
         <Label rect={[left() + (state().physicsBodies ? 372 : 174), size().h - 92, Math.max(1, viewport()[2] - 290), 20]}>
           {state().animationTime.toFixed(2)} / {state().animationDuration.toFixed(2)} s

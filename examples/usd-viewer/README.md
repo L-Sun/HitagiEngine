@@ -102,7 +102,7 @@ Cook API supports HTGC v8 animation export; this Viewer has no export UI.
 ## Deterministic E2E
 
 See [runtime character physics](../../docs/assets/runtime_character_physics.md) for
-the Jolt/Bullet hair and garment rig, backend comparison and conversion without baked physics.
+the Jolt hair and garment rig, physics on/off comparison and conversion without baked physics.
 
 ```powershell
 xmake build usd-viewer-e2e
@@ -171,3 +171,55 @@ An optional final argument sets the number of light increases (0–8, default 8)
 Use `1200 0` to retain the default 1.0 light for bright textured models. All
 settings keep 20 setup ticks, so frames 21–1220 contain the 20-second clip.
 USD `opacityThreshold` enables alpha cutout for textures such as hair details.
+
+## GPU skinning and throughput comparison
+
+All three renderers use GPU compute skinning by default. CPU updates publish only
+joint palettes and conservative bounds; no deformed vertex stream is uploaded.
+The test driver can select the explicit CPU reference path for comparison:
+
+```powershell
+xmake r usd-viewer-e2e DX12 --benchmark examples/usd-viewer/assets/skinned.usda 120 jolt
+xmake r usd-viewer-e2e DX12 --benchmark examples/usd-viewer/assets/skinned.usda 120 jolt cpu
+```
+
+Replace `jolt` with `physics-off` to isolate animation/rendering. Jolt is the only physics backend. Reports are in `temp/usd-viewer-e2e/<scene>/`, with
+separate physics and CPU-reference suffixes. Each run warms 60 frames, measures
+actual wall-clock throughput including GPU completion, and performs no readback
+or PNG encoding in the measured batch. Keep build mode, resolution, renderer,
+physics mode and scene identical when comparing. Video encoding FPS is unrelated
+to these throughput measurements.
+
+### ECS scene view
+
+The ECS owns entity names, transforms, meshes and `RelationShip` hierarchy.
+`SceneTreeRow` is a flattened UI projection (entity, display path and depth), not
+an alternative scene model. Viewer selection and per-entity viewing overrides use
+entity handles. UI control identities combine scene revision and entity ID; paths
+are inspector labels and are not used to determine ancestry or identity.
+
+Each frame checks ECS topology/name changes, including while paused; changed
+inputs rebuild tree rows and inherited visibility. Visibility toggles propagate
+through `RelationShip` once, then rendering/UI read cached visibility. Bounds are
+separate per-entity caches aggregated through ECS relationships. Draw collection
+queries `MeshComponent` + `Transform` directly and never walks the UI tree.
+Scene replacement clears entity state; invalid entities are removed on refresh.
+
+### Experimental GPU palette generation
+
+`--gpu-palette` keeps inverse-bind matrices in renderer-owned GPU buffers and
+uploads each shared joint-world snapshot once per renderer frame. A compute pass
+builds the mesh-local matrix palette before the existing vertex-deformation pass.
+CPU code computes conservative bounds from cached joint-local boxes without GPU
+readback. CPU-generated palettes remain the default for controlled comparison;
+`SkinnedMesh::cpu_deformation` always selects the CPU reference path.
+
+```sh
+xmake r usd-viewer examples/usd-viewer/assets/skinned.usda --backend=DX12 --renderer=toon --gpu-palette
+xmake r usd-viewer-e2e DX12 --benchmark examples/usd-viewer/assets/skinned.usda 180 jolt --gpu-palette
+```
+
+Omit `--gpu-palette` for the CPU-palette baseline (vertex deformation still runs
+on the GPU). Tests compare both paths with CPU vertex results on DX12/Vulkan,
+including nonidentity binding/mesh transforms, reflected or singular joints,
+partial workgroups, and immutable submitted snapshots in all three renderers.

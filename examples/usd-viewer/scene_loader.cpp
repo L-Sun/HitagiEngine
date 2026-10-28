@@ -91,7 +91,20 @@ auto ConvertMaterial(const asset::Material& source, const std::array<asset::Mate
         source.GetParameter<std::shared_ptr<asset::Texture>>("diffuseColor").value_or(nullptr);
 
     auto parameters = render::pbr::CreatePbrMaterialParameters(desc);
-    for (const auto& parameter : render::toon::ToonMaterialDefaults()) {
+    auto toon_desc = render::toon::ToonMaterialDesc{};
+    // Optional authoring inputs on the USD surface; avoid guessing skin/eye
+    // behavior from material names or applying a skin ramp to every surface.
+    if (const auto color = source.GetParameter<math::vec3f>("hitagiToonShadowColor"))
+        toon_desc.shadow_color = math::Color{*color, 1.0f};
+    if (const auto color = source.GetParameter<math::vec3f>("hitagiToonOutlineColor"))
+        toon_desc.outline_color = math::Color{*color, 1.0f};
+    toon_desc.shadow_threshold = source.GetParameter<float>("hitagiToonShadowThreshold").value_or(toon_desc.shadow_threshold);
+    toon_desc.light_threshold = source.GetParameter<float>("hitagiToonLightThreshold").value_or(toon_desc.light_threshold);
+    toon_desc.band_softness = source.GetParameter<float>("hitagiToonBandSoftness").value_or(toon_desc.band_softness);
+    toon_desc.specular_strength = source.GetParameter<float>("hitagiToonSpecularStrength").value_or(toon_desc.specular_strength);
+    toon_desc.rim_strength = source.GetParameter<float>("hitagiToonRimStrength").value_or(toon_desc.rim_strength);
+    toon_desc.outline_width = source.GetParameter<float>("hitagiToonOutlineWidth").value_or(toon_desc.outline_width);
+    for (const auto& parameter : render::toon::CreateToonMaterialParameters(toon_desc)) {
         if (std::ranges::find(parameters, parameter.name, &asset::MaterialParameter::name) == parameters.end())
             parameters.emplace_back(parameter);
     }

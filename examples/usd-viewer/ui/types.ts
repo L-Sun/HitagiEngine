@@ -1,5 +1,6 @@
-export type SceneNode = {
+export type SceneTreeRow = {
   id: string;
+  parent: string;
   name: string;
   depth: number;
   mesh: boolean;
@@ -15,7 +16,7 @@ export type ViewerState = {
   debug: number;
   light: number;
   selected: string;
-  nodes: SceneNode[];
+  nodes: SceneTreeRow[];
   inspector: null | {
     name: string;
     path: string;

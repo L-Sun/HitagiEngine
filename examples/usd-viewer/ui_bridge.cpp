@@ -26,13 +26,13 @@ auto USDViewer::Snapshot() const -> std::string {
     std::string nodes  = "[";
     unsigned    meshes = 0, visible = 0, triangles = 0;
     std::string inspector = "null";
-    for (const auto& node : m_Nodes) {
+    for (const auto& node : m_TreeRows) {
         const bool  mesh_node = node.entity.Has<asset::MeshComponent>();
         unsigned    faces     = 0;
         std::string materials;
         if (mesh_node) {
             ++meshes;
-            if (Visible(node)) ++visible;
+            if (Visible(node.entity)) ++visible;
             const auto& mesh = node.entity.Get<asset::MeshComponent>().mesh;
             for (const auto& part : mesh->sub_meshes) {
                 faces += static_cast<unsigned>(part.index_count / 3);
@@ -45,13 +45,13 @@ auto USDViewer::Snapshot() const -> std::string {
         }
         if (nodes.size() > 1) nodes += ',';
         nodes +=
-            std::format(R"({{"id":{},"name":{},"depth":{},"mesh":{},"visible":{}}})", JsonString(node.path),
-                        JsonString(node.name), node.depth, mesh_node, Visible(node));
-        if (node.path == m_Selected) {
+            std::format(R"({{"id":{},"parent":{},"name":{},"depth":{},"mesh":{},"visible":{}}})", JsonString(EntityKey(node.entity)),
+                        JsonString(EntityKey(node.entity.Get<asset::RelationShip>().parent)), JsonString(node.entity.Get<asset::MetaInfo>().name), node.depth, mesh_node, Visible(node.entity));
+        if (node.entity == m_Selected) {
             const auto& transform = node.entity.Get<asset::Transform>();
             inspector             = std::format(
                 R"({{"name":{},"path":{},"type":"{}","visible":{},"triangles":{},"materials":{},"position":[{},{},{}],"scale":[{},{},{}]}})",
-                JsonString(node.name), JsonString(node.path), mesh_node ? "Mesh" : "Transform", Visible(node),
+                JsonString(node.entity.Get<asset::MetaInfo>().name), JsonString(node.path), mesh_node ? "Mesh" : "Transform", Visible(node.entity),
                 faces, JsonString(materials), transform.position.x, transform.position.y,
                 transform.position.z, transform.scaling.x, transform.scaling.y, transform.scaling.z);
         }
@@ -61,11 +61,11 @@ auto USDViewer::Snapshot() const -> std::string {
     unsigned    physics_bodies = 0;
     bool        physics        = false;
     std::string solver         = "";
-    for (const auto& node : m_Nodes) {
-        if (node.entity.Has<physics::CharacterPhysics>()) {
-            const auto& rig = node.entity.Get<physics::CharacterPhysics>();
+    if (m_Scene) for (auto entity : m_Scene->GetWorld().GetEntityManager().GetEntities<physics::CharacterPhysics>()) {
+        {
+            const auto& rig = entity.Get<physics::CharacterPhysics>();
             physics_bodies += static_cast<unsigned>(rig.bodies.size());
-            solver  = rig.backend == hitagi::physics::RigBackend::Jolt ? "Jolt" : "Bullet";
+            solver  = "Jolt";
             physics = physics || rig.enabled;
         }
     }
@@ -79,7 +79,7 @@ auto USDViewer::Snapshot() const -> std::string {
         R"({{"kind":"viewer","path":{},"file":{},"renderer":"{}","backend":{},"debug":{},"light":{},"selected":{},"nodes":{},"inspector":{},"meshes":{},"visible":{},"triangles":{},"error":{},"status":{},"eye":[{},{},{}],"animations":{},"playing":{},"animationTime":{},"animationDuration":{},"physicsBodies":{},"physics":{},"physicsBackend":{},"fps":{:.1f}}})",
         JsonString(m_Path.generic_string()), JsonString(m_Path.filename().string()),
         RendererName(m_Renderer), JsonString(magic_enum::enum_name(m_Resources.device.device_type)),
-        static_cast<unsigned>(m_Debug), m_Light, JsonString(m_Selected), nodes, inspector, meshes, visible,
+        static_cast<unsigned>(m_Debug), m_Light, JsonString(EntityKey(m_Selected)), nodes, inspector, meshes, visible,
         triangles, JsonString(m_Error), JsonString(m_Status), eye.x, eye.y, eye.z,
         m_AnimationPlayers.size(), m_Playing, animation_time, animation_duration, physics_bodies, physics, JsonString(solver), m_Fps);
 }

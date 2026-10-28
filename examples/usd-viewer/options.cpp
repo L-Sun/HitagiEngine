@@ -34,6 +34,7 @@ struct ViewerOptions {
     RendererType          renderer = RendererType::Deferred;
     std::uint64_t         frames   = 0;
     bool                  help     = false;
+    bool                  gpu_palette = false;
 };
 
 auto ParseOptions(int argc, char** argv) -> ViewerOptions {
@@ -44,6 +45,8 @@ auto ParseOptions(int argc, char** argv) -> ViewerOptions {
         const std::string_view argument(argv[i]);
         if (argument == "--help" || argument == "-h") {
             options.help = true;
+        } else if (argument == "--gpu-palette") {
+            options.gpu_palette = true;
         } else if (argument == "--headless") {
             options.app.headless = true;
         } else if (argument.starts_with("--renderer=")) {
@@ -81,7 +84,7 @@ auto ParseOptions(int argc, char** argv) -> ViewerOptions {
 
 void PrintUsage() {
     std::println("Usage: xmake r usd-viewer [scene.usd] [--renderer=pbr|toon|deferred]");
-    std::println("       [--backend=Vulkan|DX12|Metal] [--headless] [--frames=N]");
+    std::println("       [--backend=Vulkan|DX12|Metal] [--headless] [--frames=N] [--gpu-palette]");
     std::println(
         "Tab: switch renderer | LMB: orbit | MMB: pan | Wheel: zoom | F: frame | Esc: clear selection");
 }

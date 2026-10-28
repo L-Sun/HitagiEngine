@@ -1,4 +1,8 @@
+module;
+#include "interop/tracy_macros.hpp"
+
 export module viewer:application;
+import interop.tracy;
 
 import std;
 import core;
@@ -19,16 +23,24 @@ import :camera;
 
 export namespace hitagi::examples {
 
-struct SceneNode {
-    ecs::Entity                               entity;
-    std::string                               path;
-    std::string                               name;
-    unsigned                                  depth  = 0;
-    bool                                      hidden = false;
-    math::AABBf                               bounds;
-    math::AABBf                               local_bounds;
+// Flattened scene-tree presentation; ECS remains the authority for hierarchy and names.
+struct SceneTreeRow {
+    ecs::Entity entity;
+    std::string path; // UI command/display path only, never used for ancestry.
+    unsigned depth = 0;
+};
+
+struct EntityViewState {
+    // Last observed ECS topology, used only to invalidate derived view caches.
+    ecs::Entity observed_parent;
+    std::string observed_name;
+    std::vector<ecs::Entity> observed_children;
+    bool observed = false;
+    bool hidden = false;
+    bool visible = true;
+    math::AABBf bounds;
+    math::AABBf local_bounds;
     std::shared_ptr<const asset::VertexArray> bounds_vertices;
-    std::size_t                               parent_index = std::numeric_limits<std::size_t>::max();
 };
 
 struct UiControl {
@@ -52,6 +64,20 @@ public:
     auto Capture() -> asset::ImageData;
     auto FrameIndex() const noexcept { return m_Frame; }
     auto FrameTimings() const noexcept -> const std::array<double, 4>& { return m_FrameTimings; }
+    void SetVisibilityQueryBypass(bool enabled) { m_BypassVisibilityQuery = enabled; }
+    void SetGpuPalette(bool enabled) {
+        m_GpuPalette = enabled;
+        if (!m_Scene) return;
+        for (auto entity : m_Scene->GetWorld().GetEntityManager().GetEntities<asset::SkinnedMesh>())
+            entity.Get<asset::SkinnedMesh>().gpu_palette = enabled;
+    }
+    // Test-only reference path for controlled CPU/GPU skinning comparisons.
+    void SetCpuSkinningReference(bool enabled) {
+        if (!m_Scene) return;
+        for (auto entity : m_Scene->GetWorld().GetEntityManager().GetEntities<asset::SkinnedMesh>())
+            entity.Get<asset::SkinnedMesh>().cpu_deformation = enabled;
+    }
+
 
 private:
     void                                  PrepareFrame();
@@ -60,15 +86,17 @@ private:
     void                                  Measure(unsigned phase);
     std::chrono::steady_clock::time_point m_PhaseStart;
     void                                  OpenScene(const std::filesystem::path& path);
-    void                                  IndexScene(ecs::Entity entity, std::string parent, unsigned depth, std::size_t parent_index = std::numeric_limits<std::size_t>::max());
+    void                                  IndexScene(ecs::Entity entity, std::string parent, unsigned depth);
+    void                                  RefreshSceneView();
+    void                                  UpdateVisibility();
+    auto                                  EntityKey(ecs::Entity entity) const -> std::string;
     void                                  UpdateBounds();
     void                                  ApplyCommand(std::string_view command);
     void                                  DrainUi();
     void                                  PublishState();
     void                                  RenderFrame();
     auto                                  BuildFrame(rg::RenderGraph& graph, rg::TextureHandle output) -> rg::TextureHandle;
-    auto                                  SelectedNode() -> SceneNode*;
-    auto                                  Visible(const SceneNode& node) const -> bool;
+    auto                                  Visible(ecs::Entity entity) const -> bool;
 
     platform::PlatformHost&               m_App;
     asset::ResourceLoadContext            m_Resources;
@@ -76,12 +104,14 @@ private:
     core::JobSystem&                      m_Jobs;
     SceneImportService&                   m_Importer;
     std::shared_ptr<asset::Scene>         m_Scene;
-    std::vector<SceneNode>                m_Nodes;
+    std::vector<SceneTreeRow>             m_TreeRows;
+    std::unordered_map<ecs::Entity, EntityViewState> m_ViewStates;
+    std::uint64_t                         m_SceneRevision = 0;
     std::filesystem::path                 m_Path;
     math::AABBf                           m_Bounds;
     asset::CameraComponent                m_Camera{};
     OrbitController                       m_Orbit;
-    std::string                           m_Selected;
+    ecs::Entity                           m_Selected;
     std::string                           m_Error;
     std::string                           m_Status = "Ready";
     std::string                           m_PublishedState;
@@ -96,6 +126,8 @@ private:
     std::vector<ecs::Entity>              m_AnimationPlayers;
     bool                                  m_Playing           = true;
     bool                                  m_Deterministic     = false;
+    bool                                  m_BypassVisibilityQuery = false;
+    bool                                  m_GpuPalette = false;
     std::chrono::steady_clock::time_point m_LastAnimationTick = std::chrono::steady_clock::now();
 
     RendererType                           m_Renderer = RendererType::Pbr;
@@ -194,6 +226,7 @@ void USDViewer::Measure(unsigned phase) {
 }
 
 void USDViewer::PrepareFrame() {
+    ZoneScopedNS("Viewer.PrepareFrame", 0);
     m_PhaseStart = std::chrono::steady_clock::now();
     ++m_Frame;
     m_Gui.PrepareFrame();
@@ -202,11 +235,15 @@ void USDViewer::PrepareFrame() {
 }
 
 void USDViewer::UpdateScene() {
+    ZoneScopedNS("Viewer.UpdateScene", 0);
     const auto   now     = std::chrono::steady_clock::now();
     const double elapsed = m_Deterministic ? 1.0 / 60.0 : std::chrono::duration<double>(now - m_LastAnimationTick).count();
     m_LastAnimationTick  = now;
     if (m_Scene && !m_AnimationPlayers.empty() && m_Playing) {
         m_Scene->GetWorld().Update(m_Jobs, elapsed);
+    }
+    if (m_Scene) {
+        RefreshSceneView();
         UpdateBounds();
     }
     const auto& input = m_App.GetInputState();
@@ -215,7 +252,7 @@ void USDViewer::UpdateScene() {
         if (input.GetBoolNew(hid::VirtualKeyCode::KEY_TAB))
             SetRenderer(m_Renderer == RendererType::Pbr ? RendererType::Toon : m_Renderer == RendererType::Toon ? RendererType::Deferred
                                                                                                                 : RendererType::Pbr);
-        if (input.GetBoolNew(hid::VirtualKeyCode::KEY_ESCAPE)) m_Selected.clear();
+        if (input.GetBoolNew(hid::VirtualKeyCode::KEY_ESCAPE)) m_Selected = {};
     }
     if (m_Scene && m_Viewport.z > 0 && m_Viewport.w > 0) {
         const auto rect = m_Gui.DisplayRect(m_Viewport);
@@ -226,6 +263,7 @@ void USDViewer::UpdateScene() {
 }
 
 void USDViewer::PublishFrame() {
+    ZoneScopedNS("Viewer.PublishFrame", 0);
     // Average completed frame intervals, including event pumping and present waits.
     // Wall-clock metrics stay unavailable during deterministic replay.
     if (!m_Deterministic) {

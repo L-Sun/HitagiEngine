@@ -1,3 +1,5 @@
+#include "interop/tracy_macros.hpp"
+import interop.tracy;
 import ecs;
 import engine;
 import std;
@@ -33,7 +35,7 @@ public:
     Session(core::Runtime& runtime, gfx::Device::Type backend, const std::filesystem::path& output, bool replay,
             std::vector<RecordedFrame>& tape, bool record_animation = false,
             const std::filesystem::path& record_scene = {}, RendererType renderer = RendererType::Pbr,
-            bool deterministic = true, bool fixed_size = false)
+            bool deterministic = true, bool fixed_size = false, bool headless = true)
         : m_Output(output),
           m_Replay(replay),
           m_RecordAnimation(record_animation),
@@ -46,7 +48,7 @@ public:
                                               .width   = fixed_size ? 1000u : 1500u,
                                               .height  = fixed_size ? 700u : 1050u,
 
-                                              .headless = true})),
+                                              .headless = headless})),
           m_Trace(output / (replay ? "replay.jsonl" : "record.jsonl")) {
         m_Host.AddPlugin(gfx::GraphicsPlugin{.backend = backend});
         m_Host.AddPlugin(AssetPlugin{.files = runtime.IO(), .jobs = runtime.Jobs()});
@@ -100,8 +102,12 @@ public:
         } else {
             Require(frame <= m_Tape.size(), "Replay produced an extra frame");
             const auto& expected = m_Tape[frame - 1];
-            if (state != expected.state ||
-                !std::ranges::equal(png.Span<const std::byte>(), expected.png.Span<const std::byte>())) {
+            const auto actual_bytes = png.Span<const std::byte>();
+            const auto expected_bytes = expected.png.Span<const std::byte>();
+            bool same_bytes = actual_bytes.size() == expected_bytes.size();
+            for (std::size_t i = 0; same_bytes && i < actual_bytes.size(); ++i)
+                same_bytes = actual_bytes[i] == expected_bytes[i];
+            if (state != expected.state || !same_bytes) {
                 Write(m_Output / std::format("diverged-{:03}.png", frame), png);
                 throw std::runtime_error(std::format("Replay diverged at tick {} ({})", frame, action));
             }
@@ -159,8 +165,15 @@ public:
     }
 
     auto NodeControl(std::string_view name) const -> std::string {
-        for (const auto& [id, control] : m_Viewer->Controls())
-            if (id.starts_with("node:") && id.ends_with("/" + std::string(name))) return id;
+        const auto snapshot = m_Viewer->Snapshot();
+        const std::string marker = "\"name\":\"" + std::string(name) + "\"";
+        for (auto offset = snapshot.find(marker); offset != std::string::npos; offset = snapshot.find(marker, offset + marker.size())) {
+            const auto begin = snapshot.rfind("\"id\":\"", offset);
+            if (begin == std::string::npos) continue;
+            const auto start = begin + 6;
+            const auto id = "node:" + snapshot.substr(start, snapshot.find('"', start) - start);
+            if (m_Viewer->Controls().contains(id)) return id;
+        }
         throw std::runtime_error(std::format("Scene node not found: {}", name));
     }
 
@@ -178,11 +191,24 @@ public:
         Require(m_Viewer->Snapshot().contains(value), std::format("State does not contain {}", value));
     }
 
-    void RecordScene(unsigned frames, unsigned light_steps = 8, std::string_view physics_mode = {}) {
+    void RecordScene(unsigned frames, unsigned light_steps = 8, std::string_view physics_mode = {}, std::string_view view = "front") {
         Step("boot");
         Step("layout");
         Contains("\"error\":\"\"");
-        Click("camera.front");
+        Require(view == "front" || view == "right" || view == "portrait", "Recording view must be front, right or portrait");
+        Click(view == "right" ? "camera.right" : "camera.front");
+        if (view == "portrait") {
+            auto& input = m_App->GetInputState();
+            const auto viewport = m_Viewer->Controls().at("viewport").rect;
+            const float dpi = m_App->GetDpiRatio();
+            const float x = (viewport.x + viewport.z * 0.5f) * dpi;
+            const float y = (viewport.y + viewport.w * 0.5f) * dpi;
+            Step("portrait.pointer", [&] { input.UpdatePointerState(x, y); });
+            Step("portrait.pan.down", [&] { input.UpdateKeyState(hid::VirtualKeyCode::MOUSE_M_BUTTON, true); });
+            Step("portrait.pan.move", [&] { input.UpdatePointerState(x, y + viewport.w * 0.25f * dpi); });
+            Step("portrait.pan.up", [&] { input.UpdateKeyState(hid::VirtualKeyCode::MOUSE_M_BUTTON, false); });
+            Step("portrait.zoom", [&] { input.UpdateWheelState(0, 9); });
+        }
         Require(light_steps <= 8, "Recording light steps must be in [0, 8]");
         for (unsigned i = 0; i < 8; ++i) {
             if (i < light_steps) {
@@ -193,10 +219,8 @@ public:
             }
         }
         if (!physics_mode.empty()) {
-            if (physics_mode == "physics-off")
+            if (physics_mode == "physics-off" && m_Viewer->Snapshot().contains("\"physics\":true"))
                 Click("physics.toggle");
-            else if (physics_mode == "jolt")
-                Click("physics.backend");
             else {
                 Step("physics-setup");
                 Step("physics-setup");
@@ -209,12 +233,13 @@ public:
         std::println("Recorded {} GPU frames at 60 fps to {}", m_Viewer->FrameIndex(), m_Output.string());
     }
 
-    void PhysicsJourney(bool jolt = false) {
+    void PhysicsJourney(bool gpu_palette = false) {
+        m_Viewer->SetGpuPalette(gpu_palette);
         Step("boot");
         Step("layout");
         Contains("\"error\":\"\"");
         Contains("\"physics\":true");
-        if (jolt) Click("physics.backend");
+        Contains("\"physicsBackend\":\"Jolt\"");
         Click("camera.front");
         for (unsigned i = 0; i < 30; ++i) Step("simulate");
         Click("animation.toggle");
@@ -227,7 +252,6 @@ public:
         Require(paused != m_ViewportPixels, "Disabling physics did not change the deformed pose");
         Click("physics.toggle");
         Contains("\"physics\":true");
-        if (jolt) Click("physics.backend");
         Click("animation.restart");
         Step("reset-paused");
         const auto reset = m_ViewportPixels;
@@ -239,43 +263,50 @@ public:
         Require(reset == m_ViewportPixels, "Restart did not reproduce the initial physics pose");
     }
 
-    void Benchmark(unsigned frames, bool jolt = false) {
-        if (jolt) {
+    void Benchmark(unsigned frames, std::string_view physics_mode = "jolt", bool cpu_skinning = false, bool all_visible = false, bool gpu_palette = false) {
+        m_Viewer->SetVisibilityQueryBypass(all_visible);
+        m_Viewer->SetCpuSkinningReference(cpu_skinning);
+        m_Viewer->SetGpuPalette(gpu_palette);
+        if (physics_mode == "physics-off") {
             Step("boot");
             Step("layout");
-            Click("physics.backend");
+            if (m_Viewer->Snapshot().contains("\"physics\":true")) Click("physics.toggle");
         }
         // Use the normal frames-in-flight path. Drain before/after the measured
         // batch so throughput includes GPU completion, without forcing a stall
         // after every frame. No screenshot/readback/PNG encoding.
         auto tick = [&] {
-            m_App->GetInputState().AdvanceFrame();
+            // Match the interactive loop: consume native resize events and clear
+            // per-poll flags instead of replaying a stale resize every frame.
+            m_App->PollEvents();
             m_Host.TickFrame();
         };
         for (unsigned i = 0; i < 60; ++i) {
             tick();
         }
-        std::vector<double>   milliseconds;
+        auto milliseconds = std::make_unique<double[]>(frames);
         std::array<double, 4> phases{};
         m_Graphics->queues.WaitIdle();
         const auto batch_start = std::chrono::steady_clock::now();
         for (unsigned i = 0; i < frames; ++i) {
+            ZoneScopedNS("Benchmark.MeasuredFrame", 0);
+            FrameMark;
             const auto start = std::chrono::steady_clock::now();
             tick();
             for (unsigned j = 0; j < 4; ++j) phases[j] += m_Viewer->FrameTimings()[j] / frames;
-            milliseconds.emplace_back(std::chrono::duration<double, std::milli>(
+            milliseconds[i] = std::chrono::duration<double, std::milli>(
                                           std::chrono::steady_clock::now() - start)
-                                          .count());
+                                          .count();
         }
         m_Graphics->queues.WaitIdle();
         const double batch_ms = std::chrono::duration<double, std::milli>(
                                     std::chrono::steady_clock::now() - batch_start)
                                     .count();
-        std::ranges::sort(milliseconds);
+        std::sort(milliseconds.get(), milliseconds.get() + frames);
         std::ofstream report(m_Output / "benchmark.json");
         report << std::format(R"({{"frames":{},"width":{},"height":{},"gpu_completed_batch_ms":{},"throughput_fps":{},"cpu_frame_ms":{{"p50":{},"p95":{},"max":{}}},"mean_phase_ms":{{"gui":{},"scene":{},"render":{},"publish":{}}},"state":{}}})",
                               frames, m_App->GetWindowWidth(), m_App->GetWindowHeight(), batch_ms, frames * 1000.0 / batch_ms,
-                              milliseconds[frames / 2], milliseconds[frames * 95 / 100], milliseconds.back(),
+                              milliseconds[frames / 2], milliseconds[frames * 95 / 100], milliseconds[frames - 1],
                               phases[0], phases[1], phases[2], phases[3],
                               m_Viewer->Snapshot());
         std::println("GPU-completed throughput {} fps; CPU frame p50 {} ms, p95 {} ms",
@@ -328,7 +359,29 @@ public:
         Click("selection.visibility");
         Contains("\"visible\":4");
         Require(m_ViewportPixels == shown_pixels, "Showing the mesh did not restore the rendered viewport");
-        const auto parent = "collapse:" + coral.substr(5, coral.rfind('/') - 5);
+        // Parent visibility must propagate through ECS hierarchy, without altering
+        // a child's own hidden override.
+        const auto parent_path = NodeControl("Studio").substr(5);
+        Click("node:" + parent_path);
+        Click("selection.visibility");
+        Contains("\"visible\":0");
+        Require(m_ViewportPixels != shown_pixels, "Hiding parent did not hide child meshes");
+        Click("selection.visibility");
+        Contains("\"visible\":4");
+        Require(m_ViewportPixels == shown_pixels, "Showing parent did not restore child meshes");
+        Click(coral);
+        Click("selection.visibility"); // Keep Coral hidden through a parent hide/show.
+        Contains("\"visible\":3");
+        Click("node:" + parent_path);
+        Click("selection.visibility");
+        Contains("\"visible\":0");
+        Click("selection.visibility");
+        Contains("\"visible\":3");
+        Click("tree.show-all");
+        Contains("\"visible\":4");
+        Require(m_ViewportPixels == shown_pixels, "Show all did not clear descendant overrides");
+        Click(coral);
+        const auto parent = "collapse:" + parent_path;
         Click(parent);
         Require(!m_Viewer->Controls().contains(coral), "Collapsed children remained interactive");
         Click(parent);
@@ -471,23 +524,30 @@ int main(int argc, char** argv) {
         const bool        benchmark    = argc > 2 && std::string_view(argv[2]) == "--benchmark";
         const auto        record_scene = (record || physics_test || benchmark) && argc > 3 ? std::filesystem::path(argv[3]) : std::filesystem::path{};
         const bool        toon         = benchmark || (record && argc > 6 && std::string_view(argv[6]) == "toon");
-        const std::string physics_mode = record && argc > 7 ? argv[7] : "";
-        examples::test::Require(physics_mode.empty() || physics_mode == "physics-off" || physics_mode == "physics-on" || physics_mode == "jolt" || physics_mode == "bullet",
-                                "Physics recording mode must be physics-off, physics-on, bullet or jolt");
-        const bool jolt   = (benchmark && argc > 5 && std::string_view(argv[5]) == "jolt") ||
-                            (physics_test && argc > 4 && std::string_view(argv[4]) == "jolt");
+        const std::string physics_mode = record && argc > 7 ? argv[7] : benchmark ? (argc > 5 ? argv[5] : "jolt") : physics_test ? "jolt" : "";
+        examples::test::Require(physics_mode.empty() || physics_mode == "physics-off" || physics_mode == "physics-on" || physics_mode == "jolt",
+                                "Physics recording mode must be physics-off, physics-on or jolt");
+        if (physics_test && argc > 4)
+            examples::test::Require(std::string_view(argv[4]) == "jolt", "Only Jolt physics is supported");
+        const bool cpu_skinning = benchmark && argc > 6 && std::string_view(argv[6]) == "cpu";
+        const auto has_option = [&](std::string_view option) {
+            for (int i = 2; i < argc; ++i) if (std::string_view(argv[i]) == option) return true;
+            return false;
+        };
+        const bool all_visible = benchmark && has_option("--all-visible");
+        const bool fixed_step = benchmark && has_option("--fixed-step");
         const auto output = std::filesystem::path(record ? "temp/usd-viewer-recording" : physics_test ? "temp/usd-viewer-physics-e2e"
                                                                                                       : "temp/usd-viewer-e2e") /
                             record_scene.stem() /
-                            ((toon ? backend + "-toon" : backend) + (physics_mode.empty() ? (jolt ? "-jolt" : "") : "-" + physics_mode));
+                            ((toon ? backend + "-toon" : backend) + (physics_mode.empty() ? "" : "-" + physics_mode) + (cpu_skinning ? "-cpu-skinning" : "") + (all_visible ? "-all-visible" : "") + (fixed_step ? "-fixed-step" : ""));
         std::filesystem::create_directories(output);
         std::vector<examples::test::RecordedFrame> tape;
         if (benchmark) {
             examples::test::Session session(runtime, type, output, false, tape, true, record_scene,
-                                            examples::RendererType::Toon, false);
+                                            examples::RendererType::Toon, fixed_step, false, false);
             const unsigned          frames = argc > 4 ? std::stoul(argv[4]) : 300;
             examples::test::Require(frames > 0, "Benchmark requires frames");
-            session.Benchmark(frames, jolt);
+            session.Benchmark(frames, physics_mode, cpu_skinning, all_visible, has_option("--gpu-palette"));
             return 0;
         }
         if (physics_test) {
@@ -495,7 +555,7 @@ int main(int argc, char** argv) {
             for (bool replay : {false, true}) {
                 examples::test::Session session(runtime, type, output, replay, tape, false, record_scene,
                                                 examples::RendererType::Toon);
-                session.PhysicsJourney(jolt);
+                session.PhysicsJourney(has_option("--gpu-palette"));
             }
             std::println("PASS: {} physics ticks replayed with identical state and PNG bytes", tape.size());
             return 0;
@@ -507,7 +567,7 @@ int main(int argc, char** argv) {
                 session.RecordAnimation();
             else
                 session.RecordScene(argc > 4 ? std::stoul(argv[4]) : 1200,
-                                    argc > 5 ? std::stoul(argv[5]) : 8, physics_mode);
+                                    argc > 5 ? std::stoul(argv[5]) : 8, physics_mode, argc > 8 ? argv[8] : "front");
             return 0;
         }
         {
