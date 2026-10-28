@@ -130,6 +130,5 @@ struct RigContact {
     int body_a = -1, body_b = -1;
 };
 
-enum class RigBackend { Bullet, Jolt };
 
 }  // namespace hitagi::physics

@@ -1,10 +1,14 @@
+module;
+#include "interop/tracy_macros.hpp"
+
 export module physics:character;
+import interop.tracy;
 import std;
 import math;
 import ecs;
 import asset;
 import :types;
-import :rig;
+import :world;
 
 namespace hitagi::physics {
 using asset::AnimationPlayer;
@@ -15,9 +19,8 @@ using asset::Transform;
 export namespace hitagi::physics {
 // The owner and joints are Scene entities with Transform/RelationShip.
 // Skeleton topology stays fixed for this component's lifetime; reset rebuilds
-// the physics world and binding caches after parameter/backend changes.
+// the physics world and binding caches after parameter changes.
 struct CharacterPhysics {
-    RigBackend                backend = RigBackend::Bullet;
     std::vector<ecs::Entity>  joints;
     std::vector<RigBody>      bodies;
     std::vector<RigJoint>     constraints;
@@ -86,13 +89,20 @@ void CharacterPhysicsSystem::ConfigureSchedule(ecs::Schedule& schedule) {
             double delta = schedule.GetDeltaSeconds();
             if (owner.Has<AnimationPlayer>()) {
                 const auto& player = owner.Get<AnimationPlayer>();
-                if (rig.last_time >= 0.0 &&
-                    std::abs(player.time - rig.last_time - (player.playing ? delta * player.speed : 0.0)) > 1e-5)
+                double expected = rig.last_time + (player.playing ? delta * player.speed : 0.0);
+                // Reaching the end of a non-looping clip is normal playback, not a seek.
+                // Loop wraps still reset secondary motion at the discontinuity.
+                if (player.clip && !player.looping)
+                    expected = asset::ResolveAnimationTime(expected, player.clip->GetDuration(), false);
+                if (rig.last_time >= 0.0 && std::abs(player.time - expected) > 1e-5)
                     rig.reset = true;
                 rig.last_time = player.time;
                 if (!player.playing) delta = 0;
             }
-            if (delta > 0.25) rig.reset = true;
+            if (!std::isfinite(delta) || delta < 0.0)
+                throw std::invalid_argument("Invalid character physics delta");
+            // A slow render frame must not recreate and warm up the physics world.
+            // Explicit resets and animation discontinuities are handled separately.
             const auto owner_world   = CharacterJointWorld(owner);
             const auto owner_inverse = math::inverse(owner_world);
             rig.input_pose.clear();
@@ -141,6 +151,7 @@ void CharacterPhysicsSystem::ConfigureSchedule(ecs::Schedule& schedule) {
                     anchors.emplace_back(joint_world[body.joint] * body.bone_offset);
             }
             const auto apply = [&] {
+                ZoneScopedNS("CharacterPhysics.ApplyPose", 0);
                 // Skeleton order allows child local transforms to see the solved parent.
                 for (unsigned j = 0; j < rig.joints.size(); ++j) {
                     const int   parent       = rig.parent_indices[j];
@@ -167,8 +178,9 @@ void CharacterPhysicsSystem::ConfigureSchedule(ecs::Schedule& schedule) {
             };
             constexpr float dt = 1.0f / 120.0f;
             if (rig.reset) {
+                ZoneScopedNS("CharacterPhysics.ResetAndWarmup", 0);
                 // Recreate to clear constraint warm starts and contact manifolds, too.
-                rig.world = std::make_shared<RigWorld>(rig.bodies, rig.constraints, rig.gravity, rig.backend);
+                rig.world = std::make_shared<RigWorld>(rig.bodies, rig.constraints, rig.gravity);
                 rig.world->Reset(anchors);
                 rig.previous_anchors = anchors;
                 rig.remainder        = 0;
@@ -178,11 +190,17 @@ void CharacterPhysicsSystem::ConfigureSchedule(ecs::Schedule& schedule) {
                 }
                 rig.reset = false;
             }
-            rig.remainder += std::min(delta, 0.25);
-            const auto steps = static_cast<unsigned>((rig.remainder + 1e-8) * 120.0);
-            rig.remainder -= steps / 120.0;
+            // Secondary motion gets at most eight 120 Hz steps per rendered frame.
+            // Drop excess wall time instead of carrying an ever-growing backlog;
+            // kinematic anchors still interpolate all the way to the current pose.
+            constexpr unsigned max_steps = 8;
+            rig.remainder += std::min(delta, max_steps / 120.0);
+            const auto steps = std::min(max_steps, static_cast<unsigned>((rig.remainder + 1e-8) * 120.0));
+            rig.remainder = std::max(0.0, rig.remainder - steps / 120.0);
+            TracyPlot("CharacterPhysics.Substeps", static_cast<std::int64_t>(steps));
             std::vector<math::mat4f> interpolated(anchors.size());
             for (unsigned step = 0; step < steps; ++step) {
+                ZoneScopedNS("CharacterPhysics.Substep", 0);
                 const float t = static_cast<float>(step + 1) / steps;
                 for (unsigned i = 0; i < anchors.size(); ++i)
                     if (rig.bodies[i].mode == 0)
@@ -197,7 +215,7 @@ void CharacterPhysicsSystem::ConfigureSchedule(ecs::Schedule& schedule) {
         });
     });
     schedule.SetOrder("restore_character_physics", "advance_animations");
-    schedule.SetOrder("animate_targets", "solve_character_physics");
+    schedule.SetOrder("apply_animation_poses", "solve_character_physics");
     schedule.SetOrder("solve_character_physics", "update_local_matrix");
 }
 }  // namespace hitagi::physics

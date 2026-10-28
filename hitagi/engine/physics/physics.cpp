@@ -1,11 +1,13 @@
 module;
 #include "interop/jolt_macros.hpp"
+#include "interop/tracy_macros.hpp"
 
 #include <cstdarg>
 #include <cstdio>
 
 export module physics:world;
 import interop.jolt;
+import interop.tracy;
 
 import std;
 import core;
@@ -52,20 +54,23 @@ public:
     auto GetGravity() const -> math::vec3f;
 
 private:
-    friend class JoltRigWorld;
+    friend class RigWorld;
     struct Impl;
     std::unique_ptr<Impl> m_Impl;
 };
 
-class JoltRigWorld {
+class RigWorld {
 public:
-    JoltRigWorld(std::span<const RigBody>, std::span<const RigJoint>, math::vec3f gravity);
-    ~JoltRigWorld() = default;
+    RigWorld(std::span<const RigBody>, std::span<const RigJoint>, math::vec3f gravity);
+    ~RigWorld();
+    RigWorld(const RigWorld&) = delete;
+    auto operator=(const RigWorld&) -> RigWorld& = delete;
     void Reset(std::span<const math::mat4f> poses);
     void Step(std::span<const math::mat4f> anchors, float seconds);
     auto Pose(unsigned body) const -> math::mat4f;
     void SetPosition(unsigned body, math::vec3f position);
     auto DeepestContact() const -> RigContact;
+    auto MaxPenetration() const -> float { return DeepestContact().penetration; }
 private:
     struct Impl;
     std::unique_ptr<Impl> m_Impl;
@@ -489,7 +494,7 @@ auto PhysicsWorld::GetGravity() const -> math::vec3f {
 }
 
 
-struct JoltRigWorld::Impl {
+struct RigWorld::Impl {
     // Reuse the engine's Jolt lifetime, broadphase and task adapter.
     core::JobSystem jobs{1};
     PhysicsWorld world;
@@ -532,7 +537,9 @@ struct JoltRigWorld::Impl {
     }
 };
 
-JoltRigWorld::JoltRigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> joints, math::vec3f gravity)
+RigWorld::~RigWorld() = default;
+
+RigWorld::RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> joints, math::vec3f gravity)
     : m_Impl(std::make_unique<Impl>(gravity)) {
     auto& d = *m_Impl;
     auto& system = d.world.m_Impl->physics_system;
@@ -616,7 +623,7 @@ JoltRigWorld::JoltRigWorld(std::span<const RigBody> bodies, std::span<const RigJ
     }
     d.world.OptimizeBroadPhase();
 }
-void JoltRigWorld::Reset(std::span<const math::mat4f> poses) {
+void RigWorld::Reset(std::span<const math::mat4f> poses) {
     auto& d = *m_Impl;
     if (poses.size() != d.bodies.size()) throw std::invalid_argument("Rig pose count mismatch");
     auto& bi = d.world.m_Impl->physics_system.GetBodyInterface();
@@ -630,7 +637,8 @@ void JoltRigWorld::Reset(std::span<const math::mat4f> poses) {
     for (auto& joint : d.joints) joint->ResetWarmStart();
     d.contacts.witnesses.clear();
 }
-void JoltRigWorld::Step(std::span<const math::mat4f> anchors, float seconds) {
+void RigWorld::Step(std::span<const math::mat4f> anchors, float seconds) {
+    ZoneScopedNS("Jolt.RigStep", 0);
     auto& d = *m_Impl;
     if (anchors.size() != d.bodies.size() || !std::isfinite(seconds) || seconds <= 0)
         throw std::invalid_argument("Invalid rigid rig step");
@@ -650,15 +658,15 @@ void JoltRigWorld::Step(std::span<const math::mat4f> anchors, float seconds) {
     if (d.world.Step(seconds) != PhysicsUpdateError::None)
         throw std::runtime_error("Jolt rig exceeded simulation capacity");
 }
-auto JoltRigWorld::Pose(unsigned index) const -> math::mat4f {
+auto RigWorld::Pose(unsigned index) const -> math::mat4f {
     const auto* body = m_Impl->bodies.at(index);
     return math::translate(FromJoltPosition(body->GetPosition())) * math::rotate(FromJolt(body->GetRotation()));
 }
-void JoltRigWorld::SetPosition(unsigned index, math::vec3f position) {
+void RigWorld::SetPosition(unsigned index, math::vec3f position) {
     m_Impl->world.m_Impl->physics_system.GetBodyInterface().SetPosition(
         m_Impl->bodies.at(index)->GetID(),ToJoltPosition(position),JPH::EActivation::Activate);
 }
-auto JoltRigWorld::DeepestContact() const -> RigContact {
+auto RigWorld::DeepestContact() const -> RigContact {
     RigContact result;
     for (const auto& w : m_Impl->contacts.witnesses) {
         const auto a = m_Impl->bodies[w.a]->GetCenterOfMassTransform() * w.local_a;
