@@ -134,7 +134,46 @@ struct Matrix {
         for (unsigned row = 0; row < D; row++) data[row] /= rhs;
         return *this;
     }
+    // Pairwise products; unlike the broadcast overload, both inputs have equal length.
+    static auto mul_batch(std::span<const Matrix> lhs, std::span<const Matrix> rhs) -> std::pmr::vector<Matrix> {
+        if (lhs.size() != rhs.size()) throw std::invalid_argument("Matrix batch sizes must match");
+        std::pmr::vector<Matrix> result(lhs.size());
+        if (lhs.empty()) return result;
 #if defined(USE_ISPC)
+        if constexpr (IspcAccelerable<T> && D <= std::numeric_limits<std::int32_t>::max()) {
+            static_assert(sizeof(Matrix) == sizeof(T) * D * D);
+            ispc::matrix_mult_batch(lhs.front(), rhs.front(), result.front(), D, lhs.size(), false);
+            return result;
+        }
+#endif
+        for (std::size_t i = 0; i < lhs.size(); ++i) result[i] = lhs[i] * rhs[i];
+        return result;
+    }
+
+    // Broadcast this matrix over rhs. Storage is owned by the returned PMR vector.
+    auto operator*(std::span<const Matrix> rhs) const -> std::pmr::vector<Matrix> {
+        std::pmr::vector<Matrix> result(rhs.size());
+        if (rhs.empty()) return result;
+#if defined(USE_ISPC)
+        if constexpr (IspcAccelerable<T> && D <= std::numeric_limits<std::int32_t>::max()) {
+            static_assert(sizeof(Matrix) == sizeof(T) * D * D);
+            ispc::matrix_mult_batch(*this, rhs.front(), result.front(), D, rhs.size(), true);
+            return result;
+        }
+#endif
+        for (std::size_t i = 0; i < rhs.size(); ++i) result[i] = *this * rhs[i];
+        return result;
+    }
+
+#if defined(USE_ISPC)
+    Matrix operator*(const Matrix& rhs) const noexcept
+        requires (IspcAccelerable<T> && D == 4)
+    {
+        Matrix result;
+        ispc::matrix4_mult(*this, rhs, result);
+        return result;
+    }
+
     Matrix operator+(const Matrix& rhs) const noexcept
         requires IspcAccelerable<T>
     {

@@ -1,7 +1,20 @@
 #include "ispc_math.hpp"
 #include "vector.ispc.h"
+#include "matrix.ispc.h"
 
 namespace ispc {
+void matrix4_mult(const float* a, const float* b, float* out) {
+    matrix4_mult_float(a, b, out);
+}
+void matrix4_mult(const double* a, const double* b, double* out) {
+    matrix4_mult_double(a, b, out);
+}
+void matrix_mult_batch(const float* a, const float* b, float* out, std::int32_t dimension, std::uint64_t count, bool broadcast_lhs) {
+    matrix_mult_batch_float(a, b, out, dimension, count, broadcast_lhs);
+}
+void matrix_mult_batch(const double* a, const double* b, double* out, std::int32_t dimension, std::uint64_t count, bool broadcast_lhs) {
+    matrix_mult_batch_double(a, b, out, dimension, count, broadcast_lhs);
+}
 // float
 void vector_add_assign(float* a, const float* b, const int32_t size) {
     vector_add_assign_float(a, b, size);

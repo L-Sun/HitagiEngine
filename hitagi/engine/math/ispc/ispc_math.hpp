@@ -7,6 +7,10 @@ concept IspcAccelerable =
     std::same_as<float, T> || std::same_as<double, T>;
 
 namespace ispc {
+void matrix4_mult(const float* a, const float* b, float* out);
+void matrix4_mult(const double* a, const double* b, double* out);
+void matrix_mult_batch(const float* a, const float* b, float* out, std::int32_t dimension, std::uint64_t count, bool broadcast_lhs);
+void matrix_mult_batch(const double* a, const double* b, double* out, std::int32_t dimension, std::uint64_t count, bool broadcast_lhs);
 // float
 void  vector_add_assign(float* a, const float* b, const int32_t size);
 void  vector_add(const float* a, const float* b, float* out, const int32_t size);
