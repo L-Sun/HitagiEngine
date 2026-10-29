@@ -15,11 +15,7 @@ using namespace hitagi::asset;
 namespace animation_test {
 // These asset tests intentionally inspect CPU vertices. Rendering tests exercise
 // the default GPU path independently.
-void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt = 0) {
-    for (auto entity : world.GetEntityManager().GetEntities<asset::SkinnedMesh>())
-        entity.Get<asset::SkinnedMesh>().cpu_deformation = true;
-    world.Update(jobs, dt);
-}
+void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt = 0);
 }
 
 namespace animation_test {
@@ -304,7 +300,7 @@ TEST(SkinningResidencyTest, SceneLoadsReplacementSnapshotAndUnloadsCurrentStream
     joint.Get<Transform>().position.x = 1.0f;
     animation_test::UpdateCpuReference(scene.GetWorld(), jobs);
     const auto current = instance.Get<SkinnedMesh>().deformed_vertices;
-    EXPECT_NE(previous, current);
+    EXPECT_NE(previous.get(), current.get());
     EXPECT_EQ(current->GetLoadState(), ResourceLoadState::Unloaded);
     scene.Load(context);
     EXPECT_EQ(current->GetLoadState(), ResourceLoadState::Loaded);
@@ -349,4 +345,14 @@ TEST_F(SkeletalAnimationTest, PaletteCacheRespectsMeshSpaceAndBindingsAcrossFram
     check();
     EXPECT_NE(old, a.Get<SkinnedMesh>().pose);
     EXPECT_NEAR(a.Get<SkinnedMesh>().pose->matrices[0][0][3] - old->matrices[0][0][3], 2, 1e-5f);
+}
+
+namespace animation_test {
+// MSVC 14.51 misidentifies imported shared_ptr specializations when the
+// SkinnedMesh concept checks here precede their use in the tests above.
+void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt) {
+    for (auto entity : world.GetEntityManager().GetEntities<asset::SkinnedMesh>())
+        entity.Get<asset::SkinnedMesh>().cpu_deformation = true;
+    world.Update(jobs, dt);
+}
 }

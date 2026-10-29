@@ -26,11 +26,7 @@ TEST(CookedPoseProducerTest, RejectsUnencodedRuntimeBehavior) {
 namespace cooked_animation_test {
 // These asset tests intentionally inspect CPU vertices. Rendering tests exercise
 // the default GPU path independently.
-void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt = 0) {
-    for (auto entity : world.GetEntityManager().GetEntities<asset::SkinnedMesh>())
-        entity.Get<asset::SkinnedMesh>().cpu_deformation = true;
-    world.Update(jobs, dt);
-}
+void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt = 0);
 }
 
 namespace cooked_animation_test {
@@ -400,4 +396,14 @@ TEST_F(CookedAnimationTest, CurrentSnapshotPreservesMaterialOverridesAndComponen
     EXPECT_EQ(Find(*fallback, "mesh0").Get<MeshComponent>().material_overrides[0], nullptr);
     overrides = {material, clone};
     EXPECT_THROW(CookEditorScene(*scene), std::runtime_error);
+}
+
+namespace cooked_animation_test {
+// Keep these concept checks after the tests to avoid MSVC 14.51 imported
+// shared_ptr specialization mismatches (see animation_test.cpp).
+void UpdateCpuReference(ecs::World& world, core::JobSystem& jobs, double dt) {
+    for (auto entity : world.GetEntityManager().GetEntities<asset::SkinnedMesh>())
+        entity.Get<asset::SkinnedMesh>().cpu_deformation = true;
+    world.Update(jobs, dt);
+}
 }

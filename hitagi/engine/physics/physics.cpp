@@ -28,7 +28,6 @@ public:
     PhysicsWorld(PhysicsWorld&&)                 = delete;
     PhysicsWorld& operator=(PhysicsWorld&&)      = delete;
 
-
     auto Step(float delta_time, int collision_steps = 1) -> PhysicsUpdateError;
     void OptimizeBroadPhase();
 
@@ -62,8 +61,9 @@ private:
 class RigWorld {
 public:
     RigWorld(std::span<const RigBody>, std::span<const RigJoint>, math::vec3f gravity);
-    ~RigWorld();
     RigWorld(const RigWorld&) = delete;
+    ~RigWorld()               = default;
+
     auto operator=(const RigWorld&) -> RigWorld& = delete;
     void Reset(std::span<const math::mat4f> poses);
     void Step(std::span<const math::mat4f> anchors, float seconds);
@@ -71,6 +71,7 @@ public:
     void SetPosition(unsigned body, math::vec3f position);
     auto DeepestContact() const -> RigContact;
     auto MaxPenetration() const -> float { return DeepestContact().penetration; }
+
 private:
     struct Impl;
     std::unique_ptr<Impl> m_Impl;
@@ -79,7 +80,6 @@ private:
 }  // namespace hitagi::physics
 
 namespace hitagi::physics {
-
 
 std::mutex  g_JoltRuntimeMutex;
 std::size_t g_JoltRuntimeRefCount = 0;
@@ -236,7 +236,7 @@ protected:
                 m_JobSystem.Submit([this, job] {
                     struct Completion {
                         CoreJobSystemAdapter& owner;
-                        Job* job;
+                        Job*                  job;
                         ~Completion() {
                             job->Release();
                             owner.FinishJob();
@@ -261,10 +261,10 @@ private:
         std::scoped_lock lock(m_Mutex);
         if (--m_Pending == 0) m_Completed.notify_all();
     }
-    core::JobSystem& m_JobSystem;
-    std::mutex m_Mutex;
+    core::JobSystem&        m_JobSystem;
+    std::mutex              m_Mutex;
     std::condition_variable m_Completed;
-    std::size_t m_Pending = 0;
+    std::size_t             m_Pending = 0;
 };
 
 auto ToJolt(math::vec3f value) noexcept -> JPH::Vec3 {
@@ -343,7 +343,6 @@ auto CreateShape(const ShapeDesc& desc) -> JPH::RefConst<JPH::Shape> {
     }
     return result.Get();
 }
-
 
 struct PhysicsWorld::Impl {
     // Jolt's simulation barrier can finish before the executor releases its Job
@@ -493,22 +492,24 @@ auto PhysicsWorld::GetGravity() const -> math::vec3f {
     return FromJolt(m_Impl->physics_system.GetGravity());
 }
 
-
 struct RigWorld::Impl {
     // Reuse the engine's Jolt lifetime, broadphase and task adapter.
-    core::JobSystem jobs{1};
-    PhysicsWorld world;
-    std::vector<RigBody> descriptions;
-    std::vector<JPH::Body*> bodies;
+    core::JobSystem                              jobs{1};
+    PhysicsWorld                                 world;
+    std::vector<RigBody>                         descriptions;
+    std::vector<JPH::Body*>                      bodies;
     std::vector<JPH::Ref<JPH::SixDOFConstraint>> joints;
-    JPH::Ref<JPH::GroupFilterTable> filter;
+    JPH::Ref<JPH::GroupFilterTable>              filter;
     struct Contacts final : JPH::ContactListener {
-        struct Witness { unsigned a, b; JPH::Vec3 local_a, local_b, normal; };
-        std::mutex mutex;
+        struct Witness {
+            unsigned  a, b;
+            JPH::Vec3 local_a, local_b, normal;
+        };
+        std::mutex           mutex;
         std::vector<Witness> witnesses;
-        void Capture(const JPH::Body& a, const JPH::Body& b,
-                     const JPH::ContactManifold& m, JPH::ContactSettings& settings) {
-            settings.mCombinedFriction = std::clamp(a.GetFriction() * b.GetFriction(), 0.0f, 10.0f);
+        void                 Capture(const JPH::Body& a, const JPH::Body& b,
+                                     const JPH::ContactManifold& m, JPH::ContactSettings& settings) {
+            settings.mCombinedFriction    = std::clamp(a.GetFriction() * b.GetFriction(), 0.0f, 10.0f);
             settings.mCombinedRestitution = a.GetRestitution() * b.GetRestitution();
             const std::scoped_lock lock(mutex);
             for (unsigned i = 0; i < m.mRelativeContactPointsOn1.size(); ++i)
@@ -518,12 +519,12 @@ struct RigWorld::Impl {
                                        m.mWorldSpaceNormal);
         }
         void OnContactAdded(const JPH::Body& a, const JPH::Body& b,
-                            const JPH::ContactManifold& m, JPH::ContactSettings& s) override { Capture(a,b,m,s); }
+                            const JPH::ContactManifold& m, JPH::ContactSettings& s) override { Capture(a, b, m, s); }
         void OnContactPersisted(const JPH::Body& a, const JPH::Body& b,
-                                const JPH::ContactManifold& m, JPH::ContactSettings& s) override { Capture(a,b,m,s); }
+                                const JPH::ContactManifold& m, JPH::ContactSettings& s) override { Capture(a, b, m, s); }
     } contacts;
     explicit Impl(math::vec3f gravity) : world(jobs, PhysicsWorldDesc{
-        .name="Character Jolt", .gravity=gravity, .max_body_pairs=4096, .max_contact_constraints=4096}) {}
+                                                         .name = "Character Jolt", .gravity = gravity, .max_body_pairs = 4096, .max_contact_constraints = 4096}) {}
     ~Impl() {
         auto& system = world.m_Impl->physics_system;
         system.SetContactListener(nullptr);
@@ -537,13 +538,11 @@ struct RigWorld::Impl {
     }
 };
 
-RigWorld::~RigWorld() = default;
-
 RigWorld::RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> joints, math::vec3f gravity)
     : m_Impl(std::make_unique<Impl>(gravity)) {
-    auto& d = *m_Impl;
-    auto& system = d.world.m_Impl->physics_system;
-    auto settings = system.GetPhysicsSettings();
+    auto& d                    = *m_Impl;
+    auto& system               = d.world.m_Impl->physics_system;
+    auto  settings             = system.GetPhysicsSettings();
     settings.mNumVelocitySteps = 20;
     system.SetPhysicsSettings(settings);
     system.SetContactListener(&d.contacts);
@@ -552,11 +551,11 @@ RigWorld::RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> jo
     for (unsigned a = 0; a < bodies.size(); ++a)
         for (unsigned b = a + 1; b < bodies.size(); ++b)
             if (!(bodies[a].group & bodies[b].mask) || !(bodies[b].group & bodies[a].mask))
-                d.filter->DisableCollision(a,b);
+                d.filter->DisableCollision(a, b);
     for (const auto& joint : joints) {
         if (joint.a >= bodies.size() || joint.b >= bodies.size() || joint.a == joint.b)
             throw std::invalid_argument("Invalid rigid rig joint pair");
-        d.filter->DisableCollision(joint.a,joint.b);
+        d.filter->DisableCollision(joint.a, joint.b);
     }
     for (unsigned i = 0; i < bodies.size(); ++i) {
         const auto& desc = bodies[i];
@@ -565,23 +564,28 @@ RigWorld::RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> jo
             desc.size.x <= 0 || (desc.shape != 0 && desc.size.y <= 0) || (desc.shape == 1 && desc.size.z <= 0))
             throw std::invalid_argument("Invalid rigid rig body");
         JPH::RefConst<JPH::Shape> shape;
-        if (desc.shape == 0) shape = JPH::SphereShapeSettings(desc.size.x).Create().Get();
-        else if (desc.shape == 1) shape = JPH::BoxShapeSettings(ToJolt(desc.size),
-            std::min({0.04f, desc.size.x, desc.size.y, desc.size.z})).Create().Get();
-        else shape = JPH::CapsuleShapeSettings(desc.size.y * 0.5f, desc.size.x).Create().Get();
-        const auto [p,q,s] = math::decompose(desc.bind);
-        const bool dynamic = desc.mode != 0 && desc.mass > 0;
+        if (desc.shape == 0)
+            shape = JPH::SphereShapeSettings(desc.size.x).Create().Get();
+        else if (desc.shape == 1)
+            shape = JPH::BoxShapeSettings(ToJolt(desc.size),
+                                          std::min({0.04f, desc.size.x, desc.size.y, desc.size.z}))
+                        .Create()
+                        .Get();
+        else
+            shape = JPH::CapsuleShapeSettings(desc.size.y * 0.5f, desc.size.x).Create().Get();
+        const auto [p, q, s]              = math::decompose(desc.bind);
+        const bool                dynamic = desc.mode != 0 && desc.mass > 0;
         JPH::BodyCreationSettings creation(shape.GetPtr(), ToJoltPosition(p), ToJolt(q),
-            dynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Kinematic,
-            dynamic ? ObjectLayers::Moving : ObjectLayers::NonMoving);
+                                           dynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Kinematic,
+                                           dynamic ? ObjectLayers::Moving : ObjectLayers::NonMoving);
         creation.mAllowSleeping = false;
-        creation.mFriction = desc.friction;
-        creation.mRestitution = desc.restitution;
+        creation.mFriction      = desc.friction;
+        creation.mRestitution   = desc.restitution;
         creation.mLinearDamping = creation.mAngularDamping = 0;
-        creation.mUserData = i;
-        creation.mCollisionGroup = JPH::CollisionGroup(d.filter.GetPtr(), 0, i);
+        creation.mUserData                                 = i;
+        creation.mCollisionGroup                           = JPH::CollisionGroup(d.filter.GetPtr(), 0, i);
         if (dynamic) {
-            creation.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
+            creation.mOverrideMassProperties       = JPH::EOverrideMassProperties::CalculateInertia;
             creation.mMassPropertiesOverride.mMass = desc.mass;
         }
         auto* body = system.GetBodyInterface().CreateBody(creation);
@@ -591,9 +595,9 @@ RigWorld::RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> jo
     }
     for (const auto& desc : joints) {
         JPH::SixDOFConstraintSettings c;
-        c.mSpace = JPH::EConstraintSpace::WorldSpace;
-        c.mSwingType = JPH::ESwingType::Pyramid;
-        const auto [p,q,s] = math::decompose(desc.bind);
+        c.mSpace             = JPH::EConstraintSpace::WorldSpace;
+        c.mSwingType         = JPH::ESwingType::Pyramid;
+        const auto [p, q, s] = math::decompose(desc.bind);
         c.mPosition1 = c.mPosition2 = ToJoltPosition(p);
         c.mAxisX1 = c.mAxisX2 = ToJolt(q) * JPH::Vec3::sAxisX();
         c.mAxisY1 = c.mAxisY2 = ToJolt(q) * JPH::Vec3::sAxisY();
@@ -601,17 +605,19 @@ RigWorld::RigWorld(std::span<const RigBody> bodies, std::span<const RigJoint> jo
             const auto a = static_cast<JPH::SixDOFConstraintSettings::EAxis>(axis);
             // Bullet Generic6Dof's Euler extraction has the opposite sign to
             // Jolt's physical twist/swing angle. Preserve asymmetric intervals.
-            const float lo = axis < 3 ? desc.linear_min[axis] : -desc.angular_max[axis-3];
-            const float hi = axis < 3 ? desc.linear_max[axis] : -desc.angular_min[axis-3];
-            if (lo > hi) c.MakeFreeAxis(a);
+            const float lo = axis < 3 ? desc.linear_min[axis] : -desc.angular_max[axis - 3];
+            const float hi = axis < 3 ? desc.linear_max[axis] : -desc.angular_min[axis - 3];
+            if (lo > hi)
+                c.MakeFreeAxis(a);
             else if (lo == hi) {
                 if (lo != 0) throw std::invalid_argument("Nonzero locked Jolt axis requires a shifted frame");
                 c.MakeFixedAxis(a);
-            } else c.SetLimitedAxis(a, lo, hi);
-            auto& spring = c.mMotorSettings[axis].mSpringSettings;
-            spring.mMode = JPH::ESpringMode::StiffnessAndDamping;
-            spring.mStiffness = axis < 3 ? desc.linear_spring[axis] : desc.angular_spring[axis-3];
-            spring.mDamping = 0; // PMX has no SI joint viscous damping parameter.
+            } else
+                c.SetLimitedAxis(a, lo, hi);
+            auto& spring      = c.mMotorSettings[axis].mSpringSettings;
+            spring.mMode      = JPH::ESpringMode::StiffnessAndDamping;
+            spring.mStiffness = axis < 3 ? desc.linear_spring[axis] : desc.angular_spring[axis - 3];
+            spring.mDamping   = 0;  // PMX has no SI joint viscous damping parameter.
         }
         JPH::Ref<JPH::SixDOFConstraint> joint = static_cast<JPH::SixDOFConstraint*>(
             c.Create(*d.bodies[desc.a], *d.bodies[desc.b]));
@@ -628,10 +634,10 @@ void RigWorld::Reset(std::span<const math::mat4f> poses) {
     if (poses.size() != d.bodies.size()) throw std::invalid_argument("Rig pose count mismatch");
     auto& bi = d.world.m_Impl->physics_system.GetBodyInterface();
     for (unsigned i = 0; i < poses.size(); ++i) {
-        const auto [p,q,s] = math::decompose(poses[i]);
-        const auto id = d.bodies[i]->GetID();
-        bi.SetPositionAndRotation(id,ToJoltPosition(p),ToJolt(q),JPH::EActivation::Activate);
-        bi.SetLinearAndAngularVelocity(id,JPH::Vec3::sZero(),JPH::Vec3::sZero());
+        const auto [p, q, s] = math::decompose(poses[i]);
+        const auto id        = d.bodies[i]->GetID();
+        bi.SetPositionAndRotation(id, ToJoltPosition(p), ToJolt(q), JPH::EActivation::Activate);
+        bi.SetLinearAndAngularVelocity(id, JPH::Vec3::sZero(), JPH::Vec3::sZero());
         bi.InvalidateContactCache(id);
     }
     for (auto& joint : d.joints) joint->ResetWarmStart();
@@ -646,10 +652,10 @@ void RigWorld::Step(std::span<const math::mat4f> anchors, float seconds) {
     for (unsigned i = 0; i < anchors.size(); ++i) {
         auto* body = d.bodies[i];
         if (d.descriptions[i].mode == 0) {
-            const auto [p,q,s] = math::decompose(anchors[i]);
-            bi.MoveKinematic(body->GetID(),ToJoltPosition(p),ToJolt(q),seconds);
+            const auto [p, q, s] = math::decompose(anchors[i]);
+            bi.MoveKinematic(body->GetID(), ToJoltPosition(p), ToJolt(q), seconds);
         } else if (body->IsDynamic()) {
-            auto coefficient = [seconds](float v) { return (1.0f-std::pow(1.0f-std::clamp(v,0.0f,1.0f),seconds))/seconds; };
+            auto coefficient = [seconds](float v) { return (1.0f - std::pow(1.0f - std::clamp(v, 0.0f, 1.0f), seconds)) / seconds; };
             body->GetMotionProperties()->SetLinearDamping(coefficient(d.descriptions[i].linear_damping));
             body->GetMotionProperties()->SetAngularDamping(coefficient(d.descriptions[i].angular_damping));
         }
@@ -664,14 +670,14 @@ auto RigWorld::Pose(unsigned index) const -> math::mat4f {
 }
 void RigWorld::SetPosition(unsigned index, math::vec3f position) {
     m_Impl->world.m_Impl->physics_system.GetBodyInterface().SetPosition(
-        m_Impl->bodies.at(index)->GetID(),ToJoltPosition(position),JPH::EActivation::Activate);
+        m_Impl->bodies.at(index)->GetID(), ToJoltPosition(position), JPH::EActivation::Activate);
 }
 auto RigWorld::DeepestContact() const -> RigContact {
     RigContact result;
     for (const auto& w : m_Impl->contacts.witnesses) {
-        const auto a = m_Impl->bodies[w.a]->GetCenterOfMassTransform() * w.local_a;
-        const auto b = m_Impl->bodies[w.b]->GetCenterOfMassTransform() * w.local_b;
-        const float depth = JPH::Vec3(a-b).Dot(w.normal);
+        const auto  a     = m_Impl->bodies[w.a]->GetCenterOfMassTransform() * w.local_a;
+        const auto  b     = m_Impl->bodies[w.b]->GetCenterOfMassTransform() * w.local_b;
+        const float depth = JPH::Vec3(a - b).Dot(w.normal);
         if (depth > result.penetration) result = {depth, int(w.a), int(w.b)};
     }
     return result;
