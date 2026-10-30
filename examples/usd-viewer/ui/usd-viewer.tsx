@@ -40,6 +40,7 @@ function Viewer() {
     triangles: 0,
     error: "",
     status: "Starting",
+    overlayLegend: "",
     animations: 0,
     physicsBodies: 0,
     physicsBackend: "",
@@ -113,11 +114,12 @@ function Viewer() {
   onCleanup(() => bridge.dispose());
   const right = () => (size().w >= 900 ? 248 : 0);
   const left = () => Math.min(236, Math.max(180, size().w * 0.25));
+  const overlayHeight = () => state().overlayLegend ? state().overlayLegend.split("\n").length * 21 : 0;
   const viewport = (): Rect => [
     left() + 12,
-    112,
+    112 + overlayHeight(),
     Math.max(1, size().w - left() - right() - 24),
-    Math.max(1, size().h - 180 - (state().animations ? 40 : 0)),
+    Math.max(1, size().h - 180 - overlayHeight() - (state().animations ? 40 : 0)),
   ];
   registerControl(
     () => "viewport",
@@ -355,6 +357,9 @@ function Viewer() {
           Open a USD scene to begin
         </Label>
       </Show>
+      <For each={(state().overlayLegend || "").split("\n").filter(Boolean)}>{(line, index) =>
+        <Label rect={[left() + 20, 112 + index() * 21, Math.max(1, viewport()[2] - 30), 20]} color={line.slice(0, 7)}>{line.slice(8)}</Label>
+      }</For>
       <Show when={state().animations > 0}>
         <Button
           id="animation.toggle"
@@ -385,7 +390,7 @@ function Viewer() {
       </Show>
       <Button
         id="camera.fit"
-        label="Frame [F]"
+        label="Frame"
         rect={[left() + 12, size().h - 58, 88, 24]}
         action={() => command("fit")}
       />

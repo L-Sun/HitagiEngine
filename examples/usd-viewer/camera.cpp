@@ -10,7 +10,9 @@ export namespace hitagi::examples {
 class OrbitController {
 public:
     auto Eye() const -> math::vec3f { return m_Eye; }
+    auto Center() const -> math::vec3f { return m_Center; }
     auto LookDirection() const -> math::vec3f { return m_LookDirection; }
+    void SetCenter(asset::CameraComponent& camera, math::vec3f center) { m_Center = center; UpdatePose(camera); }
     void Fit(asset::CameraComponent& camera, const math::AABBf& bounds) {
         m_Center = bounds.Center();
         m_Radius = std::max(bounds.Extents().norm(), 0.01f);
@@ -47,7 +49,9 @@ public:
                         scale;
         }
         const float wheel = enabled ? input.GetFloatDelta(hid::MouseEvent::SCROLL_Y) : 0.0f;
-        m_Zoom            = std::clamp(m_Zoom * std::exp(-wheel * 0.15f), 0.1f, 20.0f);
+        // No user-visible close-up limit; retain only a numerical guard against
+        // a zero view direction. Far zoom keeps its existing scene-scale limit.
+        m_Zoom            = std::clamp(m_Zoom * std::exp(-wheel * 0.15f), 1e-6f, 20.0f);
 
         camera.aspect = aspect;
         UpdatePose(camera);
@@ -68,6 +72,7 @@ private:
         const float half_fov =
             std::atan(std::tan(parameters.horizontal_fov * 0.5f) / std::max(parameters.aspect, 1.0f));
         const float       distance = m_Radius * 1.15f * m_Zoom / std::sin(half_fov);
+        camera.near_clip=std::max(1e-7f,std::min(m_Radius*.001f,distance*.01f));
         const math::vec3f direction{
             std::sin(m_Yaw) * std::cos(m_Pitch),
             std::sin(m_Pitch),

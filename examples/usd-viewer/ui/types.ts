@@ -32,6 +32,7 @@ export type ViewerState = {
   triangles: number;
   error: string;
   status: string;
+  overlayLegend: string;
   animations: number;
   physicsBodies: number;
   physicsBackend: string;

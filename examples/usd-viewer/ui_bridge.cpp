@@ -76,11 +76,11 @@ auto USDViewer::Snapshot() const -> std::string {
     }
     const auto& eye = m_Orbit.Eye();
     return std::format(
-        R"({{"kind":"viewer","path":{},"file":{},"renderer":"{}","backend":{},"debug":{},"light":{},"selected":{},"nodes":{},"inspector":{},"meshes":{},"visible":{},"triangles":{},"error":{},"status":{},"eye":[{},{},{}],"animations":{},"playing":{},"animationTime":{},"animationDuration":{},"physicsBodies":{},"physics":{},"physicsBackend":{},"fps":{:.1f}}})",
+        R"({{"kind":"viewer","path":{},"file":{},"renderer":"{}","backend":{},"debug":{},"light":{},"selected":{},"nodes":{},"inspector":{},"meshes":{},"visible":{},"triangles":{},"error":{},"status":{},"overlayLegend":{},"eye":[{},{},{}],"animations":{},"playing":{},"animationTime":{},"animationDuration":{},"physicsBodies":{},"physics":{},"physicsBackend":{},"fps":{:.1f}}})",
         JsonString(m_Path.generic_string()), JsonString(m_Path.filename().string()),
         RendererName(m_Renderer), JsonString(magic_enum::enum_name(m_Resources.device.device_type)),
         static_cast<unsigned>(m_Debug), m_Light, JsonString(EntityKey(m_Selected)), nodes, inspector, meshes, visible,
-        triangles, JsonString(m_Error), JsonString(m_Status), eye.x, eye.y, eye.z,
+        triangles, JsonString(m_Error), JsonString(m_Status), JsonString(m_OverlayLegend), eye.x, eye.y, eye.z,
         m_AnimationPlayers.size(), m_Playing, animation_time, animation_duration, physics_bodies, physics, JsonString(solver), m_Fps);
 }
 

@@ -88,7 +88,38 @@ auto USDViewer::BuildFrame(rg::RenderGraph& graph, rg::TextureHandle output) -> 
         m_Gui.DrawTexture(color, m_Viewport);
     }
     m_Gui.Compose();
-    m_GuiDraw.GuiPass(graph, output, m_Gui.GetDrawData(), true);
+    if (m_OverlayLines.empty()) {
+        m_GuiDraw.GuiPass(graph, output, m_Gui.GetDrawData(), true);
+        return graph.MoveFrom(output);
+    }
+    // Diagnostic lines are projected with the same camera as the scene. They
+    // deliberately remain visible through meshes and are clipped to the viewport.
+    // GuiPass retains the draw-data address until graph execution.
+    auto& draw_data = m_OverlayDrawData;
+    draw_data = m_Gui.GetDrawData();
+    if (!m_OverlayLines.empty() && m_Viewport.z > 0 && m_Viewport.w > 0) {
+        const auto rect = m_Gui.DisplayRect(m_Viewport);
+        const auto view = math::look_at(m_Orbit.Eye(), m_Orbit.LookDirection(), math::vec3f(0, 1, 0));
+        const auto projection = math::perspective(2.0f * std::atan(std::tan(m_Camera.horizontal_fov * .5f) / m_Camera.aspect), m_Camera.aspect, m_Camera.near_clip, m_Camera.far_clip);
+        gui::GuiDrawList lines;
+        for (const auto& line : m_OverlayLines) {
+            const auto a = projection * view * math::vec4f(line.from, 1);
+            const auto b = projection * view * math::vec4f(line.to, 1);
+            if (a.w <= 0 || b.w <= 0 || a.z < 0 || b.z < 0) continue;
+            const math::vec2f p{rect.x + (a.x / a.w + 1) * rect.z * .5f, rect.y + (1 - a.y / a.w) * rect.w * .5f};
+            const math::vec2f q{rect.x + (b.x / b.w + 1) * rect.z * .5f, rect.y + (1 - b.y / b.w) * rect.w * .5f};
+            const auto d = q - p;
+            if (d.norm() < .01f) continue;
+            const math::vec2f normal{-d.y / d.norm(), d.x / d.norm()};
+            const auto base = static_cast<std::uint32_t>(lines.vertices.size());
+            for (const auto& position : {p + normal, p - normal, q - normal, q + normal})
+                lines.vertices.push_back({.position = position, .color = line.color});
+            for (auto index : {0u, 1u, 2u, 0u, 2u, 3u}) lines.indices.push_back(base + index);
+        }
+        lines.commands.push_back({.element_count = static_cast<std::uint32_t>(lines.indices.size()), .clip_rect = {rect.x, rect.y, rect.x + rect.z, rect.y + rect.w}});
+        draw_data.draw_lists.push_back(std::move(lines));
+    }
+    m_GuiDraw.GuiPass(graph, output, draw_data, true);
     return graph.MoveFrom(output);
 }
 

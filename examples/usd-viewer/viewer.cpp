@@ -48,6 +48,11 @@ struct UiControl {
     bool        enabled = true;
 };
 
+struct WorldOverlayLine {
+    math::vec3f from, to;
+    math::Color color;
+};
+
 class USDViewer final {
 public:
     USDViewer(platform::PlatformHost& app, asset::ResourceLoadContext resources, core::IOService& file_io,
@@ -57,6 +62,18 @@ public:
     void ConfigureSchedule(ecs::Schedule& schedule);
     void SetRenderer(RendererType renderer);
     void FinishFrame();
+    // The host owns procedural animation; invoked before transform/skin evaluation.
+    void SetSceneUpdate(std::function<void(asset::Scene&, double)> update) { m_SceneUpdate = std::move(update); }
+    void SetStatus(std::string text) { m_Status = std::move(text); }
+    void SetWorldOverlay(std::span<const WorldOverlayLine> lines, std::string legend) {
+        m_OverlayLines.assign(lines.begin(), lines.end()); m_OverlayLegend = std::move(legend);
+    }
+    void SetCameraCenter(math::vec3f center) { m_Orbit.SetCenter(m_Camera, center); }
+    auto CameraCenter() const -> math::vec3f { return m_Orbit.Center(); }
+    auto CameraLookDirection() const -> math::vec3f { return m_Orbit.LookDirection(); }
+    void FrameBounds(const math::AABBf& bounds) { m_Orbit.Fit(m_Camera, bounds); }
+    void SetCameraView(std::string_view view) { m_Orbit.SetView(m_Camera, view); }
+    bool WantsTextInput() const { return m_Gui.WantsTextInput(); }
 
     // Layout and snapshots let the replay driver inspect actual UI/GPU results.
     auto Controls() const -> const std::map<std::string, UiControl>& { return m_Controls; }
@@ -104,6 +121,7 @@ private:
     core::JobSystem&                      m_Jobs;
     SceneImportService&                   m_Importer;
     std::shared_ptr<asset::Scene>         m_Scene;
+    std::function<void(asset::Scene&, double)> m_SceneUpdate;
     std::vector<SceneTreeRow>             m_TreeRows;
     std::unordered_map<ecs::Entity, EntityViewState> m_ViewStates;
     std::uint64_t                         m_SceneRevision = 0;
@@ -114,6 +132,9 @@ private:
     ecs::Entity                           m_Selected;
     std::string                           m_Error;
     std::string                           m_Status = "Ready";
+    std::pmr::vector<WorldOverlayLine> m_OverlayLines;
+    gui::GuiDrawData m_OverlayDrawData;
+    std::string m_OverlayLegend;
     std::string                           m_PublishedState;
     std::string                           m_PublishedStaticState;
     std::chrono::steady_clock::time_point m_LastStatePublish{};
@@ -239,7 +260,8 @@ void USDViewer::UpdateScene() {
     const auto   now     = std::chrono::steady_clock::now();
     const double elapsed = m_Deterministic ? 1.0 / 60.0 : std::chrono::duration<double>(now - m_LastAnimationTick).count();
     m_LastAnimationTick  = now;
-    if (m_Scene && !m_AnimationPlayers.empty() && m_Playing) {
+    if (m_Scene && m_SceneUpdate) m_SceneUpdate(*m_Scene, elapsed);
+    if (m_Scene && (m_SceneUpdate || (!m_AnimationPlayers.empty() && m_Playing))) {
         m_Scene->GetWorld().Update(m_Jobs, elapsed);
     }
     if (m_Scene) {
@@ -248,8 +270,8 @@ void USDViewer::UpdateScene() {
     }
     const auto& input = m_App.GetInputState();
     if (!m_Gui.WantsTextInput()) {
-        if (input.GetBoolNew(hid::VirtualKeyCode::KEY_F)) ApplyCommand("fit");
-        if (input.GetBoolNew(hid::VirtualKeyCode::KEY_TAB))
+        if (!m_SceneUpdate && input.GetBoolNew(hid::VirtualKeyCode::KEY_F)) ApplyCommand("fit");
+        if (!m_SceneUpdate && input.GetBoolNew(hid::VirtualKeyCode::KEY_TAB))
             SetRenderer(m_Renderer == RendererType::Pbr ? RendererType::Toon : m_Renderer == RendererType::Toon ? RendererType::Deferred
                                                                                                                 : RendererType::Pbr);
         if (input.GetBoolNew(hid::VirtualKeyCode::KEY_ESCAPE)) m_Selected = {};
